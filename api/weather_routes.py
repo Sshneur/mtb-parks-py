@@ -1,20 +1,22 @@
-from fastapi import APIRouter, Request
-from fastapi.responses import JSONResponse
+from fastapi import APIRouter
 from config.parks import PARKS
 from services import open_meteo
-import os
 
 router = APIRouter()
 
-@router.get("/api/parks")
-async def get_parks():
-    return PARKS
+@router.get("/api/groups")
+async def get_groups():
+    return [{"id": gid, "name": PARKS[gid]["name"]} for gid in PARKS]
 
-@router.get("/api/weather/all")
-async def get_weather_all():
+@router.get("/api/weather/{group_id}")
+async def get_weather(group_id: str = "mtb_parks"):
+    if group_id not in PARKS:
+        return {"error": "Группа не найдена"}
+    
+    parks = PARKS[group_id]["parks"]
     results = []
 
-    for park in PARKS:
+    for park in parks:
         try:
             print(f"Запрос для {park['name']}...")
             forecast = await open_meteo.get_forecast(park["lat"], park["lon"])
@@ -33,7 +35,6 @@ async def get_weather_all():
                 "park": park_camel,
                 "forecast": forecast,
                 "history": history,
-                "provider": "openmeteo",
                 "error": None
             })
         except Exception as e:
@@ -50,7 +51,6 @@ async def get_weather_all():
                 "park": park_camel,
                 "forecast": None,
                 "history": None,
-                "provider": "openmeteo",
                 "error": str(e)
             })
 

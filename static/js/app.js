@@ -31,37 +31,26 @@ function isToday(date) {
 // ==================== ФУНКЦИИ ТАЙМЕРА ====================
 function calculateDryTarget(rain72h, rainEndedHoursAgo, dryHours, startDate) {
   var now = Date.now();
-
-  // Если есть дата старта и она ещё не наступила
   if (startDate) {
     var startMs = new Date(startDate).getTime();
-    if (now < startMs) {
-      return startMs;
-    }
+    if (now < startMs) return startMs;
   }
-
-  // Если были осадки >0.5 мм за 72 часа
   if (rain72h > 0.5 && rainEndedHoursAgo !== null) {
     var rainEndedTime = now - (rainEndedHoursAgo * 3600000);
     return rainEndedTime + dryHours * 3600000;
   }
-
-  // Нет осадков — сухо
   return now;
 }
 
 function formatTimerText(ms) {
   if (ms <= 0) return { text: '✅ Сухо', ready: true };
-
   var sec = Math.floor(ms / 1000);
   var d = Math.floor(sec / 86400);
   var h = Math.floor((sec % 86400) / 3600);
   var m = Math.floor((sec % 3600) / 60);
   var s = sec % 60;
-
   var pad = function(n) { return n < 10 ? '0' + n : '' + n; };
   var word = d === 1 ? 'день' : d < 5 ? 'дня' : 'дней';
-
   if (d > 0) {
     return { text: d + ' ' + word + ' ' + pad(h) + ':' + pad(m) + ':' + pad(s), ready: false };
   }
@@ -91,13 +80,11 @@ function processWeatherData(result) {
 
   if (!forecastData) return data;
 
-  // Текущая погода
   if (forecastData.current) {
     data.currentTemp = Math.round(forecastData.current.temperature_2m);
     data.currentCode = forecastData.current.weather_code;
   }
 
-  // Почасовой прогноз
   var hourly = forecastData.hourly || {};
   var hTimes = hourly.time || [];
   var hTemps = hourly.temperature_2m || [];
@@ -115,7 +102,6 @@ function processWeatherData(result) {
     });
   }
 
-  // Прогноз на 6 дней
   var daily = forecastData.daily || {};
   var dTimes = daily.time || [];
   var dMax = daily.temperature_2m_max || [];
@@ -139,7 +125,6 @@ function processWeatherData(result) {
     }
   }
 
-  // Исторические осадки за 72 часа
   var rain72h = 0;
   var lastRainTime = null;
 
@@ -154,36 +139,28 @@ function processWeatherData(result) {
       if (t >= cutoff && t <= now) {
         var rain = histRains[i] || 0;
         rain72h += rain;
-        if (rain > 0) {
-          lastRainTime = t.getTime();
-        }
+        if (rain > 0) lastRainTime = t.getTime();
       }
     }
   }
 
   data.rain72h = rain72h;
-
   if (lastRainTime && rain72h > 0.5) {
     data.rainEndedHoursAgo = Math.floor((Date.now() - lastRainTime) / 3600000);
   }
-
-  data.dryTarget = calculateDryTarget(
-    data.rain72h,
-    data.rainEndedHoursAgo,
-    data.dryHours,
-    data.startDate
-  );
-
+  data.dryTarget = calculateDryTarget(data.rain72h, data.rainEndedHoursAgo, data.dryHours, data.startDate);
   return data;
 }
 
 // ==================== ЗАГРУЗКА ДАННЫХ ====================
+var currentGroup = 'mtb_parks';
+
 function loadAll() {
   var dashboard = document.getElementById('dashboard');
   dashboard.innerHTML = '<div class="loading">⏳ Загрузка данных...</div>';
 
   var xhr = new XMLHttpRequest();
-  xhr.open('GET', '/api/weather/all', true);
+  xhr.open('GET', '/api/weather/' + currentGroup, true);
   xhr.timeout = 15000;
 
   xhr.onload = function() {
@@ -191,26 +168,24 @@ function loadAll() {
       try {
         var results = JSON.parse(xhr.responseText);
         var parkDataArray = [];
-
         for (var i = 0; i < results.length; i++) {
           parkDataArray.push(processWeatherData(results[i]));
         }
-
         renderAll(parkDataArray);
       } catch (e) {
-        dashboard.innerHTML = '<div class="loading error-card">⚠️ Ошибка обработки данных</div>';
+        dashboard.innerHTML = '<div class="loading">⚠️ Ошибка обработки данных</div>';
       }
     } else {
-      dashboard.innerHTML = '<div class="loading error-card">⚠️ Ошибка сервера: ' + xhr.status + '</div>';
+      dashboard.innerHTML = '<div class="loading">⚠️ Ошибка сервера: ' + xhr.status + '</div>';
     }
   };
 
   xhr.onerror = function() {
-    dashboard.innerHTML = '<div class="loading error-card">⚠️ Нет соединения с сервером</div>';
+    dashboard.innerHTML = '<div class="loading">⚠️ Нет соединения с сервером</div>';
   };
 
   xhr.ontimeout = function() {
-    dashboard.innerHTML = '<div class="loading error-card">⏰ Превышено время ожидания</div>';
+    dashboard.innerHTML = '<div class="loading">⏰ Превышено время ожидания</div>';
   };
 
   xhr.send();
@@ -225,43 +200,27 @@ function renderAll(parkDataArray) {
     var park = parkDataArray[i];
 
     html += '<div class="card">';
-
-    // Заголовок
     html += '<div class="park-title">' + park.name + ' <span class="coords">' + park.lat.toFixed(4) + ', ' + park.lon.toFixed(4) + '</span></div>';
 
-    // Текущая погода
     html += '<div class="current-weather">';
     html += '<span class="weather-emoji">' + getEmoji(park.currentCode) + '</span>';
     html += '<span><span class="temp-value">' + (park.currentTemp !== null ? park.currentTemp : '--') + '</span><span class="temp-degree">°C</span></span>';
     html += '</div>';
 
-    // График осадков
     if (park.hourly.length > 0) {
-      html += '<div class="rain-graph">';
-      html += '<div class="section-title">Осадки (мм/час)</div>';
-      html += '<div class="rain-bars">';
-
+      html += '<div class="rain-graph"><div class="section-title">Осадки (мм/час)</div><div class="rain-bars">';
       var maxRain = 0.1;
       for (var j = 0; j < park.hourly.length; j++) {
         if (park.hourly[j].rain > maxRain) maxRain = park.hourly[j].rain;
       }
-
       for (var j = 0; j < park.hourly.length; j++) {
         var s = park.hourly[j];
-        html += '<div class="rain-bar-wrapper">';
-        html += '<div class="rain-bar' + (s.isNow ? ' now' : '') + '" style="height:' + Math.max((s.rain / maxRain) * 100, 5) + '%"></div>';
-        html += '<div class="rain-value">' + s.rain.toFixed(1) + '</div>';
-        html += '</div>';
+        html += '<div class="rain-bar-wrapper"><div class="rain-bar' + (s.isNow ? ' now' : '') + '" style="height:' + Math.max((s.rain / maxRain) * 100, 5) + '%"></div><div class="rain-value">' + s.rain.toFixed(1) + '</div></div>';
       }
-
       html += '</div></div>';
     }
 
-    // Почасовой прогноз
-    html += '<div class="hourly-strip">';
-    html += '<div class="section-title">Прогноз на 6 часов</div>';
-    html += '<div class="hourly-row">';
-
+    html += '<div class="hourly-strip"><div class="section-title">Прогноз на 6 часов</div><div class="hourly-row">';
     for (var j = 0; j < park.hourly.length; j++) {
       var s = park.hourly[j];
       html += '<div class="hourly-cell' + (s.isNow ? ' now-cell' : '') + '">';
@@ -271,13 +230,9 @@ function renderAll(parkDataArray) {
       html += '<div class="hour-rain">' + (s.rain > 0 ? s.rain.toFixed(1) + 'мм' : '0') + '</div>';
       html += '</div>';
     }
-
     html += '</div></div>';
 
-    // Прогноз на 6 дней
-    html += '<div class="daily-table">';
-    html += '<div class="section-title">Прогноз на 6 дней</div>';
-
+    html += '<div class="daily-table"><div class="section-title">Прогноз на 6 дней</div>';
     for (var j = 0; j < park.daily.length; j++) {
       var d = park.daily[j];
       html += '<div class="daily-row' + (d.isToday ? ' today' : '') + '">';
@@ -287,74 +242,51 @@ function renderAll(parkDataArray) {
       html += '<span class="daily-rain">' + (d.rain > 0 ? d.rain.toFixed(1) + 'мм' : '0') + '</span>';
       html += '</div>';
     }
-
     html += '</div>';
 
-    // Таймер
     html += '<div class="timer-section">';
-
     var labelText = 'Состояние грунта';
     if (park.startDate && Date.now() < new Date(park.startDate).getTime()) {
       labelText = 'Старт просыхания';
     } else if (park.rain72h > 0.5) {
       labelText = 'Грунт просохнет через';
     }
-
     html += '<div class="timer-label">' + labelText + '</div>';
-
     var rem = (park.dryTarget || Date.now()) - Date.now();
     var timerResult = formatTimerText(rem > 0 ? rem : 0);
-    html += '<div class="timer-display" data-park="' + i + '">' + (timerResult.ready ? '✅ Сухо' : timerResult.text) + '</div>';
-
+    html += '<div class="timer-display">' + (timerResult.ready ? '✅ Сухо' : timerResult.text) + '</div>';
     html += '<div class="rain-amount ' + (park.rain72h > 0.5 ? 'wet' : 'dry') + '">Осадки за 72ч: ' + park.rain72h.toFixed(1) + ' мм</div>';
-
     if (park.rainEndedHoursAgo !== null && park.rain72h > 0.5) {
       html += '<div class="rain-ended">Дождь закончился ' + park.rainEndedHoursAgo + ' ч назад</div>';
     }
-
     html += '<div class="rain-note">таймер от конца дождя, >0.5мм</div>';
     html += '</div>';
-
-    html += '</div>'; // .card
+    html += '</div>';
   }
 
   dashboard.innerHTML = html;
-
-  // Кэшируем данные для таймеров
   window._parkData = parkDataArray;
-
-  // Запускаем живые таймеры
   startLiveTimers();
 }
 
 // ==================== ЖИВЫЕ ТАЙМЕРЫ ====================
 var timerInterval;
-
 function startLiveTimers() {
   if (timerInterval) clearInterval(timerInterval);
-
   timerInterval = setInterval(function() {
     if (!window._parkData) return;
-
     var displays = document.querySelectorAll('.timer-display');
     var labels = document.querySelectorAll('.timer-label');
-
     for (var i = 0; i < window._parkData.length; i++) {
       if (i >= displays.length) continue;
-
       var park = window._parkData[i];
       var rem = (park.dryTarget || Date.now()) - Date.now();
       var timerResult = formatTimerText(rem > 0 ? rem : 0);
       displays[i].textContent = timerResult.ready ? '✅ Сухо' : timerResult.text;
-
       if (labels[i] && park.startDate) {
-        labels[i].textContent = Date.now() < new Date(park.startDate).getTime()
-          ? 'Старт просыхания'
-          : 'Грунт просохнет через';
+        labels[i].textContent = Date.now() < new Date(park.startDate).getTime() ? 'Старт просыхания' : 'Грунт просохнет через';
       } else if (labels[i] && !park.startDate) {
-        labels[i].textContent = park.rain72h > 0.5
-          ? 'Грунт просохнет через'
-          : 'Состояние грунта';
+        labels[i].textContent = park.rain72h > 0.5 ? 'Грунт просохнет через' : 'Состояние грунта';
       }
     }
   }, 1000);
@@ -370,9 +302,18 @@ function updateClock() {
     hour: '2-digit', minute: '2-digit', second: '2-digit'
   });
 }
-
 setInterval(updateClock, 1000);
 updateClock();
+
+// ==================== КНОПКИ ГРУПП ====================
+document.querySelectorAll('.group-btn').forEach(function(btn) {
+  btn.addEventListener('click', function() {
+    document.querySelectorAll('.group-btn').forEach(function(b) { b.classList.remove('active'); });
+    btn.classList.add('active');
+    currentGroup = btn.getAttribute('data-group');
+    loadAll();
+  });
+});
 
 // ==================== КНОПКА ОБНОВЛЕНИЯ ====================
 document.getElementById('refreshBtn').addEventListener('click', function() {
@@ -381,53 +322,4 @@ document.getElementById('refreshBtn').addEventListener('click', function() {
 
 // ==================== СТАРТ ====================
 loadAll();
-// ==================== ПЕРЕКЛЮЧЕНИЕ ПРОВАЙДЕРА ====================
-document.getElementById('btnVC').addEventListener('click', function() {
-  switchProvider('visualcrossing');
-});
-
-document.getElementById('btnOM').addEventListener('click', function() {
-  switchProvider('openmeteo');
-});
-
-function switchProvider(provider) {
-  var xhr = new XMLHttpRequest();
-  xhr.open('POST', '/api/provider', true);
-  xhr.setRequestHeader('Content-Type', 'application/json');
-  xhr.onload = function() {
-    if (xhr.status === 200) {
-      // Обновить активную кнопку
-      document.getElementById('btnVC').classList.remove('active');
-      document.getElementById('btnOM').classList.remove('active');
-      if (provider === 'visualcrossing') {
-        document.getElementById('btnVC').classList.add('active');
-      } else {
-        document.getElementById('btnOM').classList.add('active');
-      }
-      // Перезагрузить данные
-      loadAll();
-    }
-  };
-  xhr.send(JSON.stringify({ provider: provider }));
-}
-
-// При загрузке узнать текущего провайдера
-function loadProvider() {
-  var xhr = new XMLHttpRequest();
-  xhr.open('GET', '/api/provider', true);
-  xhr.onload = function() {
-    if (xhr.status === 200) {
-      var data = JSON.parse(xhr.responseText);
-      if (data.provider === 'visualcrossing') {
-        document.getElementById('btnVC').classList.add('active');
-      } else {
-        document.getElementById('btnOM').classList.add('active');
-      }
-    }
-  };
-  xhr.send();
-}
-
-loadProvider();
-// Автообновление каждые 10 минут
 setInterval(loadAll, 10 * 60 * 1000);
