@@ -272,21 +272,31 @@ body {
   font-size: 0.65rem;
   font-weight: 600;
   color: #ffd966;
-  min-width: 55px;
+  width: 70px;
+  flex-shrink: 0;
 }
 
 .daily-icon {
-  font-size: 1rem;
+  font-size: 1.1rem;
+  width: 40px;
+  text-align: center;
+  flex-shrink: 0;
 }
 
 .daily-temp {
-  font-size: 0.7rem;
+  font-size: 0.8rem;
   color: #e2edff;
+  width: 45px;
+  text-align: center;
+  flex-shrink: 0;
 }
 
 .daily-rain {
-  font-size: 0.65rem;
+  font-size: 0.7rem;
   color: #7ec8ff;
+  width: 50px;
+  text-align: right;
+  flex-shrink: 0;
 }
 
 .timer-section {
