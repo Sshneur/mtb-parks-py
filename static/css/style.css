@@ -111,8 +111,11 @@ body {
 }
 
 .weather-emoji {
-  font-size: 3rem;
+  font-size: 2.5rem;
   line-height: 1;
+  width: 48px;
+  text-align: center;
+  flex-shrink: 0;
 }
 
 .temp-value {
@@ -161,7 +164,9 @@ body {
   flex: 1;
   text-align: center;
   gap: 2px;
-  padding: 2px;
+  padding: 4px 2px;
+  min-height: 90px;
+  justify-content: flex-start;
 }
 
 .hourly-cell.now-cell {
@@ -175,6 +180,10 @@ body {
   font-size: 0.65rem;
   font-weight: 500;
   color: #b0caf0;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .now-badge {
@@ -187,18 +196,31 @@ body {
 }
 
 .hour-emoji {
-  font-size: 1.3rem;
+  font-size: 1.4rem;
+  line-height: 1;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .hour-temp {
   font-weight: 600;
   font-size: 0.75rem;
   color: #e2edff;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .hour-rain {
   font-size: 0.6rem;
   color: #7ec8ff;
+  height: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .rain-graph {
@@ -460,4 +482,14 @@ body {
   border-color: rgba(0, 212, 255, 0.7);
   color: #ffd966;
   box-shadow: 0 0 15px rgba(0, 180, 255, 0.3);
+}
+
+.now-badge {
+  font-size: 0.5rem;
+  background: #ffaa2e;
+  color: #1a1e2b;
+  padding: 1px 4px;
+  border-radius: 6px;
+  font-weight: 700;
+  white-space: nowrap;
 }
