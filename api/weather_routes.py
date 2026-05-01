@@ -36,14 +36,24 @@ async def get_weather_all():
     provider = get_provider()
     print(f"Используем провайдер: {current_provider}")
     results = []
-    
+
     for park in PARKS:
         try:
             print(f"Запрос для {park['name']}...")
             forecast = await provider.get_forecast(park["lat"], park["lon"])
             history = await provider.get_history(park["lat"], park["lon"])
+
+            park_camel = {
+                "id": park["id"],
+                "name": park["name"],
+                "lat": park["lat"],
+                "lon": park["lon"],
+                "dryHours": park["dry_hours"],
+                "startDate": park["start_date"]
+            }
+
             results.append({
-                "park": park,
+                "park": park_camel,
                 "forecast": forecast,
                 "history": history,
                 "provider": current_provider,
@@ -51,12 +61,20 @@ async def get_weather_all():
             })
         except Exception as e:
             print(f"Ошибка для {park['name']}: {e}")
+            park_camel = {
+                "id": park["id"],
+                "name": park["name"],
+                "lat": park["lat"],
+                "lon": park["lon"],
+                "dryHours": park["dry_hours"],
+                "startDate": park["start_date"]
+            }
             results.append({
-                "park": park,
+                "park": park_camel,
                 "forecast": None,
                 "history": None,
                 "provider": current_provider,
                 "error": str(e)
             })
-    
+
     return results
