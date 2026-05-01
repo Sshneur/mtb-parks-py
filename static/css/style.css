@@ -402,3 +402,19 @@ body {
   color: #ffd966;
   box-shadow: 0 0 15px rgba(0, 180, 255, 0.3);
 }
+/* Убираем белую полоску в PWA на iOS */
+:root {
+  --safe-area-inset-top: env(safe-area-inset-top);
+}
+
+body {
+  padding-top: env(safe-area-inset-top);
+  background-color: #0b0d14;
+}
+
+@supports (-webkit-touch-callout: none) {
+  body {
+    padding-top: env(safe-area-inset-top);
+    background-color: #0b0d14;
+  }
+}
