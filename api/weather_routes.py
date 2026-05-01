@@ -1,47 +1,24 @@
 from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
 from config.parks import PARKS
-from services import open_meteo, visual_crossing
+from services import open_meteo
 import os
 
 router = APIRouter()
-current_provider = os.getenv("WEATHER_PROVIDER", "openmeteo")
-
-def get_provider():
-    if current_provider == "visualcrossing" and os.getenv("VISUAL_CROSSING_KEY"):
-        return visual_crossing
-    return open_meteo
 
 @router.get("/api/parks")
 async def get_parks():
     return PARKS
 
-@router.get("/api/provider")
-async def get_provider_info():
-    return {"provider": current_provider}
-
-@router.post("/api/provider")
-async def set_provider(request: Request):
-    global current_provider
-    data = await request.json()
-    provider = data.get("provider")
-    if provider in ["openmeteo", "visualcrossing"]:
-        current_provider = provider
-        print(f"✅ Провайдер изменён на: {current_provider}")
-        return {"success": True, "provider": current_provider}
-    return JSONResponse({"error": "Неверный провайдер"}, status_code=400)
-
 @router.get("/api/weather/all")
 async def get_weather_all():
-    provider = get_provider()
-    print(f"Используем провайдер: {current_provider}")
     results = []
 
     for park in PARKS:
         try:
             print(f"Запрос для {park['name']}...")
-            forecast = await provider.get_forecast(park["lat"], park["lon"])
-            history = await provider.get_history(park["lat"], park["lon"])
+            forecast = await open_meteo.get_forecast(park["lat"], park["lon"])
+            history = await open_meteo.get_history(park["lat"], park["lon"])
 
             park_camel = {
                 "id": park["id"],
@@ -56,7 +33,7 @@ async def get_weather_all():
                 "park": park_camel,
                 "forecast": forecast,
                 "history": history,
-                "provider": current_provider,
+                "provider": "openmeteo",
                 "error": None
             })
         except Exception as e:
@@ -73,7 +50,7 @@ async def get_weather_all():
                 "park": park_camel,
                 "forecast": None,
                 "history": None,
-                "provider": current_provider,
+                "provider": "openmeteo",
                 "error": str(e)
             })
 
