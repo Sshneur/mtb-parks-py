@@ -1,11 +1,16 @@
 from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
 from config.parks import PARKS
-from services import open_meteo
+from services import open_meteo, visual_crossing
 import os
 
 router = APIRouter()
 current_provider = os.getenv("WEATHER_PROVIDER", "openmeteo")
+
+def get_provider():
+    if current_provider == "visualcrossing" and os.getenv("VISUAL_CROSSING_KEY"):
+        return visual_crossing
+    return open_meteo
 
 @router.get("/api/parks")
 async def get_parks():
@@ -28,14 +33,15 @@ async def set_provider(request: Request):
 
 @router.get("/api/weather/all")
 async def get_weather_all():
+    provider = get_provider()
     print(f"Используем провайдер: {current_provider}")
     results = []
     
     for park in PARKS:
         try:
             print(f"Запрос для {park['name']}...")
-            forecast = await open_meteo.get_forecast(park["lat"], park["lon"])
-            history = await open_meteo.get_history(park["lat"], park["lon"])
+            forecast = await provider.get_forecast(park["lat"], park["lon"])
+            history = await provider.get_history(park["lat"], park["lon"])
             results.append({
                 "park": park,
                 "forecast": forecast,
