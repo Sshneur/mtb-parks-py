@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes">
+  <title>МТБ Парки 2.0</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <header class="header">
+    <h1 class="site-title">🚵 Состояние грунта МТБ трейлов</h1>
+    <div class="datetime" id="liveDateTime">--</div>
+  </header>
+  <main class="dashboard" id="dashboard">
+    <div class="loading">⏳ Загрузка данных...</div>
+  </main>
+  <div class="provider-switch">
+    <button class="provider-btn active" data-provider="openmeteo" id="btnOM">🌍 Open-Meteo</button>
+    <button class="provider-btn" data-provider="visualcrossing" id="btnVC">🌐 Visual Crossing</button>
+  </div>
+  <button class="refresh-btn" id="refreshBtn">🔄 Обновить данные</button>
+  <script src="js/app.js"></script>
+</body>
+</html>
