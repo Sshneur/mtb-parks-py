@@ -29,21 +29,8 @@ function isToday(date) {
 }
 
 // ==================== ФУНКЦИИ ТАЙМЕРА ====================
-function calculateDryTarget(rain72h, rainEndedHoursAgo, dryHours, startDate) {
-  var now = Date.now();
-  if (startDate) {
-    var startMs = new Date(startDate).getTime();
-    if (now < startMs) return startMs;
-  }
-  if (rain72h > 0.5 && rainEndedHoursAgo !== null) {
-    var rainEndedTime = now - (rainEndedHoursAgo * 3600000);
-    return rainEndedTime + dryHours * 3600000;
-  }
-  return now;
-}
-
 function formatTimerText(ms) {
-  if (ms <= 0) return { text: '✅ Сухо', ready: true };
+  if (ms <= 0) return { text: '', ready: true };
   var sec = Math.floor(ms / 1000);
   var d = Math.floor(sec / 86400);
   var h = Math.floor((sec % 86400) / 3600);
@@ -61,21 +48,18 @@ function formatTimerText(ms) {
 function processWeatherData(result) {
   var park = result.park;
   var forecastData = result.forecast;
-  var historyData = result.history;
 
   var data = {
     name: park.name,
     lat: park.lat,
     lon: park.lon,
-    dryHours: park.dryHours,
-    startDate: park.startDate,
+    soilStatus: park.soilStatus || 'Нет данных',
+    dryTarget: park.dryTarget ? new Date(park.dryTarget).getTime() : Date.now(),
+    rain_total: park.rain_total || 0,
     currentTemp: null,
     currentCode: null,
     hourly: [],
-    daily: [],
-    dryTarget: Date.now(),
-    rain72h: 0,
-    rainEndedHoursAgo: null
+    daily: []
   };
 
   if (!forecastData) return data;
@@ -125,30 +109,6 @@ function processWeatherData(result) {
     }
   }
 
-  var rain72h = 0;
-  var lastRainTime = null;
-
-  if (historyData && historyData.hourly) {
-    var histTimes = historyData.hourly.time || [];
-    var histRains = historyData.hourly.rain || [];
-    var cutoff = new Date(Date.now() - 72 * 3600000);
-    var now = new Date();
-
-    for (var i = 0; i < histTimes.length; i++) {
-      var t = new Date(histTimes[i]);
-      if (t >= cutoff && t <= now) {
-        var rain = histRains[i] || 0;
-        rain72h += rain;
-        if (rain > 0) lastRainTime = t.getTime();
-      }
-    }
-  }
-
-  data.rain72h = rain72h;
-  if (lastRainTime && rain72h > 0.5) {
-    data.rainEndedHoursAgo = Math.floor((Date.now() - lastRainTime) / 3600000);
-  }
-  data.dryTarget = calculateDryTarget(data.rain72h, data.rainEndedHoursAgo, data.dryHours, data.startDate);
   return data;
 }
 
@@ -207,6 +167,21 @@ function renderAll(parkDataArray) {
     html += '<span><span class="temp-value">' + (park.currentTemp !== null ? park.currentTemp : '--') + '</span><span class="temp-degree">°C</span></span>';
     html += '</div>';
 
+    // Статус грунта
+    html += '<div class="timer-section">';
+    html += '<div class="soil-status-badge">' + park.soilStatus + '</div>';
+
+    var rem = (park.dryTarget || Date.now()) - Date.now();
+    var timerResult = formatTimerText(rem > 0 ? rem : 0);
+    if (!timerResult.ready) {
+      html += '<div class="timer-display" data-park-index="' + i + '">' + timerResult.text + '</div>';
+    } else {
+      html += '<div class="timer-display" data-park-index="' + i + '"></div>';
+    }
+
+    html += '<div class="rain-amount ' + (park.rain_total > 0.5 ? 'wet' : 'dry') + '">Осадки: ' + park.rain_total.toFixed(1) + ' мм</div>';
+    html += '</div>';
+
     if (park.hourly.length > 0) {
       html += '<div class="rain-graph"><div class="section-title">Осадки (мм/час)</div><div class="rain-bars">';
       var maxRain = 0.1;
@@ -244,23 +219,6 @@ function renderAll(parkDataArray) {
     }
     html += '</div>';
 
-    html += '<div class="timer-section">';
-    var labelText = 'Состояние грунта';
-    if (park.startDate && Date.now() < new Date(park.startDate).getTime()) {
-      labelText = 'Старт просыхания';
-    } else if (park.rain72h > 0.5) {
-      labelText = 'Грунт просохнет через';
-    }
-    html += '<div class="timer-label">' + labelText + '</div>';
-    var rem = (park.dryTarget || Date.now()) - Date.now();
-    var timerResult = formatTimerText(rem > 0 ? rem : 0);
-    html += '<div class="timer-display">' + (timerResult.ready ? '✅ Сухо' : timerResult.text) + '</div>';
-    html += '<div class="rain-amount ' + (park.rain72h > 0.5 ? 'wet' : 'dry') + '">Осадки за 72ч: ' + park.rain72h.toFixed(1) + ' мм</div>';
-    if (park.rainEndedHoursAgo !== null && park.rain72h > 0.5) {
-      html += '<div class="rain-ended">Дождь закончился ' + park.rainEndedHoursAgo + ' ч назад</div>';
-    }
-    html += '<div class="rain-note">таймер от конца дождя, >0.5мм</div>';
-    html += '</div>';
     html += '</div>';
   }
 
@@ -276,17 +234,15 @@ function startLiveTimers() {
   timerInterval = setInterval(function() {
     if (!window._parkData) return;
     var displays = document.querySelectorAll('.timer-display');
-    var labels = document.querySelectorAll('.timer-label');
     for (var i = 0; i < window._parkData.length; i++) {
       if (i >= displays.length) continue;
       var park = window._parkData[i];
       var rem = (park.dryTarget || Date.now()) - Date.now();
       var timerResult = formatTimerText(rem > 0 ? rem : 0);
-      displays[i].textContent = timerResult.ready ? '✅ Сухо' : timerResult.text;
-      if (labels[i] && park.startDate) {
-        labels[i].textContent = Date.now() < new Date(park.startDate).getTime() ? 'Старт просыхания' : 'Грунт просохнет через';
-      } else if (labels[i] && !park.startDate) {
-        labels[i].textContent = park.rain72h > 0.5 ? 'Грунт просохнет через' : 'Состояние грунта';
+      if (!timerResult.ready) {
+        displays[i].textContent = timerResult.text;
+      } else {
+        displays[i].textContent = '';
       }
     }
   }, 1000);
