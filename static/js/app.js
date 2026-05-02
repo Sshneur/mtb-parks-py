@@ -179,7 +179,7 @@ function renderAll(parkDataArray) {
       html += '<div class="timer-display" data-park-index="' + i + '"></div>';
     }
 
-    html += '<div class="rain-amount ' + (park.rain_total > 0.5 ? 'wet' : 'dry') + '">Осадки: ' + park.rain_total.toFixed(1) + ' мм</div>';
+    html += '<div class="rain-amount ' + (park.rain_total > 0.5 ? 'wet' : 'dry') + '">Осадки за 96ч: ' + park.rain_total.toFixed(1) + ' мм</div>';
     html += '</div>';
 
     if (park.hourly.length > 0) {
