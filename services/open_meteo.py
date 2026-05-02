@@ -28,8 +28,8 @@ async def get_forecast(lat: float, lon: float) -> Optional[dict]:
     url = (
         f"https://api.open-meteo.com/v1/forecast"
         f"?latitude={lat}&longitude={lon}"
-        f"&current=temperature_2m,weather_code"
-        f"&hourly=temperature_2m,weather_code,rain"
+        f"&current=temperature_2m,weather_code,wind_speed_10m"
+        f"&hourly=temperature_2m,weather_code,rain,wind_speed_10m"
         f"&daily=temperature_2m_max,rain_sum,weather_code"
         f"&timezone=auto&forecast_hours=6&forecast_days=6"
     )
