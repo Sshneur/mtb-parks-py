@@ -64,17 +64,13 @@ function processWeatherData(result) {
 
   if (!forecastData) return data;
 
-  if (forecastData.current) {
-    data.currentTemp = Math.round(forecastData.current.temperature_2m);
-    data.currentCode = forecastData.current.weather_code;
-  }
-
   var hourly = forecastData.hourly || {};
   var hTimes = hourly.time || [];
   var hTemps = hourly.temperature_2m || [];
   var hCodes = hourly.weather_code || [];
   var hRains = hourly.rain || [];
 
+  // Собираем почасовые данные
   data.hourly = [];
   for (var i = 0; i < Math.min(6, hTimes.length); i++) {
     data.hourly.push({
@@ -86,6 +82,13 @@ function processWeatherData(result) {
     });
   }
 
+  // Текущая погода = первый час прогноза (синхронизировано)
+  if (data.hourly.length > 0) {
+    data.currentTemp = data.hourly[0].temp;
+    data.currentCode = data.hourly[0].code;
+  }
+
+  // Дневной прогноз
   var daily = forecastData.daily || {};
   var dTimes = daily.time || [];
   var dMax = daily.temperature_2m_max || [];
@@ -162,6 +165,7 @@ function renderAll(parkDataArray) {
     html += '<div class="card">';
     html += '<div class="park-title">' + park.name + ' <span class="coords">' + park.lat.toFixed(4) + ', ' + park.lon.toFixed(4) + '</span></div>';
 
+    // Текущая погода (синхронизирована с первым часом)
     html += '<div class="current-weather">';
     html += '<span class="weather-emoji">' + getEmoji(park.currentCode) + '</span>';
     html += '<span><span class="temp-value">' + (park.currentTemp !== null ? park.currentTemp : '--') + '</span><span class="temp-degree">°C</span></span>';
@@ -174,14 +178,13 @@ function renderAll(parkDataArray) {
     var rem = (park.dryTarget || Date.now()) - Date.now();
     var timerResult = formatTimerText(rem > 0 ? rem : 0);
     if (!timerResult.ready) {
-      html += '<div class="timer-display" data-park-index="' + i + '">' + timerResult.text + '</div>';
-    } else {
-      html += '<div class="timer-display" data-park-index="' + i + '"></div>';
+      html += '<div class="timer-display">' + timerResult.text + '</div>';
     }
 
     html += '<div class="rain-amount ' + (park.rain_total > 0.5 ? 'wet' : 'dry') + '">Осадки за 96ч: ' + park.rain_total.toFixed(1) + ' мм</div>';
     html += '</div>';
 
+    // График осадков
     if (park.hourly.length > 0) {
       html += '<div class="rain-graph"><div class="section-title">Осадки (мм/час)</div><div class="rain-bars">';
       var maxRain = 0.1;
@@ -195,6 +198,7 @@ function renderAll(parkDataArray) {
       html += '</div></div>';
     }
 
+    // Почасовой прогноз
     html += '<div class="hourly-strip"><div class="section-title">Прогноз на 6 часов</div><div class="hourly-row">';
     for (var j = 0; j < park.hourly.length; j++) {
       var s = park.hourly[j];
@@ -207,6 +211,7 @@ function renderAll(parkDataArray) {
     }
     html += '</div></div>';
 
+    // Дневной прогноз
     html += '<div class="daily-table"><div class="section-title">Прогноз на 6 дней</div>';
     for (var j = 0; j < park.daily.length; j++) {
       var d = park.daily[j];
@@ -241,8 +246,6 @@ function startLiveTimers() {
       var timerResult = formatTimerText(rem > 0 ? rem : 0);
       if (!timerResult.ready) {
         displays[i].textContent = timerResult.text;
-      } else {
-        displays[i].textContent = '';
       }
     }
   }, 1000);

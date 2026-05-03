@@ -12,23 +12,24 @@ def get_soil_status(rain_total: float, dry_hours: float, hours_since_rain: float
         return "Бетон 🪨"
     if dry_hours >= 72:
         return "Болото 🌿"
-    if dry_hours > 0 and dry_hours < 72:
+    if dry_hours > 1 and dry_hours < 72:
         return "Мокро 💧"
-    if is_asphalt and dry_hours == 0:
+    if is_asphalt and dry_hours <= 1:
         return "Сухо ✅"
-    if dry_hours == 0 and rain_total > 0.5:
+    if dry_hours <= 1 and rain_total > 0.5:
         return "Альденте 🌵"
-    if dry_hours == 0 and rain_total <= 0.5:
+    if dry_hours <= 1 and rain_total <= 0.5:
         return "Сухо ✅"
     return "Сухо ✅"
 
 
 def calculate_soil_moisture(history_data: dict, forecast_data: dict, soil_type: str, forest_coef: float) -> dict:
-    """Баланс влаги: история + прогноз на сегодня."""
+    """Баланс влаги: история + только сегодняшний прогноз + солнечная радиация."""
     now = datetime.now(timezone.utc)
     soil = SOIL_COEFFICIENTS.get(soil_type, SOIL_COEFFICIENTS["loam"])
     k_t = soil["k_t"]
     k_w = soil["k_w"]
+    k_r = soil["k_r"]
     k_s = soil["k_s"]
     forest_factor = forest_coef
 
@@ -52,31 +53,30 @@ def calculate_soil_moisture(history_data: dict, forecast_data: dict, soil_type: 
             if t is None:
                 continue
             
-            # ГАРАНТИРУЕМ часовой пояс
             if t.tzinfo is None:
                 t = t.replace(tzinfo=timezone.utc)
             
             rain = rains[i] or 0
-            hourly_data.append({"time": t, "rain": rain, "temp": 15, "wind": 5})
+            hourly_data.append({"time": t, "rain": rain, "temp": 15, "wind": 5, "radiation": 0})
 
-    # 2. Прогноз на сегодня
+    # 2. Прогноз ТОЛЬКО на сегодня
     if forecast_data and forecast_data.get("daily"):
         daily = forecast_data["daily"]
         daily_times = daily.get("time", [])
         daily_rains = daily.get("rain_sum", [])
-        for i, d_str in enumerate(daily_times):
+        if len(daily_times) > 0:
             try:
-                d = datetime.fromisoformat(d_str)
+                d = datetime.fromisoformat(daily_times[0])
                 if d.tzinfo is None:
                     d = d.replace(tzinfo=timezone.utc)
+                rain = daily_rains[0] or 0
+                if rain > 0:
+                    hourly_rain = rain / 8
+                    for h in range(12, 20):
+                        hour_time = d.replace(hour=h, minute=0, second=0, tzinfo=timezone.utc)
+                        hourly_data.append({"time": hour_time, "rain": hourly_rain, "temp": 15, "wind": 5, "radiation": 0})
             except:
-                continue
-            rain = daily_rains[i] or 0
-            if rain > 0:
-                hourly_rain = rain / 8
-                for h in range(12, 20):
-                    hour_time = d.replace(hour=h, minute=0, second=0, tzinfo=timezone.utc)
-                    hourly_data.append({"time": hour_time, "rain": hourly_rain, "temp": 15, "wind": 5})
+                pass
 
     # Сортируем
     hourly_data.sort(key=lambda x: x["time"])
@@ -90,7 +90,8 @@ def calculate_soil_moisture(history_data: dict, forecast_data: dict, soil_type: 
     for hour in hourly_data:
         f_T = 0.05 * max(hour["temp"], 0)
         g_v = 0.03 * hour["wind"]
-        denominator = forest_factor * (k_t * f_T + k_w * g_v + k_s)
+        g_r = 0.001 * hour["radiation"]
+        denominator = forest_factor * (k_t * f_T + k_w * g_v + k_r * g_r + k_s)
         evaporation_per_hour = denominator
 
         W = max(0, W - evaporation_per_hour)
@@ -100,12 +101,16 @@ def calculate_soil_moisture(history_data: dict, forecast_data: dict, soil_type: 
             total_rain += hour["rain"]
             last_rain_time = hour["time"]
 
-    # Текущая скорость испарения
+    # Текущая скорость испарения (с радиацией)
     temp = forecast_data["current"]["temperature_2m"] if forecast_data and forecast_data.get("current") else 15
     wind = forecast_data["current"]["wind_speed_10m"] if forecast_data and forecast_data.get("current") else 0
+    radiation = forecast_data["current"]["shortwave_radiation"] if forecast_data and forecast_data.get("current") else 0
+
     f_T = 0.05 * max(temp, 0)
     g_v = 0.03 * wind
-    denominator = forest_factor * (k_t * f_T + k_w * g_v + k_s)
+    g_r = 0.001 * radiation
+
+    denominator = forest_factor * (k_t * f_T + k_w * g_v + k_r * g_r + k_s)
     current_evaporation_per_hour = denominator
 
     if W > 0 and current_evaporation_per_hour > 0:
@@ -170,8 +175,7 @@ async def get_weather(group_id: str = "mtb_parks"):
                         hours_passed = (now - last_rain_time).total_seconds() / 3600
                         remaining = max(0, dry_time_hours - hours_passed)
                         dry_target = now + timedelta(hours=remaining)
-                except Exception as e:
-                    print(f"Ошибка dry_target для {park['name']}: {e}")
+                except:
                     dry_target = now + timedelta(hours=dry_time_hours)
             elif dry_time_hours > 0:
                 dry_target = now + timedelta(hours=dry_time_hours)
