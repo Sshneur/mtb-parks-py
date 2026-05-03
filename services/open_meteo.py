@@ -65,7 +65,7 @@ async def get_history(lat: float, lon: float) -> Optional[dict]:
 
     now = datetime.now()
     end_date = (now - timedelta(days=1)).strftime("%Y-%m-%d")
-    start_date = (now - timedelta(days=7)).strftime("%Y-%m-%d")
+    start_date = (now - timedelta(days=14)).strftime("%Y-%m-%d")
 
     url = (
         f"https://archive-api.open-meteo.com/v1/archive"

@@ -1,11 +1,13 @@
 from fastapi import APIRouter
-from config.parks import PARKS, SOIL_COEFFICIENTS, FOREST_COEFFICIENT, RAIN_HISTORY_HOURS
+from config.parks import PARKS, SOIL_COEFFICIENTS, FOREST_COEFFICIENT
 from services import open_meteo
 from datetime import datetime, timedelta, timezone
 
 router = APIRouter()
 
 def get_soil_status(rain_total: float, dry_hours: float, hours_since_rain: float = None, is_asphalt: bool = False) -> str:
+    """Статусы: Болото 🌿 → Мокро 💧 → Альденте 🌵 → Сухо ✅ → Бетон 🪨"""
+    
     if hours_since_rain is not None and hours_since_rain >= 144:
         return "Бетон 🪨"
     if dry_hours >= 72:
@@ -22,6 +24,7 @@ def get_soil_status(rain_total: float, dry_hours: float, hours_since_rain: float
 
 
 def calculate_soil_moisture(history_data: dict, forecast_data: dict, soil_type: str, forest_coef: float) -> dict:
+    """Баланс влаги за 14 дней."""
     now = datetime.now(timezone.utc)
     soil = SOIL_COEFFICIENTS.get(soil_type, SOIL_COEFFICIENTS["loam"])
     k_t = soil["k_t"]
@@ -32,6 +35,7 @@ def calculate_soil_moisture(history_data: dict, forecast_data: dict, soil_type: 
 
     hourly_data = []
     
+    # 1. Исторические данные
     if history_data and history_data.get("hourly"):
         h = history_data["hourly"]
         times = h.get("time", [])
@@ -52,6 +56,7 @@ def calculate_soil_moisture(history_data: dict, forecast_data: dict, soil_type: 
             rain = rains[i] or 0
             hourly_data.append({"time": t, "rain": rain, "temp": 15, "wind": 5, "radiation": 0})
 
+    # 2. Прогноз ТОЛЬКО на сегодня
     if forecast_data and forecast_data.get("daily"):
         daily = forecast_data["daily"]
         daily_times = daily.get("time", [])
@@ -70,25 +75,33 @@ def calculate_soil_moisture(history_data: dict, forecast_data: dict, soil_type: 
             except:
                 pass
 
+    # Сортируем
     hourly_data.sort(key=lambda x: x["time"])
 
+    # Моделируем баланс
     W = 0.0
     W_max = 1.0
     last_rain_time = None
     total_rain = 0
 
     for hour in hourly_data:
-        f_T = 0.05 * max(hour["temp"], 0)
-        g_v = 0.03 * hour["wind"]
-        g_r = 0.001 * hour["radiation"]
-        denominator = forest_factor * (k_t * f_T + k_w * g_v + k_r * g_r + k_s)
-        evaporation_per_hour = denominator
-        W = max(0, W - evaporation_per_hour)
+        # Испаряем только для последних 24 часов
+        hours_ago = (now - hour["time"]).total_seconds() / 3600
+        if hours_ago <= 24:
+            f_T = 0.05 * max(hour["temp"], 0)
+            g_v = 0.03 * hour["wind"]
+            g_r = 0.001 * hour["radiation"]
+            denominator = forest_factor * (k_t * f_T + k_w * g_v + k_r * g_r + k_s)
+            evaporation_per_hour = denominator
+            W = max(0, W - evaporation_per_hour)
+
+        # Осадки добавляем всегда
         if hour["rain"] > 0:
             W = min(W_max, W + hour["rain"] / 10)
             total_rain += hour["rain"]
             last_rain_time = hour["time"]
 
+    # Текущая скорость испарения
     temp = forecast_data["current"]["temperature_2m"] if forecast_data and forecast_data.get("current") else 15
     wind = forecast_data["current"]["wind_speed_10m"] if forecast_data and forecast_data.get("current") else 0
     radiation = forecast_data["current"]["shortwave_radiation"] if forecast_data and forecast_data.get("current") else 0
@@ -96,6 +109,7 @@ def calculate_soil_moisture(history_data: dict, forecast_data: dict, soil_type: 
     f_T = 0.05 * max(temp, 0)
     g_v = 0.03 * wind
     g_r = 0.001 * radiation
+
     denominator = forest_factor * (k_t * f_T + k_w * g_v + k_r * g_r + k_s)
     current_evaporation_per_hour = denominator
 
@@ -134,13 +148,13 @@ async def get_weather(group_id: str = "mtb_parks"):
     results = []
 
     for park in parks:
+        soil_type = park.get("soil", "loam")
+        forest_coef = park.get("forest_coef", FOREST_COEFFICIENT)
+        
         try:
             print(f"Запрос для {park['name']}...")
             forecast = await open_meteo.get_forecast(park["lat"], park["lon"])
             history = await open_meteo.get_history(park["lat"], park["lon"])
-
-            soil_type = park.get("soil", "loam")
-            forest_coef = park.get("forest_coef", FOREST_COEFFICIENT)
 
             moisture = calculate_soil_moisture(history, forecast, soil_type, forest_coef)
             dry_time_hours = moisture["dry_hours"]
@@ -172,7 +186,6 @@ async def get_weather(group_id: str = "mtb_parks"):
             is_asphalt = soil_type == "asphalt"
             soil_status = get_soil_status(rain_total, dry_time_hours, hours_since_rain, is_asphalt)
 
-            # НЕ передаём current на фронтенд — он больше не используется
             if forecast:
                 forecast.pop("current", None)
                 forecast.pop("current_units", None)
