@@ -47,7 +47,7 @@ async def get_forecast(lat: float, lon: float) -> Optional[dict]:
         f"&current=temperature_2m,weather_code,wind_speed_10m,shortwave_radiation"
         f"&hourly=temperature_2m,weather_code,rain,wind_speed_10m"
         f"&daily=temperature_2m_max,rain_sum,weather_code"
-        f"&timezone=UTC&forecast_hours=6&forecast_days=6"
+        f"&timezone=Europe%2FMoscow&forecast_hours=6&forecast_days=6"
     )
     
     print(f"🌐 Open-Meteo: запрос прогноза...")
