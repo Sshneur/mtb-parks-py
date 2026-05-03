@@ -1,4 +1,4 @@
-var CACHE_NAME = 'mtb-parks-v6';
+var CACHE_NAME = 'mtb-parks-v7';
 
 self.addEventListener('install', function(event) {
   self.skipWaiting();

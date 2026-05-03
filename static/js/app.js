@@ -70,7 +70,6 @@ function processWeatherData(result) {
   var hCodes = hourly.weather_code || [];
   var hRains = hourly.rain || [];
 
-  // Собираем почасовые данные
   data.hourly = [];
   for (var i = 0; i < Math.min(6, hTimes.length); i++) {
     data.hourly.push({
@@ -82,13 +81,12 @@ function processWeatherData(result) {
     });
   }
 
-  // Текущая погода = первый час прогноза (синхронизировано)
+  // ТЕКУЩАЯ ПОГОДА ВСЕГДА ИЗ ПЕРВОГО ЧАСА ПРОГНОЗА
   if (data.hourly.length > 0) {
     data.currentTemp = data.hourly[0].temp;
     data.currentCode = data.hourly[0].code;
   }
 
-  // Дневной прогноз
   var daily = forecastData.daily || {};
   var dTimes = daily.time || [];
   var dMax = daily.temperature_2m_max || [];
@@ -165,13 +163,11 @@ function renderAll(parkDataArray) {
     html += '<div class="card">';
     html += '<div class="park-title">' + park.name + ' <span class="coords">' + park.lat.toFixed(4) + ', ' + park.lon.toFixed(4) + '</span></div>';
 
-    // Текущая погода (синхронизирована с первым часом)
     html += '<div class="current-weather">';
     html += '<span class="weather-emoji">' + getEmoji(park.currentCode) + '</span>';
     html += '<span><span class="temp-value">' + (park.currentTemp !== null ? park.currentTemp : '--') + '</span><span class="temp-degree">°C</span></span>';
     html += '</div>';
 
-    // Статус грунта
     html += '<div class="timer-section">';
     html += '<div class="soil-status-badge">' + park.soilStatus + '</div>';
 
@@ -184,7 +180,6 @@ function renderAll(parkDataArray) {
     html += '<div class="rain-amount ' + (park.rain_total > 0.5 ? 'wet' : 'dry') + '">Осадки за 96ч: ' + park.rain_total.toFixed(1) + ' мм</div>';
     html += '</div>';
 
-    // График осадков
     if (park.hourly.length > 0) {
       html += '<div class="rain-graph"><div class="section-title">Осадки (мм/час)</div><div class="rain-bars">';
       var maxRain = 0.1;
@@ -198,7 +193,6 @@ function renderAll(parkDataArray) {
       html += '</div></div>';
     }
 
-    // Почасовой прогноз
     html += '<div class="hourly-strip"><div class="section-title">Прогноз на 6 часов</div><div class="hourly-row">';
     for (var j = 0; j < park.hourly.length; j++) {
       var s = park.hourly[j];
@@ -211,7 +205,6 @@ function renderAll(parkDataArray) {
     }
     html += '</div></div>';
 
-    // Дневной прогноз
     html += '<div class="daily-table"><div class="section-title">Прогноз на 6 дней</div>';
     for (var j = 0; j < park.daily.length; j++) {
       var d = park.daily[j];
