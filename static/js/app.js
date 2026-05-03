@@ -73,7 +73,7 @@ function processWeatherData(result) {
   data.hourly = [];
   for (var i = 0; i < Math.min(6, hTimes.length); i++) {
     data.hourly.push({
-      time: new Date(hTimes[i]).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }),
+      time: new Date(hTimes[i]).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Moscow' }),
       temp: Math.round(hTemps[i] || 0),
       code: hCodes[i],
       rain: hRains[i] || 0,
@@ -251,7 +251,8 @@ function updateClock() {
   var now = new Date();
   el.textContent = now.toLocaleDateString('ru-RU', {
     day: 'numeric', month: 'long', year: 'numeric',
-    hour: '2-digit', minute: '2-digit', second: '2-digit'
+    hour: '2-digit', minute: '2-digit', second: '2-digit',
+    timeZone: 'Europe/Moscow'
   });
 }
 setInterval(updateClock, 1000);
