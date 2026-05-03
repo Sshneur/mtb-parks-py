@@ -1,4 +1,4 @@
-var CACHE_NAME = 'mtb-parks-v5';
+var CACHE_NAME = 'mtb-parks-v6';
 
 self.addEventListener('install', function(event) {
   self.skipWaiting();
@@ -29,13 +29,10 @@ self.addEventListener('activate', function(event) {
 });
 
 self.addEventListener('fetch', function(event) {
-  // НЕ кэшируем запросы к API — всегда свежие данные
   if (event.request.url.includes('/api/')) {
     event.respondWith(fetch(event.request));
     return;
   }
-
-  // Всё остальное — из кэша, если нет сети
   event.respondWith(
     fetch(event.request).catch(function() {
       return caches.match(event.request);

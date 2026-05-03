@@ -31,7 +31,7 @@ async def get_forecast(lat: float, lon: float) -> Optional[dict]:
         f"&current=temperature_2m,weather_code,wind_speed_10m"
         f"&hourly=temperature_2m,weather_code,rain,wind_speed_10m"
         f"&daily=temperature_2m_max,rain_sum,weather_code"
-        f"&timezone=auto&forecast_hours=6&forecast_days=6"
+        f"&timezone=UTC&forecast_hours=6&forecast_days=6"
     )
     
     print(f"🌐 Open-Meteo: запрос прогноза...")
@@ -54,7 +54,7 @@ async def get_history(lat: float, lon: float) -> Optional[dict]:
         f"https://archive-api.open-meteo.com/v1/archive"
         f"?latitude={lat}&longitude={lon}"
         f"&start_date={start_date}&end_date={end_date}"
-        f"&hourly=rain&timezone=auto"
+        f"&hourly=rain&timezone=UTC"
     )
     
     print(f"🌐 Open-Meteo: запрос истории...")

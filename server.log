@@ -54,3 +54,240 @@
 2026-05-03 00:22:41 - INFO - GET /favicon.ico - 404 (0.00с)
 2026-05-03 00:22:42 - INFO - GET /sw.js - 304 (0.00с)
 2026-05-03 00:41:26 - INFO - GET /favicon.ico - 404 (0.01с)
+2026-05-03 14:40:24 - INFO - ==================================================
+2026-05-03 14:40:24 - INFO -   \U0001f6b5 ћ“Ѕ ѕарки 2.0 (Python) Ч сервер запущен
+2026-05-03 14:40:24 - INFO -   \U0001f310 http://localhost:8000
+2026-05-03 14:40:24 - INFO -   \U0001f4e1 API: http://localhost:8000/api/weather/all
+2026-05-03 14:40:24 - INFO - ==================================================
+2026-05-03 14:40:28 - INFO - GET / - 304 (0.04с)
+2026-05-03 14:40:28 - INFO - GET /css/style.css - 304 (0.00с)
+2026-05-03 14:40:28 - INFO - GET /js/app.js - 304 (0.00с)
+2026-05-03 14:40:29 - INFO - GET /manifest.json - 304 (0.00с)
+2026-05-03 14:40:29 - INFO - GET /manifest.json - 200 (0.00с)
+2026-05-03 14:40:29 - INFO - GET /favicon.ico - 404 (0.01с)
+2026-05-03 14:40:29 - INFO - GET /icons/icon.svg - 304 (0.00с)
+2026-05-03 14:40:29 - INFO - HTTP Request: GET https://api.open-meteo.com/v1/forecast?latitude=55.740384&longitude=37.441293&current=temperature_2m,weather_code,wind_speed_10m&hourly=temperature_2m,weather_code,rain,wind_speed_10m&daily=temperature_2m_max,rain_sum,weather_code&timezone=auto&forecast_hours=6&forecast_days=6 "HTTP/1.1 200 OK"
+2026-05-03 14:40:30 - INFO - HTTP Request: GET https://archive-api.open-meteo.com/v1/archive?latitude=55.740384&longitude=37.441293&start_date=2026-04-26&end_date=2026-05-02&hourly=rain&timezone=auto "HTTP/1.1 200 OK"
+2026-05-03 14:40:30 - INFO - HTTP Request: GET https://api.open-meteo.com/v1/forecast?latitude=55.438771&longitude=37.504228&current=temperature_2m,weather_code,wind_speed_10m&hourly=temperature_2m,weather_code,rain,wind_speed_10m&daily=temperature_2m_max,rain_sum,weather_code&timezone=auto&forecast_hours=6&forecast_days=6 "HTTP/1.1 200 OK"
+2026-05-03 14:40:31 - INFO - GET /sw.js - 200 (0.00с)
+2026-05-03 14:40:31 - INFO - HTTP Request: GET https://archive-api.open-meteo.com/v1/archive?latitude=55.438771&longitude=37.504228&start_date=2026-04-26&end_date=2026-05-02&hourly=rain&timezone=auto "HTTP/1.1 200 OK"
+2026-05-03 14:40:31 - INFO - HTTP Request: GET https://api.open-meteo.com/v1/forecast?latitude=55.567215&longitude=37.539429&current=temperature_2m,weather_code,wind_speed_10m&hourly=temperature_2m,weather_code,rain,wind_speed_10m&daily=temperature_2m_max,rain_sum,weather_code&timezone=auto&forecast_hours=6&forecast_days=6 "HTTP/1.1 200 OK"
+2026-05-03 14:40:32 - INFO - HTTP Request: GET https://archive-api.open-meteo.com/v1/archive?latitude=55.567215&longitude=37.539429&start_date=2026-04-26&end_date=2026-05-02&hourly=rain&timezone=auto "HTTP/1.1 200 OK"
+2026-05-03 14:40:33 - INFO - HTTP Request: GET https://api.open-meteo.com/v1/forecast?latitude=54.831991&longitude=38.125463&current=temperature_2m,weather_code,wind_speed_10m&hourly=temperature_2m,weather_code,rain,wind_speed_10m&daily=temperature_2m_max,rain_sum,weather_code&timezone=auto&forecast_hours=6&forecast_days=6 "HTTP/1.1 200 OK"
+2026-05-03 14:40:33 - INFO - HTTP Request: GET https://archive-api.open-meteo.com/v1/archive?latitude=54.831991&longitude=38.125463&start_date=2026-04-26&end_date=2026-05-02&hourly=rain&timezone=auto "HTTP/1.1 200 OK"
+2026-05-03 14:40:33 - INFO - GET /api/weather/mtb_parks - 200 (4.61с)
+2026-05-03 14:40:53 - INFO - HTTP Request: GET https://api.open-meteo.com/v1/forecast?latitude=43.562085&longitude=41.18773&current=temperature_2m,weather_code,wind_speed_10m&hourly=temperature_2m,weather_code,rain,wind_speed_10m&daily=temperature_2m_max,rain_sum,weather_code&timezone=auto&forecast_hours=6&forecast_days=6 "HTTP/1.1 200 OK"
+2026-05-03 14:40:54 - INFO - HTTP Request: GET https://archive-api.open-meteo.com/v1/archive?latitude=43.562085&longitude=41.18773&start_date=2026-04-26&end_date=2026-05-02&hourly=rain&timezone=auto "HTTP/1.1 200 OK"
+2026-05-03 14:40:54 - INFO - HTTP Request: GET https://api.open-meteo.com/v1/forecast?latitude=44.704571&longitude=38.539443&current=temperature_2m,weather_code,wind_speed_10m&hourly=temperature_2m,weather_code,rain,wind_speed_10m&daily=temperature_2m_max,rain_sum,weather_code&timezone=auto&forecast_hours=6&forecast_days=6 "HTTP/1.1 200 OK"
+2026-05-03 14:40:55 - INFO - HTTP Request: GET https://archive-api.open-meteo.com/v1/archive?latitude=44.704571&longitude=38.539443&start_date=2026-04-26&end_date=2026-05-02&hourly=rain&timezone=auto "HTTP/1.1 200 OK"
+2026-05-03 14:40:56 - INFO - HTTP Request: GET https://api.open-meteo.com/v1/forecast?latitude=56.196307&longitude=43.840789&current=temperature_2m,weather_code,wind_speed_10m&hourly=temperature_2m,weather_code,rain,wind_speed_10m&daily=temperature_2m_max,rain_sum,weather_code&timezone=auto&forecast_hours=6&forecast_days=6 "HTTP/1.1 200 OK"
+2026-05-03 14:40:56 - INFO - HTTP Request: GET https://archive-api.open-meteo.com/v1/archive?latitude=56.196307&longitude=43.840789&start_date=2026-04-26&end_date=2026-05-02&hourly=rain&timezone=auto "HTTP/1.1 200 OK"
+2026-05-03 14:40:56 - INFO - GET /api/weather/mtb_mountains - 200 (3.51с)
+2026-05-03 14:41:14 - INFO - GET /api/weather/mtb_parks - 200 (0.01с)
+2026-05-03 14:41:16 - INFO - GET /sw.js - 304 (0.00с)
+2026-05-03 14:41:36 - INFO - GET / - 304 (0.00с)
+2026-05-03 14:41:36 - INFO - GET /api/weather/mtb_parks - 200 (0.01с)
+2026-05-03 14:41:37 - INFO - GET /manifest.json - 200 (0.00с)
+2026-05-03 14:41:38 - INFO - GET /api/weather/mtb_mountains - 200 (0.01с)
+2026-05-03 14:41:38 - INFO - GET /sw.js - 304 (0.00с)
+2026-05-03 14:42:50 - INFO - GET /api/weather/mtb_mountains - 200 (0.01с)
+2026-05-03 14:42:51 - INFO - GET /sw.js - 304 (0.00с)
+2026-05-03 14:48:14 - INFO - ==================================================
+2026-05-03 14:48:14 - INFO -   \U0001f6b5 ћ“Ѕ ѕарки 2.0 (Python) Ч сервер запущен
+2026-05-03 14:48:14 - INFO -   \U0001f310 http://localhost:8000
+2026-05-03 14:48:14 - INFO -   \U0001f4e1 API: http://localhost:8000/api/weather/all
+2026-05-03 14:48:14 - INFO - ==================================================
+2026-05-03 14:48:19 - INFO - GET / - 304 (0.04с)
+2026-05-03 14:48:20 - INFO - GET /manifest.json - 200 (0.00с)
+2026-05-03 14:48:20 - INFO - HTTP Request: GET https://api.open-meteo.com/v1/forecast?latitude=55.740384&longitude=37.441293&current=temperature_2m,weather_code,wind_speed_10m&hourly=temperature_2m,weather_code,rain,wind_speed_10m&daily=temperature_2m_max,rain_sum,weather_code&timezone=auto&forecast_hours=6&forecast_days=6 "HTTP/1.1 200 OK"
+2026-05-03 14:48:21 - INFO - HTTP Request: GET https://archive-api.open-meteo.com/v1/archive?latitude=55.740384&longitude=37.441293&start_date=2026-04-26&end_date=2026-05-02&hourly=rain&timezone=auto "HTTP/1.1 200 OK"
+2026-05-03 14:48:21 - INFO - GET /sw.js - 304 (0.00с)
+2026-05-03 14:48:21 - INFO - HTTP Request: GET https://api.open-meteo.com/v1/forecast?latitude=55.438771&longitude=37.504228&current=temperature_2m,weather_code,wind_speed_10m&hourly=temperature_2m,weather_code,rain,wind_speed_10m&daily=temperature_2m_max,rain_sum,weather_code&timezone=auto&forecast_hours=6&forecast_days=6 "HTTP/1.1 200 OK"
+2026-05-03 14:48:22 - INFO - HTTP Request: GET https://archive-api.open-meteo.com/v1/archive?latitude=55.438771&longitude=37.504228&start_date=2026-04-26&end_date=2026-05-02&hourly=rain&timezone=auto "HTTP/1.1 200 OK"
+2026-05-03 14:48:22 - INFO - HTTP Request: GET https://api.open-meteo.com/v1/forecast?latitude=55.567215&longitude=37.539429&current=temperature_2m,weather_code,wind_speed_10m&hourly=temperature_2m,weather_code,rain,wind_speed_10m&daily=temperature_2m_max,rain_sum,weather_code&timezone=auto&forecast_hours=6&forecast_days=6 "HTTP/1.1 200 OK"
+2026-05-03 14:48:23 - INFO - HTTP Request: GET https://archive-api.open-meteo.com/v1/archive?latitude=55.567215&longitude=37.539429&start_date=2026-04-26&end_date=2026-05-02&hourly=rain&timezone=auto "HTTP/1.1 200 OK"
+2026-05-03 14:48:23 - INFO - HTTP Request: GET https://api.open-meteo.com/v1/forecast?latitude=54.831991&longitude=38.125463&current=temperature_2m,weather_code,wind_speed_10m&hourly=temperature_2m,weather_code,rain,wind_speed_10m&daily=temperature_2m_max,rain_sum,weather_code&timezone=auto&forecast_hours=6&forecast_days=6 "HTTP/1.1 200 OK"
+2026-05-03 14:48:24 - INFO - HTTP Request: GET https://archive-api.open-meteo.com/v1/archive?latitude=54.831991&longitude=38.125463&start_date=2026-04-26&end_date=2026-05-02&hourly=rain&timezone=auto "HTTP/1.1 200 OK"
+2026-05-03 14:48:24 - INFO - GET /api/weather/mtb_parks - 200 (4.42с)
+2026-05-03 14:48:34 - INFO - HTTP Request: GET https://api.open-meteo.com/v1/forecast?latitude=43.562085&longitude=41.18773&current=temperature_2m,weather_code,wind_speed_10m&hourly=temperature_2m,weather_code,rain,wind_speed_10m&daily=temperature_2m_max,rain_sum,weather_code&timezone=auto&forecast_hours=6&forecast_days=6 "HTTP/1.1 200 OK"
+2026-05-03 14:48:34 - INFO - HTTP Request: GET https://archive-api.open-meteo.com/v1/archive?latitude=43.562085&longitude=41.18773&start_date=2026-04-26&end_date=2026-05-02&hourly=rain&timezone=auto "HTTP/1.1 200 OK"
+2026-05-03 14:48:35 - INFO - HTTP Request: GET https://api.open-meteo.com/v1/forecast?latitude=44.704571&longitude=38.539443&current=temperature_2m,weather_code,wind_speed_10m&hourly=temperature_2m,weather_code,rain,wind_speed_10m&daily=temperature_2m_max,rain_sum,weather_code&timezone=auto&forecast_hours=6&forecast_days=6 "HTTP/1.1 200 OK"
+2026-05-03 14:48:35 - INFO - HTTP Request: GET https://archive-api.open-meteo.com/v1/archive?latitude=44.704571&longitude=38.539443&start_date=2026-04-26&end_date=2026-05-02&hourly=rain&timezone=auto "HTTP/1.1 200 OK"
+2026-05-03 14:48:36 - INFO - HTTP Request: GET https://api.open-meteo.com/v1/forecast?latitude=56.196307&longitude=43.840789&current=temperature_2m,weather_code,wind_speed_10m&hourly=temperature_2m,weather_code,rain,wind_speed_10m&daily=temperature_2m_max,rain_sum,weather_code&timezone=auto&forecast_hours=6&forecast_days=6 "HTTP/1.1 200 OK"
+2026-05-03 14:48:37 - INFO - HTTP Request: GET https://archive-api.open-meteo.com/v1/archive?latitude=56.196307&longitude=43.840789&start_date=2026-04-26&end_date=2026-05-02&hourly=rain&timezone=auto "HTTP/1.1 200 OK"
+2026-05-03 14:48:37 - INFO - GET /api/weather/mtb_mountains - 200 (3.33с)
+2026-05-03 14:48:41 - INFO - GET / - 304 (0.00с)
+2026-05-03 14:48:41 - INFO - GET /api/weather/mtb_parks - 200 (0.01с)
+2026-05-03 14:48:41 - INFO - GET /manifest.json - 200 (0.01с)
+2026-05-03 14:48:42 - INFO - GET /sw.js - 304 (0.00с)
+2026-05-03 14:48:43 - INFO - GET / - 304 (0.00с)
+2026-05-03 14:48:43 - INFO - GET /api/weather/mtb_parks - 200 (0.01с)
+2026-05-03 14:48:43 - INFO - GET /manifest.json - 200 (0.01с)
+2026-05-03 14:48:44 - INFO - GET /api/weather/mtb_mountains - 200 (0.01с)
+2026-05-03 14:48:44 - INFO - GET /sw.js - 304 (0.00с)
+2026-05-03 14:48:46 - INFO - HTTP Request: GET https://api.open-meteo.com/v1/forecast?latitude=55.625555&longitude=37.587399&current=temperature_2m,weather_code,wind_speed_10m&hourly=temperature_2m,weather_code,rain,wind_speed_10m&daily=temperature_2m_max,rain_sum,weather_code&timezone=auto&forecast_hours=6&forecast_days=6 "HTTP/1.1 200 OK"
+2026-05-03 14:48:46 - INFO - HTTP Request: GET https://archive-api.open-meteo.com/v1/archive?latitude=55.625555&longitude=37.587399&start_date=2026-04-26&end_date=2026-05-02&hourly=rain&timezone=auto "HTTP/1.1 200 OK"
+2026-05-03 14:48:47 - INFO - HTTP Request: GET https://api.open-meteo.com/v1/forecast?latitude=55.597198&longitude=37.580849&current=temperature_2m,weather_code,wind_speed_10m&hourly=temperature_2m,weather_code,rain,wind_speed_10m&daily=temperature_2m_max,rain_sum,weather_code&timezone=auto&forecast_hours=6&forecast_days=6 "HTTP/1.1 200 OK"
+2026-05-03 14:48:47 - INFO - HTTP Request: GET https://archive-api.open-meteo.com/v1/archive?latitude=55.597198&longitude=37.580849&start_date=2026-04-26&end_date=2026-05-02&hourly=rain&timezone=auto "HTTP/1.1 200 OK"
+2026-05-03 14:48:47 - INFO - GET /api/weather/pamps - 200 (2.17с)
+2026-05-03 14:48:48 - INFO - GET /api/weather/mtb_mountains - 200 (0.01с)
+2026-05-03 14:49:10 - INFO - GET /api/weather/mtb_parks - 200 (0.01с)
+2026-05-03 14:49:12 - INFO - GET /sw.js - 304 (0.00с)
+2026-05-03 14:49:34 - INFO - GET /api/weather/mtb_mountains - 200 (0.01с)
+2026-05-03 14:49:36 - INFO - GET /sw.js - 304 (0.00с)
+2026-05-03 14:51:13 - INFO - ==================================================
+2026-05-03 14:51:13 - INFO -   \U0001f6b5 ћ“Ѕ ѕарки 2.0 (Python) Ч сервер запущен
+2026-05-03 14:51:13 - INFO -   \U0001f310 http://localhost:8000
+2026-05-03 14:51:13 - INFO -   \U0001f4e1 API: http://localhost:8000/api/weather/all
+2026-05-03 14:51:13 - INFO - ==================================================
+2026-05-03 14:51:18 - INFO - GET / - 304 (0.04с)
+2026-05-03 14:51:18 - INFO - GET /manifest.json - 200 (0.00с)
+2026-05-03 14:51:18 - INFO - HTTP Request: GET https://api.open-meteo.com/v1/forecast?latitude=55.740384&longitude=37.441293&current=temperature_2m,weather_code,wind_speed_10m&hourly=temperature_2m,weather_code,rain,wind_speed_10m&daily=temperature_2m_max,rain_sum,weather_code&timezone=auto&forecast_hours=6&forecast_days=6 "HTTP/1.1 200 OK"
+2026-05-03 14:51:19 - INFO - HTTP Request: GET https://archive-api.open-meteo.com/v1/archive?latitude=55.740384&longitude=37.441293&start_date=2026-04-26&end_date=2026-05-02&hourly=rain&timezone=auto "HTTP/1.1 200 OK"
+2026-05-03 14:51:19 - INFO - GET /sw.js - 304 (0.00с)
+2026-05-03 14:51:20 - INFO - HTTP Request: GET https://api.open-meteo.com/v1/forecast?latitude=55.438771&longitude=37.504228&current=temperature_2m,weather_code,wind_speed_10m&hourly=temperature_2m,weather_code,rain,wind_speed_10m&daily=temperature_2m_max,rain_sum,weather_code&timezone=auto&forecast_hours=6&forecast_days=6 "HTTP/1.1 200 OK"
+2026-05-03 14:51:20 - INFO - HTTP Request: GET https://archive-api.open-meteo.com/v1/archive?latitude=55.438771&longitude=37.504228&start_date=2026-04-26&end_date=2026-05-02&hourly=rain&timezone=auto "HTTP/1.1 200 OK"
+2026-05-03 14:51:21 - INFO - HTTP Request: GET https://api.open-meteo.com/v1/forecast?latitude=55.567215&longitude=37.539429&current=temperature_2m,weather_code,wind_speed_10m&hourly=temperature_2m,weather_code,rain,wind_speed_10m&daily=temperature_2m_max,rain_sum,weather_code&timezone=auto&forecast_hours=6&forecast_days=6 "HTTP/1.1 200 OK"
+2026-05-03 14:51:21 - INFO - HTTP Request: GET https://archive-api.open-meteo.com/v1/archive?latitude=55.567215&longitude=37.539429&start_date=2026-04-26&end_date=2026-05-02&hourly=rain&timezone=auto "HTTP/1.1 200 OK"
+2026-05-03 14:51:22 - INFO - HTTP Request: GET https://api.open-meteo.com/v1/forecast?latitude=54.831991&longitude=38.125463&current=temperature_2m,weather_code,wind_speed_10m&hourly=temperature_2m,weather_code,rain,wind_speed_10m&daily=temperature_2m_max,rain_sum,weather_code&timezone=auto&forecast_hours=6&forecast_days=6 "HTTP/1.1 200 OK"
+2026-05-03 14:51:22 - INFO - HTTP Request: GET https://archive-api.open-meteo.com/v1/archive?latitude=54.831991&longitude=38.125463&start_date=2026-04-26&end_date=2026-05-02&hourly=rain&timezone=auto "HTTP/1.1 200 OK"
+2026-05-03 14:51:22 - INFO - GET /api/weather/mtb_parks - 200 (4.39с)
+2026-05-03 14:51:28 - INFO - HTTP Request: GET https://api.open-meteo.com/v1/forecast?latitude=43.562085&longitude=41.18773&current=temperature_2m,weather_code,wind_speed_10m&hourly=temperature_2m,weather_code,rain,wind_speed_10m&daily=temperature_2m_max,rain_sum,weather_code&timezone=auto&forecast_hours=6&forecast_days=6 "HTTP/1.1 200 OK"
+2026-05-03 14:51:29 - INFO - HTTP Request: GET https://archive-api.open-meteo.com/v1/archive?latitude=43.562085&longitude=41.18773&start_date=2026-04-26&end_date=2026-05-02&hourly=rain&timezone=auto "HTTP/1.1 200 OK"
+2026-05-03 14:51:29 - INFO - HTTP Request: GET https://api.open-meteo.com/v1/forecast?latitude=44.704571&longitude=38.539443&current=temperature_2m,weather_code,wind_speed_10m&hourly=temperature_2m,weather_code,rain,wind_speed_10m&daily=temperature_2m_max,rain_sum,weather_code&timezone=auto&forecast_hours=6&forecast_days=6 "HTTP/1.1 200 OK"
+2026-05-03 14:51:30 - INFO - HTTP Request: GET https://archive-api.open-meteo.com/v1/archive?latitude=44.704571&longitude=38.539443&start_date=2026-04-26&end_date=2026-05-02&hourly=rain&timezone=auto "HTTP/1.1 200 OK"
+2026-05-03 14:51:30 - INFO - HTTP Request: GET https://api.open-meteo.com/v1/forecast?latitude=56.196307&longitude=43.840789&current=temperature_2m,weather_code,wind_speed_10m&hourly=temperature_2m,weather_code,rain,wind_speed_10m&daily=temperature_2m_max,rain_sum,weather_code&timezone=auto&forecast_hours=6&forecast_days=6 "HTTP/1.1 200 OK"
+2026-05-03 14:51:31 - INFO - HTTP Request: GET https://archive-api.open-meteo.com/v1/archive?latitude=56.196307&longitude=43.840789&start_date=2026-04-26&end_date=2026-05-02&hourly=rain&timezone=auto "HTTP/1.1 200 OK"
+2026-05-03 14:51:31 - INFO - GET /api/weather/mtb_mountains - 200 (3.24с)
+2026-05-03 14:51:34 - INFO - GET / - 200 (0.00с)
+2026-05-03 14:51:34 - INFO - GET /manifest.json - 200 (0.00с)
+2026-05-03 14:51:34 - INFO - GET /css/style.css - 200 (0.00с)
+2026-05-03 14:51:34 - INFO - GET /js/app.js - 200 (0.00с)
+2026-05-03 14:51:34 - INFO - GET /api/weather/mtb_parks - 200 (0.01с)
+2026-05-03 14:51:34 - INFO - GET /favicon.ico - 404 (0.00с)
+2026-05-03 14:51:35 - INFO - GET /api/weather/mtb_mountains - 200 (0.01с)
+2026-05-03 14:51:37 - INFO - GET /api/weather/mtb_mountains - 200 (0.01с)
+2026-05-03 14:51:37 - INFO - HTTP Request: GET https://api.open-meteo.com/v1/forecast?latitude=55.625555&longitude=37.587399&current=temperature_2m,weather_code,wind_speed_10m&hourly=temperature_2m,weather_code,rain,wind_speed_10m&daily=temperature_2m_max,rain_sum,weather_code&timezone=auto&forecast_hours=6&forecast_days=6 "HTTP/1.1 200 OK"
+2026-05-03 14:51:38 - INFO - HTTP Request: GET https://archive-api.open-meteo.com/v1/archive?latitude=55.625555&longitude=37.587399&start_date=2026-04-26&end_date=2026-05-02&hourly=rain&timezone=auto "HTTP/1.1 200 OK"
+2026-05-03 14:51:38 - INFO - HTTP Request: GET https://api.open-meteo.com/v1/forecast?latitude=55.597198&longitude=37.580849&current=temperature_2m,weather_code,wind_speed_10m&hourly=temperature_2m,weather_code,rain,wind_speed_10m&daily=temperature_2m_max,rain_sum,weather_code&timezone=auto&forecast_hours=6&forecast_days=6 "HTTP/1.1 200 OK"
+2026-05-03 14:51:39 - INFO - HTTP Request: GET https://archive-api.open-meteo.com/v1/archive?latitude=55.597198&longitude=37.580849&start_date=2026-04-26&end_date=2026-05-02&hourly=rain&timezone=auto "HTTP/1.1 200 OK"
+2026-05-03 14:51:39 - INFO - GET /api/weather/pamps - 200 (2.47с)
+2026-05-03 14:51:39 - INFO - GET /api/weather/pamps - 200 (0.01с)
+2026-05-03 14:51:39 - INFO - GET /api/weather/mtb_mountains - 200 (0.01с)
+2026-05-03 14:51:40 - INFO - GET /api/weather/mtb_parks - 200 (0.01с)
+2026-05-03 14:51:50 - INFO - GET /api/weather/mtb_mountains - 200 (0.01с)
+2026-05-03 14:51:52 - INFO - GET /sw.js - 304 (0.00с)
+2026-05-03 14:53:56 - INFO - ==================================================
+2026-05-03 14:53:56 - INFO -   \U0001f6b5 ћ“Ѕ ѕарки 2.0 (Python) Ч сервер запущен
+2026-05-03 14:53:56 - INFO -   \U0001f310 http://localhost:8000
+2026-05-03 14:53:56 - INFO -   \U0001f4e1 API: http://localhost:8000/api/weather/all
+2026-05-03 14:53:56 - INFO - ==================================================
+2026-05-03 14:54:08 - INFO - GET / - 304 (0.05с)
+2026-05-03 14:54:08 - INFO - GET /manifest.json - 200 (0.00с)
+2026-05-03 14:54:09 - INFO - HTTP Request: GET https://api.open-meteo.com/v1/forecast?latitude=55.740384&longitude=37.441293&current=temperature_2m,weather_code,wind_speed_10m&hourly=temperature_2m,weather_code,rain,wind_speed_10m&daily=temperature_2m_max,rain_sum,weather_code&timezone=auto&forecast_hours=6&forecast_days=6 "HTTP/1.1 200 OK"
+2026-05-03 14:54:09 - INFO - HTTP Request: GET https://archive-api.open-meteo.com/v1/archive?latitude=55.740384&longitude=37.441293&start_date=2026-04-26&end_date=2026-05-02&hourly=rain&timezone=auto "HTTP/1.1 200 OK"
+2026-05-03 14:54:10 - INFO - GET /sw.js - 304 (0.00с)
+2026-05-03 14:54:10 - INFO - HTTP Request: GET https://api.open-meteo.com/v1/forecast?latitude=55.438771&longitude=37.504228&current=temperature_2m,weather_code,wind_speed_10m&hourly=temperature_2m,weather_code,rain,wind_speed_10m&daily=temperature_2m_max,rain_sum,weather_code&timezone=auto&forecast_hours=6&forecast_days=6 "HTTP/1.1 200 OK"
+2026-05-03 14:54:10 - INFO - HTTP Request: GET https://archive-api.open-meteo.com/v1/archive?latitude=55.438771&longitude=37.504228&start_date=2026-04-26&end_date=2026-05-02&hourly=rain&timezone=auto "HTTP/1.1 200 OK"
+2026-05-03 14:54:11 - INFO - HTTP Request: GET https://api.open-meteo.com/v1/forecast?latitude=55.567215&longitude=37.539429&current=temperature_2m,weather_code,wind_speed_10m&hourly=temperature_2m,weather_code,rain,wind_speed_10m&daily=temperature_2m_max,rain_sum,weather_code&timezone=auto&forecast_hours=6&forecast_days=6 "HTTP/1.1 200 OK"
+2026-05-03 14:54:11 - INFO - HTTP Request: GET https://archive-api.open-meteo.com/v1/archive?latitude=55.567215&longitude=37.539429&start_date=2026-04-26&end_date=2026-05-02&hourly=rain&timezone=auto "HTTP/1.1 200 OK"
+2026-05-03 14:54:12 - INFO - HTTP Request: GET https://api.open-meteo.com/v1/forecast?latitude=54.831991&longitude=38.125463&current=temperature_2m,weather_code,wind_speed_10m&hourly=temperature_2m,weather_code,rain,wind_speed_10m&daily=temperature_2m_max,rain_sum,weather_code&timezone=auto&forecast_hours=6&forecast_days=6 "HTTP/1.1 200 OK"
+2026-05-03 14:54:13 - INFO - HTTP Request: GET https://archive-api.open-meteo.com/v1/archive?latitude=54.831991&longitude=38.125463&start_date=2026-04-26&end_date=2026-05-02&hourly=rain&timezone=auto "HTTP/1.1 200 OK"
+2026-05-03 14:54:13 - INFO - GET /api/weather/mtb_parks - 200 (4.41с)
+2026-05-03 14:54:14 - INFO - HTTP Request: GET https://api.open-meteo.com/v1/forecast?latitude=43.562085&longitude=41.18773&current=temperature_2m,weather_code,wind_speed_10m&hourly=temperature_2m,weather_code,rain,wind_speed_10m&daily=temperature_2m_max,rain_sum,weather_code&timezone=auto&forecast_hours=6&forecast_days=6 "HTTP/1.1 200 OK"
+2026-05-03 14:54:14 - INFO - HTTP Request: GET https://archive-api.open-meteo.com/v1/archive?latitude=43.562085&longitude=41.18773&start_date=2026-04-26&end_date=2026-05-02&hourly=rain&timezone=auto "HTTP/1.1 200 OK"
+2026-05-03 14:54:15 - INFO - HTTP Request: GET https://api.open-meteo.com/v1/forecast?latitude=44.704571&longitude=38.539443&current=temperature_2m,weather_code,wind_speed_10m&hourly=temperature_2m,weather_code,rain,wind_speed_10m&daily=temperature_2m_max,rain_sum,weather_code&timezone=auto&forecast_hours=6&forecast_days=6 "HTTP/1.1 200 OK"
+2026-05-03 14:54:15 - INFO - HTTP Request: GET https://archive-api.open-meteo.com/v1/archive?latitude=44.704571&longitude=38.539443&start_date=2026-04-26&end_date=2026-05-02&hourly=rain&timezone=auto "HTTP/1.1 200 OK"
+2026-05-03 14:54:16 - INFO - HTTP Request: GET https://api.open-meteo.com/v1/forecast?latitude=56.196307&longitude=43.840789&current=temperature_2m,weather_code,wind_speed_10m&hourly=temperature_2m,weather_code,rain,wind_speed_10m&daily=temperature_2m_max,rain_sum,weather_code&timezone=auto&forecast_hours=6&forecast_days=6 "HTTP/1.1 200 OK"
+2026-05-03 14:54:16 - INFO - HTTP Request: GET https://archive-api.open-meteo.com/v1/archive?latitude=56.196307&longitude=43.840789&start_date=2026-04-26&end_date=2026-05-02&hourly=rain&timezone=auto "HTTP/1.1 200 OK"
+2026-05-03 14:54:16 - INFO - GET /api/weather/mtb_mountains - 200 (3.29с)
+2026-05-03 14:54:32 - INFO - GET /api/weather/mtb_mountains - 200 (0.01с)
+2026-05-03 14:54:34 - INFO - GET /sw.js - 304 (0.00с)
+2026-05-03 15:00:54 - INFO - ==================================================
+2026-05-03 15:00:54 - INFO -   \U0001f6b5 ћ“Ѕ ѕарки 2.0 (Python) Ч сервер запущен
+2026-05-03 15:00:54 - INFO -   \U0001f310 http://localhost:8000
+2026-05-03 15:00:54 - INFO -   \U0001f4e1 API: http://localhost:8000/api/weather/all
+2026-05-03 15:00:54 - INFO - ==================================================
+2026-05-03 15:00:58 - INFO - GET / - 304 (0.05с)
+2026-05-03 15:00:59 - INFO - GET /manifest.json - 200 (0.00с)
+2026-05-03 15:01:00 - INFO - GET /sw.js - 304 (0.00с)
+2026-05-03 15:01:01 - INFO - HTTP Request: GET https://api.open-meteo.com/v1/forecast?latitude=55.740384&longitude=37.441293&current=temperature_2m,weather_code,wind_speed_10m&hourly=temperature_2m,weather_code,rain,wind_speed_10m&daily=temperature_2m_max,rain_sum,weather_code&timezone=UTC&forecast_hours=6&forecast_days=6 "HTTP/1.1 200 OK"
+2026-05-03 15:01:02 - INFO - HTTP Request: GET https://archive-api.open-meteo.com/v1/archive?latitude=55.740384&longitude=37.441293&start_date=2026-04-26&end_date=2026-05-02&hourly=rain&timezone=UTC "HTTP/1.1 200 OK"
+2026-05-03 15:01:04 - INFO - HTTP Request: GET https://api.open-meteo.com/v1/forecast?latitude=55.438771&longitude=37.504228&current=temperature_2m,weather_code,wind_speed_10m&hourly=temperature_2m,weather_code,rain,wind_speed_10m&daily=temperature_2m_max,rain_sum,weather_code&timezone=UTC&forecast_hours=6&forecast_days=6 "HTTP/1.1 200 OK"
+2026-05-03 15:01:05 - INFO - HTTP Request: GET https://archive-api.open-meteo.com/v1/archive?latitude=55.438771&longitude=37.504228&start_date=2026-04-26&end_date=2026-05-02&hourly=rain&timezone=UTC "HTTP/1.1 200 OK"
+2026-05-03 15:01:07 - INFO - HTTP Request: GET https://api.open-meteo.com/v1/forecast?latitude=55.567215&longitude=37.539429&current=temperature_2m,weather_code,wind_speed_10m&hourly=temperature_2m,weather_code,rain,wind_speed_10m&daily=temperature_2m_max,rain_sum,weather_code&timezone=UTC&forecast_hours=6&forecast_days=6 "HTTP/1.1 200 OK"
+2026-05-03 15:01:08 - INFO - HTTP Request: GET https://archive-api.open-meteo.com/v1/archive?latitude=55.567215&longitude=37.539429&start_date=2026-04-26&end_date=2026-05-02&hourly=rain&timezone=UTC "HTTP/1.1 200 OK"
+2026-05-03 15:01:11 - INFO - HTTP Request: GET https://api.open-meteo.com/v1/forecast?latitude=54.831991&longitude=38.125463&current=temperature_2m,weather_code,wind_speed_10m&hourly=temperature_2m,weather_code,rain,wind_speed_10m&daily=temperature_2m_max,rain_sum,weather_code&timezone=UTC&forecast_hours=6&forecast_days=6 "HTTP/1.1 200 OK"
+2026-05-03 15:01:12 - INFO - HTTP Request: GET https://archive-api.open-meteo.com/v1/archive?latitude=54.831991&longitude=38.125463&start_date=2026-04-26&end_date=2026-05-02&hourly=rain&timezone=UTC "HTTP/1.1 200 OK"
+2026-05-03 15:01:12 - INFO - GET /api/weather/mtb_parks - 200 (13.10с)
+2026-05-03 15:01:18 - INFO - HTTP Request: GET https://api.open-meteo.com/v1/forecast?latitude=43.562085&longitude=41.18773&current=temperature_2m,weather_code,wind_speed_10m&hourly=temperature_2m,weather_code,rain,wind_speed_10m&daily=temperature_2m_max,rain_sum,weather_code&timezone=UTC&forecast_hours=6&forecast_days=6 "HTTP/1.1 200 OK"
+2026-05-03 15:01:18 - INFO - HTTP Request: GET https://archive-api.open-meteo.com/v1/archive?latitude=43.562085&longitude=41.18773&start_date=2026-04-26&end_date=2026-05-02&hourly=rain&timezone=UTC "HTTP/1.1 200 OK"
+2026-05-03 15:01:21 - INFO - HTTP Request: GET https://api.open-meteo.com/v1/forecast?latitude=44.704571&longitude=38.539443&current=temperature_2m,weather_code,wind_speed_10m&hourly=temperature_2m,weather_code,rain,wind_speed_10m&daily=temperature_2m_max,rain_sum,weather_code&timezone=UTC&forecast_hours=6&forecast_days=6 "HTTP/1.1 200 OK"
+2026-05-03 15:01:22 - INFO - HTTP Request: GET https://archive-api.open-meteo.com/v1/archive?latitude=44.704571&longitude=38.539443&start_date=2026-04-26&end_date=2026-05-02&hourly=rain&timezone=UTC "HTTP/1.1 200 OK"
+2026-05-03 15:01:24 - INFO - HTTP Request: GET https://api.open-meteo.com/v1/forecast?latitude=56.196307&longitude=43.840789&current=temperature_2m,weather_code,wind_speed_10m&hourly=temperature_2m,weather_code,rain,wind_speed_10m&daily=temperature_2m_max,rain_sum,weather_code&timezone=UTC&forecast_hours=6&forecast_days=6 "HTTP/1.1 200 OK"
+2026-05-03 15:01:25 - INFO - HTTP Request: GET https://archive-api.open-meteo.com/v1/archive?latitude=56.196307&longitude=43.840789&start_date=2026-04-26&end_date=2026-05-02&hourly=rain&timezone=UTC "HTTP/1.1 200 OK"
+2026-05-03 15:01:25 - INFO - GET /api/weather/mtb_mountains - 200 (9.69с)
+2026-05-03 15:01:30 - INFO - HTTP Request: GET https://api.open-meteo.com/v1/forecast?latitude=55.625555&longitude=37.587399&current=temperature_2m,weather_code,wind_speed_10m&hourly=temperature_2m,weather_code,rain,wind_speed_10m&daily=temperature_2m_max,rain_sum,weather_code&timezone=UTC&forecast_hours=6&forecast_days=6 "HTTP/1.1 200 OK"
+2026-05-03 15:01:30 - INFO - HTTP Request: GET https://archive-api.open-meteo.com/v1/archive?latitude=55.625555&longitude=37.587399&start_date=2026-04-26&end_date=2026-05-02&hourly=rain&timezone=UTC "HTTP/1.1 200 OK"
+2026-05-03 15:01:33 - INFO - HTTP Request: GET https://api.open-meteo.com/v1/forecast?latitude=55.597198&longitude=37.580849&current=temperature_2m,weather_code,wind_speed_10m&hourly=temperature_2m,weather_code,rain,wind_speed_10m&daily=temperature_2m_max,rain_sum,weather_code&timezone=UTC&forecast_hours=6&forecast_days=6 "HTTP/1.1 200 OK"
+2026-05-03 15:01:33 - INFO - HTTP Request: GET https://archive-api.open-meteo.com/v1/archive?latitude=55.597198&longitude=37.580849&start_date=2026-04-26&end_date=2026-05-02&hourly=rain&timezone=UTC "HTTP/1.1 200 OK"
+2026-05-03 15:01:33 - INFO - GET /api/weather/pamps - 200 (5.88с)
+2026-05-03 15:01:34 - INFO - GET /api/weather/mtb_mountains - 200 (0.00с)
+2026-05-03 15:02:13 - INFO - ==================================================
+2026-05-03 15:02:13 - INFO -   \U0001f6b5 ћ“Ѕ ѕарки 2.0 (Python) Ч сервер запущен
+2026-05-03 15:02:13 - INFO -   \U0001f310 http://localhost:8000
+2026-05-03 15:02:13 - INFO -   \U0001f4e1 API: http://localhost:8000/api/weather/all
+2026-05-03 15:02:13 - INFO - ==================================================
+2026-05-03 15:02:19 - INFO - GET / - 304 (0.04с)
+2026-05-03 15:02:20 - INFO - GET /manifest.json - 200 (0.00с)
+2026-05-03 15:02:20 - INFO - HTTP Request: GET https://api.open-meteo.com/v1/forecast?latitude=55.740384&longitude=37.441293&current=temperature_2m,weather_code,wind_speed_10m&hourly=temperature_2m,weather_code,rain,wind_speed_10m&daily=temperature_2m_max,rain_sum,weather_code&timezone=UTC&forecast_hours=6&forecast_days=6 "HTTP/1.1 200 OK"
+2026-05-03 15:02:21 - INFO - GET /sw.js - 304 (0.00с)
+2026-05-03 15:02:21 - INFO - HTTP Request: GET https://archive-api.open-meteo.com/v1/archive?latitude=55.740384&longitude=37.441293&start_date=2026-04-26&end_date=2026-05-02&hourly=rain&timezone=UTC "HTTP/1.1 200 OK"
+2026-05-03 15:02:22 - INFO - HTTP Request: GET https://api.open-meteo.com/v1/forecast?latitude=55.438771&longitude=37.504228&current=temperature_2m,weather_code,wind_speed_10m&hourly=temperature_2m,weather_code,rain,wind_speed_10m&daily=temperature_2m_max,rain_sum,weather_code&timezone=UTC&forecast_hours=6&forecast_days=6 "HTTP/1.1 200 OK"
+2026-05-03 15:02:22 - INFO - HTTP Request: GET https://archive-api.open-meteo.com/v1/archive?latitude=55.438771&longitude=37.504228&start_date=2026-04-26&end_date=2026-05-02&hourly=rain&timezone=UTC "HTTP/1.1 200 OK"
+2026-05-03 15:02:23 - INFO - HTTP Request: GET https://api.open-meteo.com/v1/forecast?latitude=55.567215&longitude=37.539429&current=temperature_2m,weather_code,wind_speed_10m&hourly=temperature_2m,weather_code,rain,wind_speed_10m&daily=temperature_2m_max,rain_sum,weather_code&timezone=UTC&forecast_hours=6&forecast_days=6 "HTTP/1.1 200 OK"
+2026-05-03 15:02:24 - INFO - HTTP Request: GET https://archive-api.open-meteo.com/v1/archive?latitude=55.567215&longitude=37.539429&start_date=2026-04-26&end_date=2026-05-02&hourly=rain&timezone=UTC "HTTP/1.1 200 OK"
+2026-05-03 15:02:25 - INFO - HTTP Request: GET https://api.open-meteo.com/v1/forecast?latitude=54.831991&longitude=38.125463&current=temperature_2m,weather_code,wind_speed_10m&hourly=temperature_2m,weather_code,rain,wind_speed_10m&daily=temperature_2m_max,rain_sum,weather_code&timezone=UTC&forecast_hours=6&forecast_days=6 "HTTP/1.1 200 OK"
+2026-05-03 15:02:25 - INFO - HTTP Request: GET https://archive-api.open-meteo.com/v1/archive?latitude=54.831991&longitude=38.125463&start_date=2026-04-26&end_date=2026-05-02&hourly=rain&timezone=UTC "HTTP/1.1 200 OK"
+2026-05-03 15:02:25 - INFO - GET /api/weather/mtb_parks - 200 (6.08с)
+2026-05-03 15:02:30 - INFO - HTTP Request: GET https://api.open-meteo.com/v1/forecast?latitude=43.562085&longitude=41.18773&current=temperature_2m,weather_code,wind_speed_10m&hourly=temperature_2m,weather_code,rain,wind_speed_10m&daily=temperature_2m_max,rain_sum,weather_code&timezone=UTC&forecast_hours=6&forecast_days=6 "HTTP/1.1 200 OK"
+2026-05-03 15:02:31 - INFO - HTTP Request: GET https://archive-api.open-meteo.com/v1/archive?latitude=43.562085&longitude=41.18773&start_date=2026-04-26&end_date=2026-05-02&hourly=rain&timezone=UTC "HTTP/1.1 200 OK"
+2026-05-03 15:02:32 - INFO - HTTP Request: GET https://api.open-meteo.com/v1/forecast?latitude=44.704571&longitude=38.539443&current=temperature_2m,weather_code,wind_speed_10m&hourly=temperature_2m,weather_code,rain,wind_speed_10m&daily=temperature_2m_max,rain_sum,weather_code&timezone=UTC&forecast_hours=6&forecast_days=6 "HTTP/1.1 200 OK"
+2026-05-03 15:02:33 - INFO - HTTP Request: GET https://archive-api.open-meteo.com/v1/archive?latitude=44.704571&longitude=38.539443&start_date=2026-04-26&end_date=2026-05-02&hourly=rain&timezone=UTC "HTTP/1.1 200 OK"
+2026-05-03 15:02:33 - INFO - HTTP Request: GET https://api.open-meteo.com/v1/forecast?latitude=56.196307&longitude=43.840789&current=temperature_2m,weather_code,wind_speed_10m&hourly=temperature_2m,weather_code,rain,wind_speed_10m&daily=temperature_2m_max,rain_sum,weather_code&timezone=UTC&forecast_hours=6&forecast_days=6 "HTTP/1.1 200 OK"
+2026-05-03 15:02:34 - INFO - HTTP Request: GET https://archive-api.open-meteo.com/v1/archive?latitude=56.196307&longitude=43.840789&start_date=2026-04-26&end_date=2026-05-02&hourly=rain&timezone=UTC "HTTP/1.1 200 OK"
+2026-05-03 15:02:34 - INFO - GET /api/weather/mtb_mountains - 200 (4.45с)
+2026-05-03 15:05:33 - INFO - ==================================================
+2026-05-03 15:05:33 - INFO -   \U0001f6b5 ћ“Ѕ ѕарки 2.0 (Python) Ч сервер запущен
+2026-05-03 15:05:33 - INFO -   \U0001f310 http://localhost:8000
+2026-05-03 15:05:33 - INFO -   \U0001f4e1 API: http://localhost:8000/api/weather/all
+2026-05-03 15:05:33 - INFO - ==================================================
+2026-05-03 15:05:36 - INFO - GET / - 304 (0.05с)
+2026-05-03 15:05:37 - INFO - GET /manifest.json - 200 (0.00с)
+2026-05-03 15:05:37 - INFO - HTTP Request: GET https://api.open-meteo.com/v1/forecast?latitude=55.740384&longitude=37.441293&current=temperature_2m,weather_code,wind_speed_10m&hourly=temperature_2m,weather_code,rain,wind_speed_10m&daily=temperature_2m_max,rain_sum,weather_code&timezone=UTC&forecast_hours=6&forecast_days=6 "HTTP/1.1 200 OK"
+2026-05-03 15:05:38 - INFO - HTTP Request: GET https://archive-api.open-meteo.com/v1/archive?latitude=55.740384&longitude=37.441293&start_date=2026-04-26&end_date=2026-05-02&hourly=rain&timezone=UTC "HTTP/1.1 200 OK"
+2026-05-03 15:05:38 - INFO - GET /sw.js - 304 (0.00с)
+2026-05-03 15:05:38 - INFO - HTTP Request: GET https://api.open-meteo.com/v1/forecast?latitude=55.438771&longitude=37.504228&current=temperature_2m,weather_code,wind_speed_10m&hourly=temperature_2m,weather_code,rain,wind_speed_10m&daily=temperature_2m_max,rain_sum,weather_code&timezone=UTC&forecast_hours=6&forecast_days=6 "HTTP/1.1 200 OK"
+2026-05-03 15:05:39 - INFO - HTTP Request: GET https://archive-api.open-meteo.com/v1/archive?latitude=55.438771&longitude=37.504228&start_date=2026-04-26&end_date=2026-05-02&hourly=rain&timezone=UTC "HTTP/1.1 200 OK"
+2026-05-03 15:05:39 - INFO - HTTP Request: GET https://api.open-meteo.com/v1/forecast?latitude=55.567215&longitude=37.539429&current=temperature_2m,weather_code,wind_speed_10m&hourly=temperature_2m,weather_code,rain,wind_speed_10m&daily=temperature_2m_max,rain_sum,weather_code&timezone=UTC&forecast_hours=6&forecast_days=6 "HTTP/1.1 200 OK"
+2026-05-03 15:05:40 - INFO - HTTP Request: GET https://archive-api.open-meteo.com/v1/archive?latitude=55.567215&longitude=37.539429&start_date=2026-04-26&end_date=2026-05-02&hourly=rain&timezone=UTC "HTTP/1.1 200 OK"
+2026-05-03 15:05:40 - INFO - HTTP Request: GET https://api.open-meteo.com/v1/forecast?latitude=54.831991&longitude=38.125463&current=temperature_2m,weather_code,wind_speed_10m&hourly=temperature_2m,weather_code,rain,wind_speed_10m&daily=temperature_2m_max,rain_sum,weather_code&timezone=UTC&forecast_hours=6&forecast_days=6 "HTTP/1.1 200 OK"
+2026-05-03 15:05:41 - INFO - HTTP Request: GET https://archive-api.open-meteo.com/v1/archive?latitude=54.831991&longitude=38.125463&start_date=2026-04-26&end_date=2026-05-02&hourly=rain&timezone=UTC "HTTP/1.1 200 OK"
+2026-05-03 15:05:41 - INFO - GET /api/weather/mtb_parks - 200 (4.46с)
+2026-05-03 15:05:46 - INFO - HTTP Request: GET https://api.open-meteo.com/v1/forecast?latitude=43.562085&longitude=41.18773&current=temperature_2m,weather_code,wind_speed_10m&hourly=temperature_2m,weather_code,rain,wind_speed_10m&daily=temperature_2m_max,rain_sum,weather_code&timezone=UTC&forecast_hours=6&forecast_days=6 "HTTP/1.1 200 OK"
+2026-05-03 15:05:47 - INFO - HTTP Request: GET https://archive-api.open-meteo.com/v1/archive?latitude=43.562085&longitude=41.18773&start_date=2026-04-26&end_date=2026-05-02&hourly=rain&timezone=UTC "HTTP/1.1 200 OK"
+2026-05-03 15:05:48 - INFO - HTTP Request: GET https://api.open-meteo.com/v1/forecast?latitude=44.704571&longitude=38.539443&current=temperature_2m,weather_code,wind_speed_10m&hourly=temperature_2m,weather_code,rain,wind_speed_10m&daily=temperature_2m_max,rain_sum,weather_code&timezone=UTC&forecast_hours=6&forecast_days=6 "HTTP/1.1 200 OK"
+2026-05-03 15:05:48 - INFO - HTTP Request: GET https://archive-api.open-meteo.com/v1/archive?latitude=44.704571&longitude=38.539443&start_date=2026-04-26&end_date=2026-05-02&hourly=rain&timezone=UTC "HTTP/1.1 200 OK"
+2026-05-03 15:05:49 - INFO - HTTP Request: GET https://api.open-meteo.com/v1/forecast?latitude=56.196307&longitude=43.840789&current=temperature_2m,weather_code,wind_speed_10m&hourly=temperature_2m,weather_code,rain,wind_speed_10m&daily=temperature_2m_max,rain_sum,weather_code&timezone=UTC&forecast_hours=6&forecast_days=6 "HTTP/1.1 200 OK"
+2026-05-03 15:05:49 - INFO - HTTP Request: GET https://archive-api.open-meteo.com/v1/archive?latitude=56.196307&longitude=43.840789&start_date=2026-04-26&end_date=2026-05-02&hourly=rain&timezone=UTC "HTTP/1.1 200 OK"
+2026-05-03 15:05:49 - INFO - GET /api/weather/mtb_mountains - 200 (3.35с)
+2026-05-03 15:07:39 - INFO - GET /api/weather/mtb_mountains - 200 (0.01с)
+2026-05-03 15:07:41 - INFO - GET /sw.js - 304 (0.00с)
+2026-05-03 15:11:27 - INFO - GET /api/weather/mtb_parks - 200 (0.01с)
+2026-05-03 15:11:27 - INFO - GET /api/weather/mtb_mountains - 200 (0.01с)
+2026-05-03 15:11:29 - INFO - HTTP Request: GET https://api.open-meteo.com/v1/forecast?latitude=55.625555&longitude=37.587399&current=temperature_2m,weather_code,wind_speed_10m&hourly=temperature_2m,weather_code,rain,wind_speed_10m&daily=temperature_2m_max,rain_sum,weather_code&timezone=UTC&forecast_hours=6&forecast_days=6 "HTTP/1.1 200 OK"
+2026-05-03 15:11:31 - INFO - HTTP Request: GET https://archive-api.open-meteo.com/v1/archive?latitude=55.625555&longitude=37.587399&start_date=2026-04-26&end_date=2026-05-02&hourly=rain&timezone=UTC "HTTP/1.1 200 OK"
+2026-05-03 15:11:31 - INFO - HTTP Request: GET https://api.open-meteo.com/v1/forecast?latitude=55.597198&longitude=37.580849&current=temperature_2m,weather_code,wind_speed_10m&hourly=temperature_2m,weather_code,rain,wind_speed_10m&daily=temperature_2m_max,rain_sum,weather_code&timezone=UTC&forecast_hours=6&forecast_days=6 "HTTP/1.1 200 OK"
+2026-05-03 15:11:32 - INFO - HTTP Request: GET https://archive-api.open-meteo.com/v1/archive?latitude=55.597198&longitude=37.580849&start_date=2026-04-26&end_date=2026-05-02&hourly=rain&timezone=UTC "HTTP/1.1 200 OK"
+2026-05-03 15:11:32 - INFO - GET /api/weather/pamps - 200 (2.99с)
+2026-05-03 15:11:34 - INFO - GET /api/weather/mtb_parks - 200 (0.01с)
