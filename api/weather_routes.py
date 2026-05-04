@@ -77,7 +77,7 @@ async def get_weather(group_id: str):
         # Только прогноз (начиная с текущего часа)
         now_utc = datetime.now(timezone.utc)
         hour_start = now_utc.replace(minute=0, second=0, microsecond=0)
-        hour_start_str = hour_start.strftime("%Y-%m-%dT%H:%M")  # формат как в БД
+        hour_start_str = hour_start.strftime("%Y-%m-%dT%H:%M")
         
         forecast_rows = conn.execute("""
             SELECT * FROM weather_hourly 
@@ -93,12 +93,6 @@ async def get_weather(group_id: str):
         if all_data:
             moisture = calculate_soil_moisture_from_db(park, all_data)
             is_asphalt = park.get("soil_type") == "asphalt"
-            status = get_soil_status(
-                moisture["total_rain"],
-                moisture["dry_hours"],
-                moisture["hours_since_rain"],
-                is_asphalt
-            )
             
             # dryTarget
             if moisture["dry_hours"] > 0:
@@ -107,6 +101,24 @@ async def get_weather(group_id: str):
                 dry_target_str = dry_target_msk.isoformat()
             else:
                 dry_target_str = None
+            
+            # Парсим dryTarget для продлённого Альденте (24 часа после высыхания)
+            dry_target_dt = None
+            if dry_target_str:
+                try:
+                    dry_target_dt = datetime.fromisoformat(dry_target_str)
+                    if dry_target_dt.tzinfo is None:
+                        dry_target_dt = dry_target_dt.replace(tzinfo=timezone.utc)
+                except:
+                    pass
+
+            status = get_soil_status(
+                moisture["total_rain"],
+                moisture["dry_hours"],
+                moisture["hours_since_rain"],
+                is_asphalt,
+                dry_target=dry_target_dt
+            )
             
             # Forecast с округлением до начала часа
             forecast = _build_forecast(forecast_data if forecast_data else all_data[-6:], hour_start)
