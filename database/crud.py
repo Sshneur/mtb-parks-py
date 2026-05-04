@@ -70,11 +70,11 @@ def update_park_moisture(park_id: str, moisture: float):
 
 
 def insert_weather_hourly(park_id: str, timestamp, temperature, rain, wind_speed, radiation, source: str):
-    """Вставляет почасовые данные (игнорирует дубликаты)"""
+    """Вставляет почасовые данные. Заменяет существующую запись, если timestamp совпадает."""
     conn = get_connection()
     try:
         conn.execute("""
-            INSERT OR IGNORE INTO weather_hourly 
+            INSERT OR REPLACE INTO weather_hourly 
             (park_id, timestamp, temperature, rain, wind_speed, radiation, source)
             VALUES (?, ?, ?, ?, ?, ?, ?)
         """, (park_id, timestamp, temperature, rain, wind_speed, radiation, source))

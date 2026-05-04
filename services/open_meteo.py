@@ -79,3 +79,23 @@ async def get_history(lat: float, lon: float, days: int = 30) -> Optional[dict]:
     if data:
         set_to_cache(cache_key, data, CACHE_TTL_HISTORY)
     return data
+
+async def get_forecast_daily(lat: float, lon: float) -> Optional[dict]:
+    """Дневной прогноз на 6 дней (daily)"""
+    cache_key = f"daily_{lat:.4f}_{lon:.4f}"
+    cached = get_from_cache(cache_key)
+    if cached:
+        return cached
+
+    url = (
+        f"https://api.open-meteo.com/v1/forecast"
+        f"?latitude={lat}&longitude={lon}"
+        f"&daily=temperature_2m_max,rain_sum,weather_code"
+        f"&timezone=UTC&forecast_days=6"
+    )
+    
+    print(f"🌐 Open-Meteo: запрос дневного прогноза...")
+    data = await fetch_with_retry(url)
+    if data:
+        set_to_cache(cache_key, data, CACHE_TTL_FORECAST)
+    return data

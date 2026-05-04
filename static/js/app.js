@@ -177,7 +177,7 @@ function renderAll(parkDataArray) {
       html += '<div class="timer-display">' + timerResult.text + '</div>';
     }
 
-    html += '<div class="rain-amount ' + (park.rain_total > 0.5 ? 'wet' : 'dry') + '">Осадки за 14 д: ' + park.rain_total.toFixed(1) + ' мм</div>';
+    html += '<div class="rain-amount ' + (park.rain_total > 0.5 ? 'wet' : 'dry') + '">Осадки за 7 д: ' + park.rain_total.toFixed(1) + ' мм</div>';
     html += '</div>';
 
     if (park.hourly.length > 0) {
