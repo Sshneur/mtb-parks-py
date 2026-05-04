@@ -4,7 +4,6 @@ var weatherEmoji = {
   45: '🌫️', 48: '🌫️',
   51: '🌦️', 53: '🌦️', 55: '🌦️',
   61: '🌧️', 63: '🌧️', 65: '🌧️',
-  71: '🌨️', 73: '🌨️', 75: '🌨️',
   80: '🌦️', 81: '🌦️', 82: '🌦️',
   95: '⛈️', 96: '⛈️', 99: '⛈️'
 };
@@ -49,12 +48,13 @@ function processWeatherData(result) {
   var park = result.park;
   var forecastData = result.forecast;
 
+  // ИСПРАВЛЕНИЕ: dryTarget теперь число (timestamp ms), не нужен new Date()
   var data = {
     name: park.name,
     lat: park.lat,
     lon: park.lon,
     soilStatus: park.soilStatus || 'Нет данных',
-    dryTarget: park.dryTarget ? new Date(park.dryTarget).getTime() : Date.now(),
+    dryTarget: park.dryTarget || null,  // число или null
     rain_total: park.rain_total || 0,
     currentTemp: null,
     currentCode: null,
@@ -81,7 +81,6 @@ function processWeatherData(result) {
     });
   }
 
-  // ТЕКУЩАЯ ПОГОДА ВСЕГДА ИЗ ПЕРВОГО ЧАСА ПРОГНОЗА
   if (data.hourly.length > 0) {
     data.currentTemp = data.hourly[0].temp;
     data.currentCode = data.hourly[0].code;
@@ -171,7 +170,8 @@ function renderAll(parkDataArray) {
     html += '<div class="timer-section">';
     html += '<div class="soil-status-badge">' + park.soilStatus + '</div>';
 
-    var rem = (park.dryTarget || Date.now()) - Date.now();
+    // ИСПРАВЛЕНИЕ: используем dryTarget напрямую (число миллисекунд)
+    var rem = park.dryTarget ? (park.dryTarget - Date.now()) : 0;
     var timerResult = formatTimerText(rem > 0 ? rem : 0);
     if (!timerResult.ready) {
       html += '<div class="timer-display">' + timerResult.text + '</div>';
@@ -231,14 +231,24 @@ function startLiveTimers() {
   if (timerInterval) clearInterval(timerInterval);
   timerInterval = setInterval(function() {
     if (!window._parkData) return;
-    var displays = document.querySelectorAll('.timer-display');
-    for (var i = 0; i < window._parkData.length; i++) {
-      if (i >= displays.length) continue;
-      var park = window._parkData[i];
-      var rem = (park.dryTarget || Date.now()) - Date.now();
+    var cards = document.querySelectorAll('.card');
+    for (var i = 0; i < cards.length; i++) {
+      var parkName = cards[i].querySelector('.park-title')?.textContent;
+      if (!parkName) continue;
+      var park = null;
+      for (var j = 0; j < window._parkData.length; j++) {
+        if (parkName.indexOf(window._parkData[j].name) >= 0) {
+          park = window._parkData[j];
+          break;
+        }
+      }
+      if (!park || !park.dryTarget) continue;
+      var display = cards[i].querySelector('.timer-display');
+      if (!display) continue;
+      var rem = park.dryTarget - Date.now();
       var timerResult = formatTimerText(rem > 0 ? rem : 0);
       if (!timerResult.ready) {
-        displays[i].textContent = timerResult.text;
+        display.textContent = timerResult.text;
       }
     }
   }, 1000);

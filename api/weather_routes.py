@@ -97,8 +97,8 @@ async def get_weather(group_id: str):
             # dryTarget
             if moisture["dry_hours"] > 0:
                 dry_target_utc = now_utc + timedelta(hours=moisture["dry_hours"])
-                dry_target_msk = dry_target_utc + timedelta(hours=3)
-                dry_target_str = dry_target_msk.isoformat()
+                # Передаём Unix timestamp в миллисекундах (как ожидает фронтенд)
+                dry_target_str = dry_target_utc.timestamp() * 1000
             else:
                 dry_target_str = None
             
