@@ -4,28 +4,98 @@ var weatherEmoji = {
   45: '🌫️', 48: '🌫️',
   51: '🌦️', 53: '🌦️', 55: '🌦️',
   61: '🌧️', 63: '🌧️', 65: '🌧️',
+  71: '🌨️', 73: '🌨️', 75: '🌨️',
   80: '🌦️', 81: '🌦️', 82: '🌦️',
   95: '⛈️', 96: '⛈️', 99: '⛈️'
 };
+function getEmoji(code) { return weatherEmoji[code] || '🌡️'; }
 
-function getEmoji(code) {
-  return weatherEmoji[code] || '🌡️';
+// ==================== АВТОРИЗАЦИЯ ====================
+var token = localStorage.getItem('token') || '';
+var currentUser = null;
+
+async function loadUser() {
+    if (!token) return;
+    try {
+        const res = await fetch('/api/user/me', { headers: { 'Authorization': 'Bearer ' + token } });
+        if (res.ok) {
+            currentUser = await res.json();
+            document.getElementById('userInfo').style.display = 'inline';
+            document.getElementById('userEmail').textContent = currentUser.email;
+            document.getElementById('loginBtn').style.display = 'none';
+        } else {
+            logout();
+        }
+    } catch(e) {}
 }
+
+function logout() {
+    token = '';
+    currentUser = null;
+    localStorage.removeItem('token');
+    document.getElementById('userInfo').style.display = 'none';
+    document.getElementById('loginBtn').style.display = 'inline';
+    allFavorites = [];
+}
+
+// ==================== МОДАЛЬНОЕ ОКНО ====================
+var modal = document.getElementById('authModal');
+var closeModal = document.querySelector('.close-modal');
+var isRegister = false;
+
+document.getElementById('loginBtn').onclick = () => { modal.classList.remove('hidden'); };
+closeModal.onclick = () => { modal.classList.add('hidden'); };
+
+document.getElementById('toggleMode').onclick = function(e) {
+    e.preventDefault();
+    isRegister = !isRegister;
+    document.getElementById('modalTitle').textContent = isRegister ? 'Регистрация' : 'Вход';
+    document.getElementById('authSubmitBtn').textContent = isRegister ? 'Зарегистрироваться' : 'Войти';
+    document.getElementById('authToggle').innerHTML = isRegister
+        ? 'Уже есть аккаунт? <a href="#" id="toggleMode">Войти</a>'
+        : 'Нет аккаунта? <a href="#" id="toggleMode">Зарегистрироваться</a>';
+    document.getElementById('toggleMode').onclick = arguments.callee;
+};
+
+document.getElementById('authForm').onsubmit = async function(e) {
+    e.preventDefault();
+    const email = document.getElementById('authEmail').value;
+    const password = document.getElementById('authPassword').value;
+    const url = isRegister ? '/api/auth/register' : '/api/auth/login';
+    const res = await fetch(url, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({email, password})
+    });
+    const data = await res.json();
+    if (data.ok) {
+        if (!isRegister) {
+            token = data.token;
+            localStorage.setItem('token', token);
+            await loadUser();
+        } else {
+            alert('Регистрация успешна! Теперь войдите.');
+            isRegister = false;
+            document.getElementById('modalTitle').textContent = 'Вход';
+            document.getElementById('authSubmitBtn').textContent = 'Войти';
+            document.getElementById('authToggle').innerHTML = 'Нет аккаунта? <a href="#" id="toggleMode">Зарегистрироваться</a>';
+            document.getElementById('toggleMode').onclick = arguments.callee;
+        }
+        modal.classList.add('hidden');
+        document.getElementById('authError').textContent = '';
+        loadAll();
+    } else {
+        document.getElementById('authError').textContent = data.detail || 'Ошибка';
+    }
+};
+
+document.getElementById('logoutBtn').onclick = function() { logout(); loadAll(); };
 
 // ==================== ФОРМАТИРОВАНИЕ ДАТ ====================
 var DAYS = ['Вс', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб'];
 var MONTHS = ['янв', 'фев', 'мар', 'апр', 'мая', 'июн', 'июл', 'авг', 'сен', 'окт', 'ноя', 'дек'];
-
-function formatDay(date) {
-  return DAYS[date.getDay()] + ' ' + date.getDate() + ' ' + MONTHS[date.getMonth()];
-}
-
-function isToday(date) {
-  var today = new Date();
-  return date.getDate() === today.getDate() &&
-         date.getMonth() === today.getMonth() &&
-         date.getFullYear() === today.getFullYear();
-}
+function formatDay(date) { return DAYS[date.getDay()] + ' ' + date.getDate() + ' ' + MONTHS[date.getMonth()]; }
+function isToday(date) { var today = new Date(); return date.getDate() === today.getDate() && date.getMonth() === today.getMonth() && date.getFullYear() === today.getFullYear(); }
 
 // ==================== ФУНКЦИИ ТАЙМЕРА ====================
 function formatTimerText(ms) {
@@ -37,9 +107,7 @@ function formatTimerText(ms) {
   var s = sec % 60;
   var pad = function(n) { return n < 10 ? '0' + n : '' + n; };
   var word = d === 1 ? 'день' : d < 5 ? 'дня' : 'дней';
-  if (d > 0) {
-    return { text: d + ' ' + word + ' ' + pad(h) + ':' + pad(m) + ':' + pad(s), ready: false };
-  }
+  if (d > 0) return { text: d + ' ' + word + ' ' + pad(h) + ':' + pad(m) + ':' + pad(s), ready: false };
   return { text: pad(h) + ':' + pad(m) + ':' + pad(s), ready: false };
 }
 
@@ -47,29 +115,24 @@ function formatTimerText(ms) {
 function processWeatherData(result) {
   var park = result.park;
   var forecastData = result.forecast;
-
-  // ИСПРАВЛЕНИЕ: dryTarget теперь число (timestamp ms), не нужен new Date()
   var data = {
     name: park.name,
     lat: park.lat,
     lon: park.lon,
     soilStatus: park.soilStatus || 'Нет данных',
-    dryTarget: park.dryTarget || null,  // число или null
+    dryTarget: park.dryTarget || null,
     rain_total: park.rain_total || 0,
     currentTemp: null,
     currentCode: null,
     hourly: [],
-    daily: []
+    daily: [],
+    parkId: park.id
   };
 
   if (!forecastData) return data;
 
   var hourly = forecastData.hourly || {};
-  var hTimes = hourly.time || [];
-  var hTemps = hourly.temperature_2m || [];
-  var hCodes = hourly.weather_code || [];
-  var hRains = hourly.rain || [];
-
+  var hTimes = hourly.time || [], hTemps = hourly.temperature_2m || [], hCodes = hourly.weather_code || [], hRains = hourly.rain || [];
   data.hourly = [];
   for (var i = 0; i < Math.min(6, hTimes.length); i++) {
     data.hourly.push({
@@ -80,74 +143,83 @@ function processWeatherData(result) {
       isNow: i === 0
     });
   }
-
   if (data.hourly.length > 0) {
     data.currentTemp = data.hourly[0].temp;
     data.currentCode = data.hourly[0].code;
   }
 
   var daily = forecastData.daily || {};
-  var dTimes = daily.time || [];
-  var dMax = daily.temperature_2m_max || [];
-  var dRain = daily.rain_sum || [];
-  var dCodes = daily.weather_code || [];
-
+  var dTimes = daily.time || [], dMax = daily.temperature_2m_max || [], dRain = daily.rain_sum || [], dCodes = daily.weather_code || [];
   data.daily = [];
-  var today = new Date();
-  today.setHours(0, 0, 0, 0);
-
+  var today = new Date(); today.setHours(0,0,0,0);
   for (var i = 0; i < dTimes.length; i++) {
     var date = new Date(dTimes[i]);
     if (date >= today) {
-      data.daily.push({
-        date: date,
-        temp: Math.round(dMax[i] || 0),
-        rain: dRain[i] || 0,
-        code: dCodes[i] || null,
-        isToday: isToday(date)
-      });
+      data.daily.push({ date: date, temp: Math.round(dMax[i] || 0), rain: dRain[i] || 0, code: dCodes[i] || null, isToday: isToday(date) });
     }
   }
-
   return data;
 }
 
 // ==================== ЗАГРУЗКА ДАННЫХ ====================
 var currentGroup = 'mtb_parks';
+var allFavorites = [];
+
+async function loadFavorites() {
+    if (!currentUser) return;
+    const res = await fetch('/api/user/favorites', { headers: { 'Authorization': 'Bearer ' + token } });
+    if (res.ok) {
+        allFavorites = (await res.json()).map(f => f.id);
+    }
+}
+
+async function loadAllGroupsFiltered() {
+    var allGroups = ['mtb_parks', 'mtb_mountains', 'pamps'];
+    var allResults = [];
+    for (var g of allGroups) {
+        let resp = await fetch('/api/weather/' + g);
+        if (resp.ok) {
+            let data = await resp.json();
+            allResults = allResults.concat(data);
+        }
+    }
+    var filtered = allResults.filter(r => allFavorites.includes(r.park.id));
+    var parkDataArray = filtered.map(processWeatherData);
+    renderAll(parkDataArray);
+}
 
 function loadAll() {
   var dashboard = document.getElementById('dashboard');
   dashboard.innerHTML = '<div class="loading">⏳ Загрузка данных...</div>';
 
+  if (currentGroup === 'favorites') {
+      if (!currentUser) {
+          dashboard.innerHTML = '<div class="loading">Войдите, чтобы увидеть избранные парки</div>';
+          return;
+      }
+      loadFavorites().then(() => {
+          if (allFavorites.length === 0) {
+              dashboard.innerHTML = '<div class="loading">У вас нет избранных парков</div>';
+              return;
+          }
+          loadAllGroupsFiltered();
+      });
+      return;
+  }
+
   var xhr = new XMLHttpRequest();
   xhr.open('GET', '/api/weather/' + currentGroup, true);
   xhr.timeout = 15000;
-
   xhr.onload = function() {
     if (xhr.status === 200) {
-      try {
-        var results = JSON.parse(xhr.responseText);
-        var parkDataArray = [];
-        for (var i = 0; i < results.length; i++) {
-          parkDataArray.push(processWeatherData(results[i]));
-        }
-        renderAll(parkDataArray);
-      } catch (e) {
-        dashboard.innerHTML = '<div class="loading">⚠️ Ошибка обработки данных</div>';
-      }
+      var results = JSON.parse(xhr.responseText);
+      var parkDataArray = results.map(processWeatherData);
+      renderAll(parkDataArray);
     } else {
-      dashboard.innerHTML = '<div class="loading">⚠️ Ошибка сервера: ' + xhr.status + '</div>';
+      dashboard.innerHTML = '<div class="loading">⚠️ Ошибка сервера</div>';
     }
   };
-
-  xhr.onerror = function() {
-    dashboard.innerHTML = '<div class="loading">⚠️ Нет соединения с сервером</div>';
-  };
-
-  xhr.ontimeout = function() {
-    dashboard.innerHTML = '<div class="loading">⏰ Превышено время ожидания</div>';
-  };
-
+  xhr.onerror = function() { dashboard.innerHTML = '<div class="loading">⚠️ Нет соединения</div>'; };
   xhr.send();
 }
 
@@ -155,28 +227,23 @@ function loadAll() {
 function renderAll(parkDataArray) {
   var dashboard = document.getElementById('dashboard');
   var html = '';
-
   for (var i = 0; i < parkDataArray.length; i++) {
     var park = parkDataArray[i];
-
+    var isFav = allFavorites.includes(park.parkId);
     html += '<div class="card">';
-    html += '<div class="park-title">' + park.name + ' <span class="coords">' + park.lat.toFixed(4) + ', ' + park.lon.toFixed(4) + '</span></div>';
-
-    html += '<div class="current-weather">';
-    html += '<span class="weather-emoji">' + getEmoji(park.currentCode) + '</span>';
-    html += '<span><span class="temp-value">' + (park.currentTemp !== null ? park.currentTemp : '--') + '</span><span class="temp-degree">°C</span></span>';
+    html += '<div class="park-title">' + park.name + ' <span class="coords">' + park.lat.toFixed(4) + ', ' + park.lon.toFixed(4) + '</span>';
+    if (currentUser) {
+        html += '<span class="fav-icon" data-park-id="' + park.parkId + '" style="cursor:pointer;">' + (isFav ? '❤️' : '🤍') + '</span>';
+    }
     html += '</div>';
 
-    html += '<div class="timer-section">';
-    html += '<div class="soil-status-badge">' + park.soilStatus + '</div>';
+    html += '<div class="current-weather"><span class="weather-emoji">' + getEmoji(park.currentCode) + '</span>';
+    html += '<span><span class="temp-value">' + (park.currentTemp !== null ? park.currentTemp : '--') + '</span><span class="temp-degree">°C</span></span></div>';
 
-    // ИСПРАВЛЕНИЕ: используем dryTarget напрямую (число миллисекунд)
+    html += '<div class="timer-section"><div class="soil-status-badge">' + park.soilStatus + '</div>';
     var rem = park.dryTarget ? (park.dryTarget - Date.now()) : 0;
     var timerResult = formatTimerText(rem > 0 ? rem : 0);
-    if (!timerResult.ready) {
-      html += '<div class="timer-display">' + timerResult.text + '</div>';
-    }
-
+    if (!timerResult.ready) html += '<div class="timer-display">' + timerResult.text + '</div>';
     html += '<div class="rain-amount ' + (park.rain_total > 0.5 ? 'wet' : 'dry') + '">Осадки за 7 д: ' + park.rain_total.toFixed(1) + ' мм</div>';
     html += '</div>';
 
@@ -217,12 +284,33 @@ function renderAll(parkDataArray) {
     }
     html += '</div>';
 
-    html += '</div>';
+    html += '</div>'; // card
   }
-
   dashboard.innerHTML = html;
   window._parkData = parkDataArray;
   startLiveTimers();
+  attachFavListeners();
+}
+
+function attachFavListeners() {
+    if (!currentUser) return;
+    document.querySelectorAll('.fav-icon').forEach(el => {
+        el.onclick = async function() {
+            var parkId = this.dataset.parkId;
+            var isFav = allFavorites.includes(parkId);
+            var method = isFav ? 'DELETE' : 'POST';
+            var res = await fetch('/api/user/favorites/' + parkId, {
+                method: method,
+                headers: { 'Authorization': 'Bearer ' + token }
+            });
+            if (res.ok) {
+                if (isFav) allFavorites = allFavorites.filter(id => id !== parkId);
+                else allFavorites.push(parkId);
+                this.textContent = isFav ? '🤍' : '❤️';
+                if (currentGroup === 'favorites') loadAll();
+            }
+        };
+    });
 }
 
 // ==================== ЖИВЫЕ ТАЙМЕРЫ ====================
@@ -237,19 +325,14 @@ function startLiveTimers() {
       if (!parkName) continue;
       var park = null;
       for (var j = 0; j < window._parkData.length; j++) {
-        if (parkName.indexOf(window._parkData[j].name) >= 0) {
-          park = window._parkData[j];
-          break;
-        }
+        if (parkName.indexOf(window._parkData[j].name) >= 0) { park = window._parkData[j]; break; }
       }
       if (!park || !park.dryTarget) continue;
       var display = cards[i].querySelector('.timer-display');
       if (!display) continue;
       var rem = park.dryTarget - Date.now();
       var timerResult = formatTimerText(rem > 0 ? rem : 0);
-      if (!timerResult.ready) {
-        display.textContent = timerResult.text;
-      }
+      if (!timerResult.ready) display.textContent = timerResult.text;
     }
   }, 1000);
 }
@@ -259,30 +342,23 @@ function updateClock() {
   var el = document.getElementById('liveDateTime');
   if (!el) return;
   var now = new Date();
-  el.textContent = now.toLocaleDateString('ru-RU', {
-    day: 'numeric', month: 'long', year: 'numeric',
-    hour: '2-digit', minute: '2-digit', second: '2-digit',
-    timeZone: 'Europe/Moscow'
-  });
+  el.textContent = now.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit', timeZone: 'Europe/Moscow' });
 }
 setInterval(updateClock, 1000);
 updateClock();
 
-// ==================== КНОПКИ ГРУПП ====================
+// ==================== ГРУППЫ ====================
 document.querySelectorAll('.group-btn').forEach(function(btn) {
   btn.addEventListener('click', function() {
-    document.querySelectorAll('.group-btn').forEach(function(b) { b.classList.remove('active'); });
+    document.querySelectorAll('.group-btn').forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
     currentGroup = btn.getAttribute('data-group');
     loadAll();
   });
 });
 
-// ==================== КНОПКА ОБНОВЛЕНИЯ ====================
-document.getElementById('refreshBtn').addEventListener('click', function() {
-  loadAll();
-});
+document.getElementById('refreshBtn').addEventListener('click', loadAll);
 
-// ==================== СТАРТ ====================
-loadAll();
+// Старт
+loadUser().then(() => loadAll());
 setInterval(loadAll, 10 * 60 * 1000);

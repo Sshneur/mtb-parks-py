@@ -39,6 +39,13 @@ async def lifespan(app: FastAPI):
     from database.crud import seed_parks
     seed_parks()
     
+    # Применяем миграцию (добавляем таблицы пользователей)
+    try:
+        from migrations.add_users_and_favorites import migrate
+        migrate()
+    except Exception as e:
+        print(f"⚠️ Миграция пропущена: {e}")
+    
     # Запускаем планировщик обновлений в фоне
     import asyncio
     from updater import run_updater
@@ -74,18 +81,22 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Middleware для логирования всех запросов
-@app.middleware("http")
-async def log_requests(request: Request, call_next):
-    start_time = datetime.now()
-    response = await call_next(request)
-    duration = (datetime.now() - start_time).total_seconds()
-    logger.info(f"{request.method} {request.url.path} - {response.status_code} ({duration:.2f}с)")
-    return response
+# Middleware для логирования всех запросов (из middleware.py)
+from middleware import log_request
+app.middleware("http")(log_request)
 
 # API-роуты
 from api.weather_routes import router as weather_router
 app.include_router(weather_router)
+
+from api.auth_routes import router as auth_router
+app.include_router(auth_router)
+
+from api.user_routes import router as user_router
+app.include_router(user_router)
+
+from api.admin_routes import router as admin_router
+app.include_router(admin_router)
 
 # Раздача статики (фронтенд)
 static_path = _os.path.join(_os.path.dirname(__file__), "static")
