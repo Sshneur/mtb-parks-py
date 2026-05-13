@@ -95,6 +95,9 @@ app.include_router(auth_router)
 from api.user_routes import router as user_router
 app.include_router(user_router)
 
+from api.votes_routes import router as votes_router
+app.include_router(votes_router)
+
 from api.admin_routes import router as admin_router
 app.include_router(admin_router)
 

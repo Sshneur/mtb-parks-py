@@ -1,5 +1,3 @@
-"""Миграция: добавляет таблицы users, favorite_parks, request_log"""
-
 import sqlite3
 import os
 
@@ -9,7 +7,6 @@ def migrate():
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
 
-    # Таблица пользователей
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS users (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -19,8 +16,6 @@ def migrate():
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP
         )
     """)
-
-    # Таблица избранных парков
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS favorite_parks (
             user_id INTEGER,
@@ -30,8 +25,6 @@ def migrate():
             FOREIGN KEY (park_id) REFERENCES parks(id)
         )
     """)
-
-    # Таблица для логов запросов (метрики)
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS request_log (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -41,10 +34,20 @@ def migrate():
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP
         )
     """)
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS soil_votes (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            park_id TEXT NOT NULL,
+            vote INTEGER NOT NULL CHECK(vote BETWEEN 1 AND 5),
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE(user_id, park_id)
+        )
+    """)
 
     conn.commit()
     conn.close()
-    print("✅ Миграция выполнена: добавлены таблицы users, favorite_parks, request_log")
+    print("✅ Миграция выполнена: добавлены таблицы users, favorite_parks, request_log, soil_votes")
 
 if __name__ == "__main__":
     migrate()

@@ -13,6 +13,7 @@ function getEmoji(code) { return weatherEmoji[code] || '🌡️'; }
 // ==================== АВТОРИЗАЦИЯ ====================
 var token = localStorage.getItem('token') || '';
 var currentUser = null;
+var myVotes = {};
 
 async function loadUser() {
     if (!token) return;
@@ -32,6 +33,7 @@ async function loadUser() {
 function logout() {
     token = '';
     currentUser = null;
+    myVotes = {};
     localStorage.removeItem('token');
     document.getElementById('userInfo').style.display = 'none';
     document.getElementById('loginBtn').style.display = 'inline';
@@ -126,7 +128,10 @@ function processWeatherData(result) {
     currentCode: null,
     hourly: [],
     daily: [],
-    parkId: park.id
+    parkId: park.id,
+    avgVote: null,   // средняя оценка
+    voteCount: 0,    // количество голосов
+    myVote: null     // голос текущего пользователя
   };
 
   if (!forecastData) return data;
@@ -161,6 +166,11 @@ function processWeatherData(result) {
   return data;
 }
 
+function getVoteLabel(vote) {
+  const labels = {1: 'Болото', 2: 'Мокро', 3: 'Альденте', 4: 'Сухо', 5: 'Бетон'};
+  return labels[vote] || '';
+}
+
 // ==================== ЗАГРУЗКА ДАННЫХ ====================
 var currentGroup = 'mtb_parks';
 var allFavorites = [];
@@ -185,7 +195,30 @@ async function loadAllGroupsFiltered() {
     }
     var filtered = allResults.filter(r => allFavorites.includes(r.park.id));
     var parkDataArray = filtered.map(processWeatherData);
+    // загрузим голосование для избранного
+    await enrichWithVotes(parkDataArray);
     renderAll(parkDataArray);
+}
+
+async function enrichWithVotes(parkDataArray) {
+    // загружаем агрегированные голоса для всех парков
+    const votesRes = await fetch('/api/votes');
+    if (votesRes.ok) {
+        var allVotes = await votesRes.json();
+        for (var p of parkDataArray) {
+            p.avgVote = allVotes[p.parkId]?.avg || null;
+            p.voteCount = allVotes[p.parkId]?.count || 0;
+        }
+    }
+    if (currentUser) {
+        const myRes = await fetch('/api/vote/my', { headers: { 'Authorization': 'Bearer ' + token } });
+        if (myRes.ok) {
+            myVotes = await myRes.json();
+            for (var p of parkDataArray) {
+                p.myVote = myVotes[p.parkId] || null;
+            }
+        }
+    }
 }
 
 function loadAll() {
@@ -210,10 +243,11 @@ function loadAll() {
   var xhr = new XMLHttpRequest();
   xhr.open('GET', '/api/weather/' + currentGroup, true);
   xhr.timeout = 15000;
-  xhr.onload = function() {
+  xhr.onload = async function() {
     if (xhr.status === 200) {
       var results = JSON.parse(xhr.responseText);
       var parkDataArray = results.map(processWeatherData);
+      await enrichWithVotes(parkDataArray);
       renderAll(parkDataArray);
     } else {
       dashboard.innerHTML = '<div class="loading">⚠️ Ошибка сервера</div>';
@@ -284,12 +318,55 @@ function renderAll(parkDataArray) {
     }
     html += '</div>';
 
+    // Виджет голосования
+    html += '<div class="vote-widget">';
+    if (park.avgVote !== null) {
+        html += '<div class="vote-result">Оценка: ' + park.avgVote.toFixed(1) + ' (' + getVoteLabel(Math.round(park.avgVote)) + '), голосов: ' + park.voteCount + '</div>';
+        html += '<div class="avg-bar"><div class="avg-fill" style="width:' + ((park.avgVote-1)/4*100) + '%"></div></div>';
+    } else {
+        html += '<div class="vote-result">Пока нет голосов</div>';
+    }
+    if (currentUser) {
+        html += '<input type="range" min="1" max="5" step="1" value="' + (park.myVote || 3) + '" class="vote-slider" data-park-id="' + park.parkId + '">';
+        html += '<div class="vote-labels"><span>Болото</span><span>Мокро</span><span>Альденте</span><span>Сухо</span><span>Бетон</span></div>';
+    }
+    html += '</div>';
+
     html += '</div>'; // card
   }
   dashboard.innerHTML = html;
   window._parkData = parkDataArray;
   startLiveTimers();
   attachFavListeners();
+  attachVoteListeners();
+}
+
+function attachVoteListeners() {
+    if (!currentUser) return;
+    document.querySelectorAll('.vote-slider').forEach(slider => {
+        slider.addEventListener('change', async function() {
+            const parkId = this.dataset.parkId;
+            const vote = parseInt(this.value);
+            const res = await fetch('/api/vote/' + parkId, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+                body: JSON.stringify({ vote: vote })
+            });
+            if (res.ok) {
+                const data = await res.json();
+                myVotes[parkId] = vote;
+                const card = this.closest('.card');
+                const resultDiv = card.querySelector('.vote-result');
+                if (resultDiv) {
+                    resultDiv.textContent = 'Оценка: ' + data.new_avg.toFixed(1) + ' (' + getVoteLabel(Math.round(data.new_avg)) + '), голосов: ' + data.vote_count;
+                }
+                const fillBar = card.querySelector('.avg-fill');
+                if (fillBar) {
+                    fillBar.style.width = ((data.new_avg - 1) / 4 * 100) + '%';
+                }
+            }
+        });
+    });
 }
 
 function attachFavListeners() {

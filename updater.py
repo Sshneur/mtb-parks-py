@@ -52,6 +52,7 @@ async def initialize_park(park: dict):
         return
     
     _recalculate_moisture(park)
+    await _reset_votes_if_rain(park["id"])
 
 
 async def update_forecast(park: dict):
@@ -96,6 +97,7 @@ async def update_forecast(park: dict):
         return
     
     _recalculate_moisture(park)
+    await _reset_votes_if_rain(park_id)
 
 
 def _recalculate_moisture(park: dict):
@@ -130,6 +132,27 @@ def _recalculate_moisture(park: dict):
     print(f"  💧 {park['name']}: W={result['current_moisture']:.3f}, "
           f"dry={result['dry_hours']:.1f}h, rain={result['total_rain']:.1f}mm, "
           f"status={status}")
+
+
+async def _reset_votes_if_rain(park_id: str):
+    """Сбрасывает все голоса для парка, если за последние 24 часа были осадки."""
+    conn = get_connection()
+    try:
+        now = datetime.now(timezone.utc)
+        since = now - timedelta(hours=24)
+        rain = conn.execute(
+            "SELECT SUM(rain) FROM weather_hourly WHERE park_id = ? AND timestamp >= ?",
+            (park_id, since.isoformat())
+        ).fetchone()[0]
+        if rain and rain > 0:
+            conn.execute("DELETE FROM soil_votes WHERE park_id = ?", (park_id,))
+            conn.commit()
+            print(f"  🗳️ {park_id}: голоса сброшены из-за дождя ({rain:.1f} мм за 24ч)")
+            log_update(park_id, "votes_reset", "success", f"Дождь {rain:.1f} мм, голоса сброшены")
+    except Exception as e:
+        print(f"  ⚠️ Ошибка при сбросе голосов для {park_id}: {e}")
+    finally:
+        conn.close()
 
 
 async def daily_history_update():
@@ -169,6 +192,7 @@ async def daily_history_update():
             log_update(park["id"], "history_daily", "failed", str(e))
         
         _recalculate_moisture(park)
+        await _reset_votes_if_rain(park["id"])
 
 
 async def run_updater():
@@ -183,9 +207,8 @@ async def run_updater():
         else:
             await update_forecast(park)
     
-        print(f"✅ Инициализация завершена. Начинаю обновление прогноза...")
+    print(f"✅ Инициализация завершена. Начинаю обновление прогноза...")
     
-    # ПЕРВОЕ обновление сразу после инициализации (без ожидания 30 минут)
     parks = get_all_parks()
     for park in parks:
         await update_forecast(park)
@@ -196,13 +219,12 @@ async def run_updater():
     
     while True:
         now = datetime.now(timezone.utc)
-        # Ежедневное обновление факта в 01:00 UTC
         if now.date() > last_daily_update and now.hour >= 1:
             print("📅 Запуск ежедневного обновления фактических данных...")
             await daily_history_update()
             last_daily_update = now.date()
         
-        await asyncio.sleep(1800)  # 30 минут
+        await asyncio.sleep(1800)
         
         parks = get_all_parks()
         for park in parks:
