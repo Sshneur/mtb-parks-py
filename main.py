@@ -1,6 +1,7 @@
 from fastapi import FastAPI, Request
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from dotenv import load_dotenv
 from contextlib import asynccontextmanager
 import uvicorn
@@ -73,6 +74,15 @@ app = FastAPI(
     lifespan=lifespan
 )
 
+# Rate Limiter
+from slowapi.errors import RateLimitExceeded
+from api.limiter import limiter
+app.state.limiter = limiter
+
+@app.exception_handler(RateLimitExceeded)
+async def rate_limit_handler(request: Request, exc: RateLimitExceeded):
+    return JSONResponse(status_code=429, content={"detail": "Слишком много запросов. Подождите."})
+
 # CORS
 app.add_middleware(
     CORSMiddleware,
@@ -95,11 +105,11 @@ app.include_router(auth_router)
 from api.user_routes import router as user_router
 app.include_router(user_router)
 
-from api.votes_routes import router as votes_router
-app.include_router(votes_router)
-
 from api.admin_routes import router as admin_router
 app.include_router(admin_router)
+
+from api.votes_routes import router as votes_router
+app.include_router(votes_router)
 
 # Раздача статики (фронтенд)
 static_path = _os.path.join(_os.path.dirname(__file__), "static")

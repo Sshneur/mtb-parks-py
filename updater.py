@@ -135,20 +135,33 @@ def _recalculate_moisture(park: dict):
 
 
 async def _reset_votes_if_rain(park_id: str):
-    """Сбрасывает все голоса для парка, если за последние 24 часа были осадки."""
+    """Сбрасывает голоса для парка ОДИН раз после начала нового дождя (за 24ч)."""
     conn = get_connection()
     try:
         now = datetime.now(timezone.utc)
         since = now - timedelta(hours=24)
-        rain = conn.execute(
-            "SELECT SUM(rain) FROM weather_hourly WHERE park_id = ? AND timestamp >= ?",
+
+        # Последний час с дождём за 24 часа
+        last_rain = conn.execute(
+            "SELECT MAX(timestamp) FROM weather_hourly WHERE park_id = ? AND timestamp >= ? AND rain > 0",
             (park_id, since.isoformat())
         ).fetchone()[0]
-        if rain and rain > 0:
+
+        if not last_rain:
+            return  # дождя не было
+
+        # Когда был предыдущий сброс для этого парка?
+        last_reset = conn.execute(
+            "SELECT last_vote_reset FROM parks WHERE id = ?", (park_id,)
+        ).fetchone()[0]
+
+        # Если last_rain новее, чем last_reset (или last_reset пуст) – сбрасываем
+        if last_reset is None or last_rain > last_reset:
             conn.execute("DELETE FROM soil_votes WHERE park_id = ?", (park_id,))
+            conn.execute("UPDATE parks SET last_vote_reset = ? WHERE id = ?", (last_rain, park_id))
             conn.commit()
-            print(f"  🗳️ {park_id}: голоса сброшены из-за дождя ({rain:.1f} мм за 24ч)")
-            log_update(park_id, "votes_reset", "success", f"Дождь {rain:.1f} мм, голоса сброшены")
+            print(f"  🗳️ {park_id}: голоса сброшены из-за дождя (последний дождь {last_rain})")
+            log_update(park_id, "votes_reset", "success", f"Дождь {last_rain}, голоса сброшены")
     except Exception as e:
         print(f"  ⚠️ Ошибка при сбросе голосов для {park_id}: {e}")
     finally:

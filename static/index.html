@@ -18,12 +18,36 @@
   .modal-content { background: white; padding: 20px; border-radius: 8px; min-width: 300px; position: relative; }
   .close-modal { position: absolute; top: 8px; right: 12px; cursor: pointer; font-size: 20px; }
   .error { color: red; margin-top: 8px; }
-  .vote-widget { margin-top: 10px; }
-  .vote-slider { width: 100%; margin: 4px 0; }
-  .vote-labels { display: flex; justify-content: space-between; font-size: 11px; color: #888; padding: 0 2px; }
-  .vote-result { margin-top: 4px; font-size: 13px; }
-  .avg-bar { height: 8px; background: #e0e0e0; border-radius: 4px; margin: 4px 0; position: relative; }
+  .vote-widget { margin-top: 12px; }
+  .vote-result { font-size: 14px; margin-bottom: 6px; }
+  .avg-bar { height: 8px; background: #e0e0e0; border-radius: 4px; margin: 4px 0 8px; }
   .avg-fill { height: 100%; border-radius: 4px; background: linear-gradient(to right, #8b5e3c, #4caf50); }
+  .vote-options { display: flex; justify-content: space-between; gap: 6px; }
+  .vote-option {
+  display: flex; flex-direction: column; align-items: center;
+  cursor: pointer; padding: 6px 8px; border-radius: 8px;
+  border: 2px solid transparent; transition: all 0.2s;
+  font-size: 12px; text-align: center;
+}
+  .vote-option:hover {
+  background: transparent;  /* или просто убери эту строку */
+}
+  .vote-option.selected {
+  border-color: rgba(74, 144, 226, 0.25);  /* такой же цвет, как у карточки */
+  background: transparent;
+}
+  .vote-emoji { font-size: 22px; }
+  .fav-icon {
+  color: #aaa;          /* светло-серый контур для ♡ */
+  font-size: 20px;
+  cursor: pointer;
+  transition: color 0.2s;
+  vertical-align: middle;
+  margin-left: 6px;
+}
+.fav-icon.active {
+  color: #e74c3c;       /* красный для ♥ */
+}
 </style>
 </head>
 <body>

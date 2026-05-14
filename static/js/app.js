@@ -267,7 +267,7 @@ function renderAll(parkDataArray) {
     html += '<div class="card">';
     html += '<div class="park-title">' + park.name + ' <span class="coords">' + park.lat.toFixed(4) + ', ' + park.lon.toFixed(4) + '</span>';
     if (currentUser) {
-        html += '<span class="fav-icon" data-park-id="' + park.parkId + '" style="cursor:pointer;">' + (isFav ? '❤️' : '🤍') + '</span>';
+       html += '<span class="fav-icon' + (isFav ? ' active' : '') + '" data-park-id="' + park.parkId + '">' + (isFav ? '♥' : '♡') + '</span>';
     }
     html += '</div>';
 
@@ -327,8 +327,16 @@ function renderAll(parkDataArray) {
         html += '<div class="vote-result">Пока нет голосов</div>';
     }
     if (currentUser) {
-        html += '<input type="range" min="1" max="5" step="1" value="' + (park.myVote || 3) + '" class="vote-slider" data-park-id="' + park.parkId + '">';
-        html += '<div class="vote-labels"><span>Болото</span><span>Мокро</span><span>Альденте</span><span>Сухо</span><span>Бетон</span></div>';
+        html += '<div class="vote-options">';
+        var labels = ['🌿', '💧', '🌵', '✅', '🪨'];
+        var titles = ['Болото', 'Мокро', 'Альденте', 'Сухо', 'Бетон'];
+        for (var v = 1; v <= 5; v++) {
+            html += '<div class="vote-option' + (park.myVote === v ? ' selected' : '') + '" data-vote="' + v + '" data-park-id="' + park.parkId + '">';
+            html += '<span class="vote-emoji">' + labels[v-1] + '</span>';
+            html += '<span>' + titles[v-1] + '</span>';
+            html += '</div>';
+        }
+        html += '</div>';
     }
     html += '</div>';
 
@@ -343,10 +351,13 @@ function renderAll(parkDataArray) {
 
 function attachVoteListeners() {
     if (!currentUser) return;
-    document.querySelectorAll('.vote-slider').forEach(slider => {
-        slider.addEventListener('change', async function() {
+    document.querySelectorAll('.vote-option').forEach(option => {
+        option.addEventListener('click', async function() {
             const parkId = this.dataset.parkId;
-            const vote = parseInt(this.value);
+            const vote = parseInt(this.dataset.vote);
+            const card = this.closest('.card');
+            card.querySelectorAll('.vote-option').forEach(opt => opt.classList.remove('selected'));
+            this.classList.add('selected');
             const res = await fetch('/api/vote/' + parkId, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
@@ -355,7 +366,6 @@ function attachVoteListeners() {
             if (res.ok) {
                 const data = await res.json();
                 myVotes[parkId] = vote;
-                const card = this.closest('.card');
                 const resultDiv = card.querySelector('.vote-result');
                 if (resultDiv) {
                     resultDiv.textContent = 'Оценка: ' + data.new_avg.toFixed(1) + ' (' + getVoteLabel(Math.round(data.new_avg)) + '), голосов: ' + data.vote_count;
@@ -381,9 +391,15 @@ function attachFavListeners() {
                 headers: { 'Authorization': 'Bearer ' + token }
             });
             if (res.ok) {
-                if (isFav) allFavorites = allFavorites.filter(id => id !== parkId);
-                else allFavorites.push(parkId);
-                this.textContent = isFav ? '🤍' : '❤️';
+                if (isFav) {
+    allFavorites = allFavorites.filter(id => id !== parkId);
+    this.classList.remove('active');
+    this.textContent = '♡';
+} else {
+    allFavorites.push(parkId);
+    this.classList.add('active');
+    this.textContent = '♥';
+}
                 if (currentGroup === 'favorites') loadAll();
             }
         };
