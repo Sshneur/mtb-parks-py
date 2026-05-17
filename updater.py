@@ -171,12 +171,11 @@ async def _reset_votes_if_rain(park_id: str):
 async def recent_history_update(hours_back: int = 6):
     """Запрашивает фактические данные за последние hours_back часов (с округлением до полного дня)."""
     parks = get_all_parks()
-    # Запрашиваем вчерашний день (архив отдаёт данные за полные дни)
     target_date = (datetime.now(timezone.utc) - timedelta(days=1)).strftime("%Y-%m-%d")
     
     for park in parks:
         try:
-            history = await get_history(park["lat"], park["lon"], days=1)  # за вчерашний день
+            history = await get_history(park["lat"], park["lon"], days=1)
             if history and history.get("hourly"):
                 hourly = history["hourly"]
                 times = hourly.get("time", [])
@@ -187,8 +186,10 @@ async def recent_history_update(hours_back: int = 6):
                 
                 count = 0
                 for i, t in enumerate(times):
-                    # Проверяем, что час попадает в окно последних hours_back часов
+                    # Правильная обработка временных меток
                     ts = datetime.fromisoformat(t.replace("Z", "+00:00"))
+                    if ts.tzinfo is None:
+                        ts = ts.replace(tzinfo=timezone.utc)
                     if (datetime.now(timezone.utc) - ts).total_seconds() <= hours_back * 3600:
                         inserted = insert_weather_hourly(
                             park_id=park["id"],
@@ -231,20 +232,23 @@ async def run_updater():
     for park in parks:
         await update_forecast(park)
     
-    print(f"🔄 Первичное обновление завершено. Далее каждые 30 минут.")
+        print(f"🔄 Первичное обновление завершено. Далее каждые 30 минут.")
+    
+    # Первый запрос фактических данных сразу после старта
+    print("📅 Немедленный запуск обновления фактических данных...")
+    await recent_history_update(hours_back=6)
     
     # Запоминаем время последнего обновления фактических данных
     last_recent_update = datetime.now(timezone.utc)
     
     while True:
         now = datetime.now(timezone.utc)
-        # Каждые 6 часов обновляем фактические данные
-        if (now - last_recent_update).total_seconds() >= 21600:  # 21600 сек = 6 часов
+        if (now - last_recent_update).total_seconds() >= 21600:
             print("📅 Запуск обновления фактических данных (каждые 6 часов)...")
             await recent_history_update(hours_back=6)
             last_recent_update = now
         
-        await asyncio.sleep(1800)  # 30 минут
+        await asyncio.sleep(1800)
         
         parks = get_all_parks()
         for park in parks:
