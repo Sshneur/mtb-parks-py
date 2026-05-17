@@ -141,7 +141,6 @@ async def _reset_votes_if_rain(park_id: str):
         now = datetime.now(timezone.utc)
         since = now - timedelta(hours=24)
 
-        # Последний час с дождём за 24 часа
         last_rain = conn.execute(
             "SELECT MAX(timestamp) FROM weather_hourly WHERE park_id = ? AND timestamp >= ? AND rain > 0",
             (park_id, since.isoformat())
@@ -150,12 +149,10 @@ async def _reset_votes_if_rain(park_id: str):
         if not last_rain:
             return
 
-        # Когда был предыдущий сброс для этого парка?
         last_reset = conn.execute(
             "SELECT last_vote_reset FROM parks WHERE id = ?", (park_id,)
         ).fetchone()[0]
 
-        # Если last_rain новее, чем last_reset (или last_reset пуст) – сбрасываем
         if last_reset is None or last_rain > last_reset:
             conn.execute("DELETE FROM soil_votes WHERE park_id = ?", (park_id,))
             conn.execute("UPDATE parks SET last_vote_reset = ? WHERE id = ?", (last_rain, park_id))
@@ -169,9 +166,8 @@ async def _reset_votes_if_rain(park_id: str):
 
 
 async def recent_history_update(hours_back: int = 6):
-    """Запрашивает фактические данные за последние hours_back часов (с округлением до полного дня)."""
+    """Запрашивает фактические данные за последние hours_back часов."""
     parks = get_all_parks()
-    target_date = (datetime.now(timezone.utc) - timedelta(days=1)).strftime("%Y-%m-%d")
     
     for park in parks:
         try:
@@ -186,7 +182,6 @@ async def recent_history_update(hours_back: int = 6):
                 
                 count = 0
                 for i, t in enumerate(times):
-                    # Правильная обработка временных меток
                     ts = datetime.fromisoformat(t.replace("Z", "+00:00"))
                     if ts.tzinfo is None:
                         ts = ts.replace(tzinfo=timezone.utc)
@@ -232,13 +227,11 @@ async def run_updater():
     for park in parks:
         await update_forecast(park)
     
-        print(f"🔄 Первичное обновление завершено. Далее каждые 30 минут.")
+    print(f"🔄 Первичное обновление завершено. Далее каждые 30 минут.")
     
-    # Первый запрос фактических данных сразу после старта
     print("📅 Немедленный запуск обновления фактических данных...")
     await recent_history_update(hours_back=6)
     
-    # Запоминаем время последнего обновления фактических данных
     last_recent_update = datetime.now(timezone.utc)
     
     while True:
