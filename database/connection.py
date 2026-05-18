@@ -1,7 +1,7 @@
 import sqlite3
 import os
 
-DB_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "weather.db")
+DB_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data", "weather.db")
 
 
 def get_connection():
@@ -14,7 +14,7 @@ def get_connection():
 
 
 def init_db():
-    """Создаёт все таблицы, если их нет"""
+    """Создаёт все таблицы, если их нет, и добавляет недостающие колонки"""
     conn = get_connection()
     cursor = conn.cursor()
 
@@ -62,6 +62,17 @@ def init_db():
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP
         );
     """)
+
+    # Добавляем новые колонки, если их ещё нет
+    try:
+        cursor.execute("ALTER TABLE weather_hourly ADD COLUMN relative_humidity REAL")
+    except sqlite3.OperationalError:
+        pass  # колонка уже есть
+
+    try:
+        cursor.execute("ALTER TABLE weather_hourly ADD COLUMN surface_pressure REAL")
+    except sqlite3.OperationalError:
+        pass
 
     conn.commit()
     conn.close()

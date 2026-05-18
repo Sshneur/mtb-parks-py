@@ -24,6 +24,8 @@ async def initialize_park(park: dict):
             rains = hourly.get("rain", [])
             winds = hourly.get("wind_speed_10m", [])
             rads = hourly.get("shortwave_radiation", [])
+            rel_hums = hourly.get("relativehumidity_2m", [])
+            pressures = hourly.get("surface_pressure", [])
             
             count = 0
             for i, t in enumerate(times):
@@ -34,7 +36,9 @@ async def initialize_park(park: dict):
                     rain=rains[i] if i < len(rains) else 0,
                     wind_speed=winds[i] if i < len(winds) else None,
                     radiation=rads[i] if i < len(rads) else None,
-                    source="history"
+                    source="history",
+                    relative_humidity=rel_hums[i] if i < len(rel_hums) else None,
+                    surface_pressure=pressures[i] if i < len(pressures) else None
                 )
                 if inserted:
                     count += 1
@@ -52,7 +56,6 @@ async def initialize_park(park: dict):
         return
     
     _recalculate_moisture(park)
-    await _reset_votes_if_rain(park["id"])
 
 
 async def update_forecast(park: dict):
@@ -69,6 +72,8 @@ async def update_forecast(park: dict):
             rains = hourly.get("rain", [])
             winds = hourly.get("wind_speed_10m", [])
             rads = hourly.get("shortwave_radiation", [])
+            rel_hums = hourly.get("relativehumidity_2m", [])
+            pressures = hourly.get("surface_pressure", [])
             
             count = 0
             for i, t in enumerate(times):
@@ -79,7 +84,9 @@ async def update_forecast(park: dict):
                     rain=rains[i] if i < len(rains) else 0,
                     wind_speed=winds[i] if i < len(winds) else None,
                     radiation=rads[i] if i < len(rads) else None,
-                    source="forecast"
+                    source="forecast",
+                    relative_humidity=rel_hums[i] if i < len(rel_hums) else None,
+                    surface_pressure=pressures[i] if i < len(pressures) else None
                 )
                 if inserted:
                     count += 1
@@ -97,7 +104,6 @@ async def update_forecast(park: dict):
         return
     
     _recalculate_moisture(park)
-    await _reset_votes_if_rain(park_id)
 
 
 def _recalculate_moisture(park: dict):
@@ -134,40 +140,6 @@ def _recalculate_moisture(park: dict):
           f"status={status}")
 
 
-async def _reset_votes_if_rain(park_id: str):
-    """Сбрасывает голоса для парка ОДИН раз после начала нового дождя (за 24ч)."""
-    conn = get_connection()
-    try:
-        now = datetime.now(timezone.utc)
-        since = now - timedelta(hours=24)
-
-        # Последний час с дождём за 24 часа
-        last_rain = conn.execute(
-            "SELECT MAX(timestamp) FROM weather_hourly WHERE park_id = ? AND timestamp >= ? AND rain > 0",
-            (park_id, since.isoformat())
-        ).fetchone()[0]
-
-        if not last_rain:
-            return  # дождя не было
-
-        # Когда был предыдущий сброс для этого парка?
-        last_reset = conn.execute(
-            "SELECT last_vote_reset FROM parks WHERE id = ?", (park_id,)
-        ).fetchone()[0]
-
-        # Если last_rain новее, чем last_reset (или last_reset пуст) – сбрасываем
-        if last_reset is None or last_rain > last_reset:
-            conn.execute("DELETE FROM soil_votes WHERE park_id = ?", (park_id,))
-            conn.execute("UPDATE parks SET last_vote_reset = ? WHERE id = ?", (last_rain, park_id))
-            conn.commit()
-            print(f"  🗳️ {park_id}: голоса сброшены из-за дождя (последний дождь {last_rain})")
-            log_update(park_id, "votes_reset", "success", f"Дождь {last_rain}, голоса сброшены")
-    except Exception as e:
-        print(f"  ⚠️ Ошибка при сбросе голосов для {park_id}: {e}")
-    finally:
-        conn.close()
-
-
 async def daily_history_update():
     """Раз в сутки запрашивает фактические данные за вчерашний день"""
     parks = get_all_parks()
@@ -183,6 +155,8 @@ async def daily_history_update():
                 rains = hourly.get("rain", [])
                 winds = hourly.get("wind_speed_10m", [])
                 rads = hourly.get("shortwave_radiation", [])
+                rel_hums = hourly.get("relativehumidity_2m", [])
+                pressures = hourly.get("surface_pressure", [])
                 
                 count = 0
                 for i, t in enumerate(times):
@@ -193,7 +167,9 @@ async def daily_history_update():
                         rain=rains[i] if i < len(rains) else 0,
                         wind_speed=winds[i] if i < len(winds) else None,
                         radiation=rads[i] if i < len(rads) else None,
-                        source="history"
+                        source="history",
+                        relative_humidity=rel_hums[i] if i < len(rel_hums) else None,
+                        surface_pressure=pressures[i] if i < len(pressures) else None
                     )
                     if inserted:
                         count += 1
@@ -205,7 +181,6 @@ async def daily_history_update():
             log_update(park["id"], "history_daily", "failed", str(e))
         
         _recalculate_moisture(park)
-        await _reset_votes_if_rain(park["id"])
 
 
 async def run_updater():
@@ -220,13 +195,7 @@ async def run_updater():
         else:
             await update_forecast(park)
     
-    print(f"✅ Инициализация завершена. Начинаю обновление прогноза...")
-    
-    parks = get_all_parks()
-    for park in parks:
-        await update_forecast(park)
-    
-    print(f"🔄 Первичное обновление завершено. Далее каждые 30 минут.")
+    print(f"✅ Инициализация завершена. Обновление каждые 30 минут.")
     
     last_daily_update = datetime.now(timezone.utc).date()
     
@@ -237,7 +206,7 @@ async def run_updater():
             await daily_history_update()
             last_daily_update = now.date()
         
-        await asyncio.sleep(1800)
+        await asyncio.sleep(1800)  # 30 минут
         
         parks = get_all_parks()
         for park in parks:

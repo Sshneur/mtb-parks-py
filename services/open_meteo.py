@@ -35,7 +35,7 @@ async def fetch_with_retry(url: str, retries: int = 3) -> Optional[dict]:
             await asyncio.sleep(1 * (i + 1))
 
 async def get_forecast(lat: float, lon: float) -> Optional[dict]:
-    """Почасовой прогноз на 3 дня (72 часа)"""
+    """Почасовой прогноз на 3 дня (72 часа) с добавленными параметрами"""
     cache_key = f"forecast_{lat:.4f}_{lon:.4f}"
     cached = get_from_cache(cache_key)
     if cached:
@@ -44,7 +44,7 @@ async def get_forecast(lat: float, lon: float) -> Optional[dict]:
     url = (
         f"https://api.open-meteo.com/v1/forecast"
         f"?latitude={lat}&longitude={lon}"
-        f"&hourly=temperature_2m,rain,wind_speed_10m,shortwave_radiation"
+        f"&hourly=temperature_2m,rain,wind_speed_10m,shortwave_radiation,relativehumidity_2m,surface_pressure"
         f"&daily=temperature_2m_max,rain_sum"
         f"&timezone=UTC&forecast_days=3"
     )
@@ -56,7 +56,7 @@ async def get_forecast(lat: float, lon: float) -> Optional[dict]:
     return data
 
 async def get_history(lat: float, lon: float, days: int = 30) -> Optional[dict]:
-    """Почасовая история за N дней"""
+    """Почасовая история за N дней с добавленными параметрами"""
     cache_key = f"history_{lat:.4f}_{lon:.4f}_{days}"
     cached = get_from_cache(cache_key)
     if cached:
@@ -70,7 +70,7 @@ async def get_history(lat: float, lon: float, days: int = 30) -> Optional[dict]:
         f"https://archive-api.open-meteo.com/v1/archive"
         f"?latitude={lat}&longitude={lon}"
         f"&start_date={start_date}&end_date={end_date}"
-        f"&hourly=temperature_2m,rain,wind_speed_10m,shortwave_radiation"
+        f"&hourly=temperature_2m,rain,wind_speed_10m,shortwave_radiation,relativehumidity_2m,surface_pressure"
         f"&timezone=UTC"
     )
     
