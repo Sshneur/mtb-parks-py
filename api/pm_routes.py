@@ -53,7 +53,6 @@ def _weather_code(temp, rain):
 
 
 def _build_forecast(forecast_data: list, hour_start: datetime, daily_data: dict = None) -> dict:
-    """Строит forecast: почасовой из переданных данных, дневной из daily_data (если есть)"""
     future_hours = []
     for h in forecast_data:
         t = _parse_time(h["timestamp"])
@@ -132,7 +131,6 @@ async def get_weather_pm(group_id: str):
                 W_max = 1.0
                 last_rain_time = None
                 total_rain = 0.0
-                recent_evaps = []  # для хранения испарений за последние 24 часа
 
                 for hour in all_data:
                     timestamp = _parse_time(hour["timestamp"])
@@ -165,29 +163,44 @@ async def get_weather_pm(group_id: str):
                         evap *= forest_coef
                         W = max(0.0, W - evap / 10)
 
-                        # запоминаем испарение, если час в пределах последних 24 часов
-                        if (now_utc - timestamp).total_seconds() <= 86400:
+                # ========== НОВОЕ: среднее испарение только за дневные часы последних 24 часов ==========
+                recent_evaps = []
+                for hour in all_data:
+                    timestamp = _parse_time(hour["timestamp"])
+                    if (now_utc - timestamp).total_seconds() <= 86400:
+                        hour_utc = timestamp.hour
+                        rad = hour.get("radiation") or 0
+                        # дневной час: радиация > 10 Вт/м² или время между 6 и 20 UTC
+                        if rad > 10 or (6 <= hour_utc <= 20):
+                            temp = hour.get("temperature") or 15
+                            wind = hour.get("wind_speed") or 0
+                            rel_hum = hour.get("relative_humidity") or 70.0
+                            press = hour.get("surface_pressure") or 1013.0
+                            evap = calc_pm_evaporation(
+                                temp_c=temp, wind_speed=wind, radiation=rad,
+                                relative_humidity=rel_hum, pressure_pa=press * 100,
+                                z0m=surf["z0m"], d=surf["d"], r_s=surf["r_s"]
+                            )
+                            evap *= forest_coef
                             recent_evaps.append(evap)
 
-                # Среднее испарение за последние 24 часа
                 if recent_evaps:
                     last_evap = sum(recent_evaps) / len(recent_evaps)
                 else:
                     last_evap = 0.001
+                # ========================================================================================
 
                 dry_hours = W / (last_evap / 10) if last_evap > 0 else 0
                 hours_since_rain = (now - last_rain_time).total_seconds() / 3600 if last_rain_time else None
                 is_asphalt = soil_type == "asphalt"
                 status = get_soil_status(total_rain, dry_hours, hours_since_rain, is_asphalt)
 
-                # Таймер
                 if dry_hours > 0:
                     dry_target_utc = now_utc + timedelta(hours=dry_hours)
                     dry_target_str = dry_target_utc.timestamp() * 1000
                 else:
                     dry_target_str = None
 
-                # Осадки за последние 7 дней
                 rain_7d = sum(
                     h.get("rain", 0) or 0
                     for h in all_data

@@ -39,6 +39,8 @@ async def lifespan(app: FastAPI):
     # Переносим парки если нужно
     from database.crud import seed_parks
     seed_parks()
+    from database.crud import apply_park_calibration
+    apply_park_calibration()
     
     # Применяем миграцию (добавляем таблицы пользователей)
     try:

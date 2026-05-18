@@ -173,7 +173,7 @@ function getVoteLabel(vote) {
 
 // ==================== ЗАГРУЗКА ДАННЫХ ====================
 var currentGroup = 'mtb_parks';
-var currentModel = 'standard'; // 'standard' или 'pm'
+var currentModel = 'standard';
 var allFavorites = [];
 
 async function loadFavorites() {
@@ -448,7 +448,7 @@ function updateClock() {
 setInterval(updateClock, 1000);
 updateClock();
 
-// Группы парков
+// ==================== ГРУППЫ ====================
 document.querySelectorAll('.group-btn').forEach(function(btn) {
   btn.addEventListener('click', function() {
     document.querySelectorAll('.group-btn').forEach(b => b.classList.remove('active'));

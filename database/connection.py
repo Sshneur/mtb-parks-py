@@ -63,7 +63,7 @@ def init_db():
         );
     """)
 
-    # Добавляем новые колонки, если их ещё нет
+    # Добавляем новые колонки для Пенмана-Монтейта, если их ещё нет
     try:
         cursor.execute("ALTER TABLE weather_hourly ADD COLUMN relative_humidity REAL")
     except sqlite3.OperationalError:
