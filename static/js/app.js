@@ -448,7 +448,7 @@ function updateClock() {
 setInterval(updateClock, 1000);
 updateClock();
 
-// ==================== ГРУППЫ ====================
+// Группы парков
 document.querySelectorAll('.group-btn').forEach(function(btn) {
   btn.addEventListener('click', function() {
     document.querySelectorAll('.group-btn').forEach(b => b.classList.remove('active'));

@@ -1,0 +1,35 @@
+from database.connection import get_connection
+from services.penman_monteith import calc_pm_evaporation
+
+conn = get_connection()
+rows = conn.execute("""
+    SELECT * FROM weather_hourly
+    WHERE park_id='erino'
+    ORDER BY timestamp ASC
+""").fetchall()
+conn.close()
+
+# Параметры поверхности для loam (менять не будем)
+surf = {"z0m": 0.015, "d": 0.1, "r_s": 200}
+
+print("forest_coef\tW")
+for coef in [0.15, 0.18, 0.20, 0.22, 0.25, 0.28, 0.30]:
+    W = 0.0
+    for hour in rows:
+        rain = hour['rain'] or 0.0
+        if rain > 0:
+            W = min(1.0, W + rain / 10.0)
+        else:
+            temp = hour['temperature'] or 15.0
+            wind = hour['wind_speed'] or 0.0
+            rad = hour['radiation'] or 0.0
+            rel_hum = hour['relative_humidity'] or 70.0
+            press = hour['surface_pressure'] or 1013.0
+            evap = calc_pm_evaporation(
+                temp_c=temp, wind_speed=wind, radiation=rad,
+                relative_humidity=rel_hum, pressure_pa=press * 100.0,
+                z0m=surf["z0m"], d=surf["d"], r_s=surf["r_s"]
+            )
+            # Применяем лесной коэффициент и переводим в единицы W
+            W = max(0.0, W - evap * coef / 10.0)
+    print(f"{coef:.2f}\t\t{W:.3f}")
