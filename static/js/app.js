@@ -129,9 +129,9 @@ function processWeatherData(result) {
     hourly: [],
     daily: [],
     parkId: park.id,
-    avgVote: null,   // средняя оценка
-    voteCount: 0,    // количество голосов
-    myVote: null     // голос текущего пользователя
+    avgVote: null,
+    voteCount: 0,
+    myVote: null
   };
 
   if (!forecastData) return data;
@@ -173,6 +173,7 @@ function getVoteLabel(vote) {
 
 // ==================== ЗАГРУЗКА ДАННЫХ ====================
 var currentGroup = 'mtb_parks';
+var currentModel = 'standard'; // 'standard' или 'pm'
 var allFavorites = [];
 
 async function loadFavorites() {
@@ -187,21 +188,22 @@ async function loadAllGroupsFiltered() {
     var allGroups = ['mtb_parks', 'mtb_mountains', 'pamps'];
     var allResults = [];
     for (var g of allGroups) {
-        let resp = await fetch('/api/weather/' + g);
+        var url = currentModel === 'pm' ? '/api/weather/pm/' + g : '/api/weather/' + g;
+        let resp = await fetch(url);
         if (resp.ok) {
             let data = await resp.json();
-            allResults = allResults.concat(data);
+            if (Array.isArray(data)) {
+                allResults = allResults.concat(data);
+            }
         }
     }
     var filtered = allResults.filter(r => allFavorites.includes(r.park.id));
     var parkDataArray = filtered.map(processWeatherData);
-    // загрузим голосование для избранного
     await enrichWithVotes(parkDataArray);
     renderAll(parkDataArray);
 }
 
 async function enrichWithVotes(parkDataArray) {
-    // загружаем агрегированные голоса для всех парков
     const votesRes = await fetch('/api/votes');
     if (votesRes.ok) {
         var allVotes = await votesRes.json();
@@ -240,17 +242,23 @@ function loadAll() {
       return;
   }
 
+  var url = currentModel === 'pm' ? '/api/weather/pm/' + currentGroup : '/api/weather/' + currentGroup;
   var xhr = new XMLHttpRequest();
-  xhr.open('GET', '/api/weather/' + currentGroup, true);
+  xhr.open('GET', url, true);
   xhr.timeout = 15000;
   xhr.onload = async function() {
     if (xhr.status === 200) {
-      var results = JSON.parse(xhr.responseText);
-      var parkDataArray = results.map(processWeatherData);
-      await enrichWithVotes(parkDataArray);
-      renderAll(parkDataArray);
+      try {
+        var results = JSON.parse(xhr.responseText);
+        if (!Array.isArray(results)) results = [];
+        var parkDataArray = results.map(processWeatherData);
+        await enrichWithVotes(parkDataArray);
+        renderAll(parkDataArray);
+      } catch (e) {
+        dashboard.innerHTML = '<div class="loading">⚠️ Ошибка обработки данных</div>';
+      }
     } else {
-      dashboard.innerHTML = '<div class="loading">⚠️ Ошибка сервера</div>';
+      dashboard.innerHTML = '<div class="loading">⚠️ Ошибка сервера: ' + xhr.status + '</div>';
     }
   };
   xhr.onerror = function() { dashboard.innerHTML = '<div class="loading">⚠️ Нет соединения</div>'; };
@@ -267,7 +275,7 @@ function renderAll(parkDataArray) {
     html += '<div class="card">';
     html += '<div class="park-title">' + park.name + ' <span class="coords">' + park.lat.toFixed(4) + ', ' + park.lon.toFixed(4) + '</span>';
     if (currentUser) {
-       html += '<span class="fav-icon' + (isFav ? ' active' : '') + '" data-park-id="' + park.parkId + '">' + (isFav ? '♥' : '♡') + '</span>';
+        html += '<span class="fav-icon' + (isFav ? ' active' : '') + '" data-park-id="' + park.parkId + '">' + (isFav ? '♥' : '♡') + '</span>';
     }
     html += '</div>';
 
@@ -392,14 +400,14 @@ function attachFavListeners() {
             });
             if (res.ok) {
                 if (isFav) {
-    allFavorites = allFavorites.filter(id => id !== parkId);
-    this.classList.remove('active');
-    this.textContent = '♡';
-} else {
-    allFavorites.push(parkId);
-    this.classList.add('active');
-    this.textContent = '♥';
-}
+                    allFavorites = allFavorites.filter(id => id !== parkId);
+                    this.classList.remove('active');
+                    this.textContent = '♡';
+                } else {
+                    allFavorites.push(parkId);
+                    this.classList.add('active');
+                    this.textContent = '♥';
+                }
                 if (currentGroup === 'favorites') loadAll();
             }
         };
@@ -440,7 +448,7 @@ function updateClock() {
 setInterval(updateClock, 1000);
 updateClock();
 
-// ==================== ГРУППЫ ====================
+// Группы парков
 document.querySelectorAll('.group-btn').forEach(function(btn) {
   btn.addEventListener('click', function() {
     document.querySelectorAll('.group-btn').forEach(b => b.classList.remove('active'));
@@ -448,6 +456,20 @@ document.querySelectorAll('.group-btn').forEach(function(btn) {
     currentGroup = btn.getAttribute('data-group');
     loadAll();
   });
+});
+
+// ==================== МОДЕЛЬ (СТАНДАРТНАЯ / ПМ) ====================
+document.getElementById('modelStandardBtn').addEventListener('click', function() {
+    document.getElementById('modelStandardBtn').classList.add('active');
+    document.getElementById('modelPmBtn').classList.remove('active');
+    currentModel = 'standard';
+    loadAll();
+});
+document.getElementById('modelPmBtn').addEventListener('click', function() {
+    document.getElementById('modelPmBtn').classList.add('active');
+    document.getElementById('modelStandardBtn').classList.remove('active');
+    currentModel = 'pm';
+    loadAll();
 });
 
 document.getElementById('refreshBtn').addEventListener('click', loadAll);

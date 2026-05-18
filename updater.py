@@ -24,6 +24,8 @@ async def initialize_park(park: dict):
             rains = hourly.get("rain", [])
             winds = hourly.get("wind_speed_10m", [])
             rads = hourly.get("shortwave_radiation", [])
+            rel_hums = hourly.get("relativehumidity_2m", [])
+            pressures = hourly.get("surface_pressure", [])
             
             count = 0
             for i, t in enumerate(times):
@@ -34,7 +36,9 @@ async def initialize_park(park: dict):
                     rain=rains[i] if i < len(rains) else 0,
                     wind_speed=winds[i] if i < len(winds) else None,
                     radiation=rads[i] if i < len(rads) else None,
-                    source="history"
+                    source="history",
+                    relative_humidity=rel_hums[i] if i < len(rel_hums) else None,
+                    surface_pressure=pressures[i] if i < len(pressures) else None
                 )
                 if inserted:
                     count += 1
@@ -52,7 +56,6 @@ async def initialize_park(park: dict):
         return
     
     _recalculate_moisture(park)
-    await _reset_votes_if_rain(park["id"])
 
 
 async def update_forecast(park: dict):
@@ -69,6 +72,8 @@ async def update_forecast(park: dict):
             rains = hourly.get("rain", [])
             winds = hourly.get("wind_speed_10m", [])
             rads = hourly.get("shortwave_radiation", [])
+            rel_hums = hourly.get("relativehumidity_2m", [])
+            pressures = hourly.get("surface_pressure", [])
             
             count = 0
             for i, t in enumerate(times):
@@ -79,7 +84,9 @@ async def update_forecast(park: dict):
                     rain=rains[i] if i < len(rains) else 0,
                     wind_speed=winds[i] if i < len(winds) else None,
                     radiation=rads[i] if i < len(rads) else None,
-                    source="forecast"
+                    source="forecast",
+                    relative_humidity=rel_hums[i] if i < len(rel_hums) else None,
+                    surface_pressure=pressures[i] if i < len(pressures) else None
                 )
                 if inserted:
                     count += 1
@@ -97,7 +104,6 @@ async def update_forecast(park: dict):
         return
     
     _recalculate_moisture(park)
-    await _reset_votes_if_rain(park_id)
 
 
 def _recalculate_moisture(park: dict):
@@ -134,40 +140,10 @@ def _recalculate_moisture(park: dict):
           f"status={status}")
 
 
-async def _reset_votes_if_rain(park_id: str):
-    """Сбрасывает голоса для парка ОДИН раз после начала нового дождя (за 24ч)."""
-    conn = get_connection()
-    try:
-        now = datetime.now(timezone.utc)
-        since = now - timedelta(hours=24)
-
-        last_rain = conn.execute(
-            "SELECT MAX(timestamp) FROM weather_hourly WHERE park_id = ? AND timestamp >= ? AND rain > 0",
-            (park_id, since.isoformat())
-        ).fetchone()[0]
-
-        if not last_rain:
-            return
-
-        last_reset = conn.execute(
-            "SELECT last_vote_reset FROM parks WHERE id = ?", (park_id,)
-        ).fetchone()[0]
-
-        if last_reset is None or last_rain > last_reset:
-            conn.execute("DELETE FROM soil_votes WHERE park_id = ?", (park_id,))
-            conn.execute("UPDATE parks SET last_vote_reset = ? WHERE id = ?", (last_rain, park_id))
-            conn.commit()
-            print(f"  🗳️ {park_id}: голоса сброшены из-за дождя (последний дождь {last_rain})")
-            log_update(park_id, "votes_reset", "success", f"Дождь {last_rain}, голоса сброшены")
-    except Exception as e:
-        print(f"  ⚠️ Ошибка при сбросе голосов для {park_id}: {e}")
-    finally:
-        conn.close()
-
-
-async def recent_history_update(hours_back: int = 6):
-    """Запрашивает фактические данные за последние hours_back часов."""
+async def daily_history_update():
+    """Раз в сутки запрашивает фактические данные за вчерашний день"""
     parks = get_all_parks()
+    yesterday = (datetime.now(timezone.utc) - timedelta(days=1)).strftime("%Y-%m-%d")
     
     for park in parks:
         try:
@@ -179,34 +155,32 @@ async def recent_history_update(hours_back: int = 6):
                 rains = hourly.get("rain", [])
                 winds = hourly.get("wind_speed_10m", [])
                 rads = hourly.get("shortwave_radiation", [])
+                rel_hums = hourly.get("relativehumidity_2m", [])
+                pressures = hourly.get("surface_pressure", [])
                 
                 count = 0
                 for i, t in enumerate(times):
-                    ts = datetime.fromisoformat(t.replace("Z", "+00:00"))
-                    if ts.tzinfo is None:
-                        ts = ts.replace(tzinfo=timezone.utc)
-                    if (datetime.now(timezone.utc) - ts).total_seconds() <= hours_back * 3600:
-                        inserted = insert_weather_hourly(
-                            park_id=park["id"],
-                            timestamp=t,
-                            temperature=temps[i] if i < len(temps) else None,
-                            rain=rains[i] if i < len(rains) else 0,
-                            wind_speed=winds[i] if i < len(winds) else None,
-                            radiation=rads[i] if i < len(rads) else None,
-                            source="history"
-                        )
-                        if inserted:
-                            count += 1
+                    inserted = insert_weather_hourly(
+                        park_id=park["id"],
+                        timestamp=t,
+                        temperature=temps[i] if i < len(temps) else None,
+                        rain=rains[i] if i < len(rains) else 0,
+                        wind_speed=winds[i] if i < len(winds) else None,
+                        radiation=rads[i] if i < len(rads) else None,
+                        source="history",
+                        relative_humidity=rel_hums[i] if i < len(rel_hums) else None,
+                        surface_pressure=pressures[i] if i < len(pressures) else None
+                    )
+                    if inserted:
+                        count += 1
                 
-                if count > 0:
-                    print(f"📅 {park['name']}: обновлено {count} фактических часов за последние {hours_back}ч")
-                    log_update(park["id"], "history_recent", "success", f"Обновлено {count} часов")
+                print(f"📅 {park['name']}: обновлено {count} часов за {yesterday}")
+                log_update(park["id"], "history_daily", "success", f"Обновлено {count} часов за {yesterday}")
         except Exception as e:
-            print(f"❌ Ошибка обновления факта для {park['name']}: {e}")
-            log_update(park["id"], "history_recent", "failed", str(e))
+            print(f"❌ Ошибка при обновлении факта для {park['name']}: {e}")
+            log_update(park["id"], "history_daily", "failed", str(e))
         
         _recalculate_moisture(park)
-        await _reset_votes_if_rain(park["id"])
 
 
 async def run_updater():
@@ -221,27 +195,18 @@ async def run_updater():
         else:
             await update_forecast(park)
     
-    print(f"✅ Инициализация завершена. Начинаю обновление прогноза...")
+    print(f"✅ Инициализация завершена. Обновление каждые 30 минут.")
     
-    parks = get_all_parks()
-    for park in parks:
-        await update_forecast(park)
-    
-    print(f"🔄 Первичное обновление завершено. Далее каждые 30 минут.")
-    
-    print("📅 Немедленный запуск обновления фактических данных...")
-    await recent_history_update(hours_back=6)
-    
-    last_recent_update = datetime.now(timezone.utc)
+    last_daily_update = datetime.now(timezone.utc).date()
     
     while True:
         now = datetime.now(timezone.utc)
-        if (now - last_recent_update).total_seconds() >= 21600:
-            print("📅 Запуск обновления фактических данных (каждые 6 часов)...")
-            await recent_history_update(hours_back=6)
-            last_recent_update = now
+        if now.date() > last_daily_update and now.hour >= 1:
+            print("📅 Запуск ежедневного обновления фактических данных...")
+            await daily_history_update()
+            last_daily_update = now.date()
         
-        await asyncio.sleep(1800)
+        await asyncio.sleep(1800)  # 30 минут
         
         parks = get_all_parks()
         for park in parks:

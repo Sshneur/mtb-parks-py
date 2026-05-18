@@ -111,6 +111,9 @@ app.include_router(admin_router)
 from api.votes_routes import router as votes_router
 app.include_router(votes_router)
 
+from api.pm_routes import router as pm_router
+app.include_router(pm_router)
+
 # Раздача статики (фронтенд)
 static_path = _os.path.join(_os.path.dirname(__file__), "static")
 if _os.path.exists(static_path):

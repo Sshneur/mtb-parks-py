@@ -69,15 +69,16 @@ def update_park_moisture(park_id: str, moisture: float):
     conn.close()
 
 
-def insert_weather_hourly(park_id: str, timestamp, temperature, rain, wind_speed, radiation, source: str):
+def insert_weather_hourly(park_id: str, timestamp, temperature, rain, wind_speed, radiation, source: str,
+                          relative_humidity=None, surface_pressure=None):
     """Вставляет почасовые данные. Заменяет существующую запись, если timestamp совпадает."""
     conn = get_connection()
     try:
         conn.execute("""
             INSERT OR REPLACE INTO weather_hourly 
-            (park_id, timestamp, temperature, rain, wind_speed, radiation, source)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
-        """, (park_id, timestamp, temperature, rain, wind_speed, radiation, source))
+            (park_id, timestamp, temperature, rain, wind_speed, radiation, relative_humidity, surface_pressure, source)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (park_id, timestamp, temperature, rain, wind_speed, radiation, relative_humidity, surface_pressure, source))
         conn.commit()
         return True
     except Exception as e:
