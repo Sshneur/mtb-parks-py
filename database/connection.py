@@ -74,6 +74,15 @@ def init_db():
     except sqlite3.OperationalError:
         pass
 
+    try:
+        cursor.execute("ALTER TABLE users ADD COLUMN failed_attempts INTEGER DEFAULT 0")
+    except sqlite3.OperationalError:
+        pass
+    try:
+        cursor.execute("ALTER TABLE users ADD COLUMN locked_until TEXT")
+    except sqlite3.OperationalError:
+        pass
+
     conn.commit()
     conn.close()
     print("✅ База данных инициализирована")
