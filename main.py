@@ -39,8 +39,6 @@ async def lifespan(app: FastAPI):
     # Переносим парки если нужно
     from database.crud import seed_parks
     seed_parks()
-    from database.crud import apply_park_calibration
-    apply_park_calibration()
     
     # Применяем миграцию (добавляем таблицы пользователей)
     try:
@@ -48,6 +46,13 @@ async def lifespan(app: FastAPI):
         migrate()
     except Exception as e:
         print(f"⚠️ Миграция пропущена: {e}")
+    
+    # Применяем калибровку парков
+    try:
+        from database.crud import apply_park_calibration
+        apply_park_calibration()
+    except Exception as e:
+        print(f"⚠️ Калибровка не применена: {e}")
     
     # Запускаем планировщик обновлений в фоне
     import asyncio
@@ -116,7 +121,15 @@ app.include_router(votes_router)
 from api.pm_routes import router as pm_router
 app.include_router(pm_router)
 
-# Раздача статики (фронтенд)
+from api.park_routes import router as park_router
+app.include_router(park_router)
+
+# Раздача папки с фотографиями (ДО корневой статики, чтобы /photos не перехватывался)
+photos_path = _os.path.join(_os.path.dirname(__file__), "data", "photos")
+if _os.path.exists(photos_path):
+    app.mount("/photos", StaticFiles(directory=photos_path), name="photos")
+
+# Раздача статики (фронтенд) – должна быть последней
 static_path = _os.path.join(_os.path.dirname(__file__), "static")
 if _os.path.exists(static_path):
     app.mount("/", StaticFiles(directory="static", html=True), name="static")
