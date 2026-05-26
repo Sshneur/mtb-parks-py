@@ -22,7 +22,7 @@ async function loadUser() {
         if (res.ok) {
             currentUser = await res.json();
             document.getElementById('userInfo').style.display = 'inline';
-            document.getElementById('userEmail').textContent = currentUser.email;
+            document.getElementById('userEmail').textContent = currentUser.username || currentUser.email;
             document.getElementById('loginBtn').style.display = 'none';
         } else {
             logout();
@@ -63,12 +63,13 @@ document.getElementById('authForm').onsubmit = async function(e) {
     e.preventDefault();
     const email = document.getElementById('authEmail').value;
     const password = document.getElementById('authPassword').value;
+    const username = document.getElementById('authUsername').value;
     const url = isRegister ? '/api/auth/register' : '/api/auth/login';
     const res = await fetch(url, {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({email, password})
-    });
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({email, password, username})
+});
     const data = await res.json();
     if (data.ok) {
         if (!isRegister) {

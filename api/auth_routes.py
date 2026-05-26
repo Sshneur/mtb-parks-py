@@ -17,6 +17,7 @@ ALGORITHM = "HS256"
 class UserRegister(BaseModel):
     email: EmailStr
     password: str
+    username: str   # новое поле
 
 class UserLogin(BaseModel):
     email: EmailStr
@@ -29,9 +30,14 @@ async def register(user: UserRegister):
         exists = conn.execute("SELECT id FROM users WHERE email = ?", (user.email,)).fetchone()
         if exists:
             raise HTTPException(status_code=400, detail="Email уже зарегистрирован")
+        # проверяем уникальность ника
+        username_exists = conn.execute("SELECT id FROM users WHERE username = ?", (user.username,)).fetchone()
+        if username_exists:
+            raise HTTPException(status_code=400, detail="Этот ник уже занят")
 
         hashed = pwd_context.hash(user.password)
-        conn.execute("INSERT INTO users (email, password_hash) VALUES (?, ?)", (user.email, hashed))
+        conn.execute("INSERT INTO users (email, password_hash, username) VALUES (?, ?, ?)",
+                     (user.email, hashed, user.username))
         conn.commit()
         return {"ok": True, "message": "Регистрация успешна"}
     finally:
@@ -43,13 +49,12 @@ async def login(user: UserLogin, request: Request):
     conn = get_connection()
     try:
         row = conn.execute(
-            "SELECT id, email, password_hash, role, failed_attempts, locked_until FROM users WHERE email = ?",
+            "SELECT id, email, password_hash, role, failed_attempts, locked_until, username FROM users WHERE email = ?",
             (user.email,)
         ).fetchone()
         if not row:
             raise HTTPException(status_code=401, detail="Неверный email или пароль")
 
-        # Проверка блокировки
         if row["locked_until"]:
             locked_until = datetime.fromisoformat(row["locked_until"])
             if datetime.utcnow() < locked_until:
@@ -72,7 +77,6 @@ async def login(user: UserLogin, request: Request):
             await asyncio.sleep(1)
             raise HTTPException(status_code=401, detail="Неверный email или пароль")
 
-        # Успешный вход
         conn.execute(
             "UPDATE users SET failed_attempts = 0, locked_until = NULL WHERE id = ?",
             (row["id"],)
@@ -80,7 +84,7 @@ async def login(user: UserLogin, request: Request):
         conn.commit()
 
         token = jwt.encode(
-            {"user_id": row["id"], "email": row["email"], "role": row["role"],
+            {"user_id": row["id"], "email": row["email"], "role": row["role"], "username": row["username"],
              "exp": datetime.utcnow() + timedelta(days=7)},
             SECRET_KEY, algorithm=ALGORITHM
         )

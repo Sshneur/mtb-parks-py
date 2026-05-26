@@ -60,7 +60,7 @@ async def get_users(user=Depends(get_admin_user)):
     conn = get_connection()
     try:
         rows = conn.execute(
-            "SELECT id, email, role, created_at FROM users ORDER BY created_at DESC"
+            "SELECT id, email, username, role, created_at FROM users ORDER BY created_at DESC"
         ).fetchall()
         return [dict(r) for r in rows]
     finally:
@@ -215,9 +215,9 @@ ADMIN_HTML = """
             });
             if (res.ok) {
                 const users = await res.json();
-                let html = '<div class="card"><h3>👥 Пользователи</h3><table><tr><th>ID</th><th>Email</th><th>Роль</th><th>Дата регистрации</th></tr>';
+                let html = '<div class="card"><h3>👥 Пользователи</h3><table><tr><th>ID</th><th>Email</th><th>Никнейм</th><th>Роль</th><th>Дата регистрации</th></tr>';
                 for (const u of users) {
-                    html += `<tr><td>${u.id}</td><td>${u.email}</td><td>${u.role}</td><td>${u.created_at}</td></tr>`;
+                    html += `<tr><td>${u.id}</td><td>${u.email}</td><td>${u.username || '—'}</td><td>${u.role}</td><td>${u.created_at}</td></tr>`;
                 }
                 html += '</table></div>';
                 document.getElementById('users-table').innerHTML = html;
