@@ -5,7 +5,7 @@ from database.connection import get_connection
 from datetime import datetime, timedelta, timezone
 from services.penman_monteith import calc_pm_evaporation
 from services.soil_calculator import get_soil_status
-import os as _os, uuid
+import os as _os, uuid, asyncio
 
 router = APIRouter()
 
@@ -271,12 +271,17 @@ async def upload_park_photo(park_id: str, request: Request):
     conn = get_connection()
     try:
         conn.execute(
-            "INSERT INTO park_photos (park_id, filename, original_name) VALUES (?, ?, ?)",
+            "INSERT INTO park_photos (park_id, filename, original_name, status) VALUES (?, ?, ?, 'pending')",
             (park_id, filename, file.filename)
         )
         conn.commit()
+        photo_id = conn.execute("SELECT last_insert_rowid()").fetchone()[0]
     finally:
         conn.close()
+
+    # Отправляем фото на модерацию в Telegram
+    from telegram_bot import send_photo_for_moderation
+    asyncio.create_task(send_photo_for_moderation(park_id, filename, photo_id))
 
     return {"ok": True, "filename": filename}
 

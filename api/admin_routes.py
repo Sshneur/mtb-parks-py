@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Request, HTTPException, Depends
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, JSONResponse
 from database.connection import get_connection
 from jose import jwt
 import os
@@ -27,24 +27,20 @@ async def get_metrics(user=Depends(get_admin_user)):
     """Возвращает JSON с метриками"""
     conn = get_connection()
     try:
-        # Количество пользователей
         total_users = conn.execute("SELECT COUNT(*) FROM users").fetchone()[0]
         new_users_7d = conn.execute(
             "SELECT COUNT(*) FROM users WHERE created_at > datetime('now', '-7 days')"
         ).fetchone()[0]
 
-        # Запросы к API
         total_requests = conn.execute("SELECT COUNT(*) FROM request_log").fetchone()[0]
         today_requests = conn.execute(
             "SELECT COUNT(*) FROM request_log WHERE date(created_at) = date('now')"
         ).fetchone()[0]
 
-        # Обновления погоды (последние 10)
         updates = conn.execute(
             "SELECT * FROM update_log ORDER BY created_at DESC LIMIT 10"
         ).fetchall()
 
-        # Ошибки
         errors = conn.execute(
             "SELECT * FROM update_log WHERE status='failed' ORDER BY created_at DESC LIMIT 5"
         ).fetchall()
@@ -67,6 +63,43 @@ async def get_users(user=Depends(get_admin_user)):
             "SELECT id, email, role, created_at FROM users ORDER BY created_at DESC"
         ).fetchall()
         return [dict(r) for r in rows]
+    finally:
+        conn.close()
+
+@router.get("/api/admin/photos/pending")
+async def get_pending_photos(user=Depends(get_admin_user)):
+    """Возвращает список фото, ожидающих модерации"""
+    conn = get_connection()
+    try:
+        rows = conn.execute("""
+            SELECT id, park_id, filename, original_name, created_at
+            FROM park_photos
+            WHERE status = 'pending'
+            ORDER BY created_at DESC
+        """).fetchall()
+        return [dict(r) for r in rows]
+    finally:
+        conn.close()
+
+@router.post("/api/admin/photos/{photo_id}/approve")
+async def approve_photo(photo_id: int, user=Depends(get_admin_user)):
+    """Одобряет фото"""
+    conn = get_connection()
+    try:
+        conn.execute("UPDATE park_photos SET status = 'approved' WHERE id = ?", (photo_id,))
+        conn.commit()
+        return {"ok": True}
+    finally:
+        conn.close()
+
+@router.post("/api/admin/photos/{photo_id}/reject")
+async def reject_photo(photo_id: int, user=Depends(get_admin_user)):
+    """Отклоняет фото"""
+    conn = get_connection()
+    try:
+        conn.execute("UPDATE park_photos SET status = 'rejected' WHERE id = ?", (photo_id,))
+        conn.commit()
+        return {"ok": True}
     finally:
         conn.close()
 
@@ -93,6 +126,9 @@ ADMIN_HTML = """
         #login-form { margin-bottom: 20px; }
         input { padding: 8px; margin: 4px; }
         button { padding: 8px 16px; }
+        .approve-btn { background: #4caf50; color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; }
+        .reject-btn { background: #e74c3c; color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; }
+        .photo-item { margin: 10px; display: flex; align-items: center; gap: 10px; }
     </style>
 </head>
 <body>
@@ -109,6 +145,7 @@ ADMIN_HTML = """
         <h2>📊 Метрики</h2>
         <div id="metrics"></div>
         <div id="users-table"></div>
+        <div id="photos-moderation"></div>
         <button onclick="logout()">Выйти</button>
     </div>
 
@@ -129,6 +166,8 @@ ADMIN_HTML = """
                 document.getElementById('login-form').classList.add('hidden');
                 document.getElementById('dashboard').classList.remove('hidden');
                 loadMetrics();
+                loadUsers();
+                loadPendingPhotos();
             } else {
                 document.getElementById('login-error').textContent = 'Неверный email или пароль';
             }
@@ -168,9 +207,6 @@ ADMIN_HTML = """
                 html += '</table></div>';
             }
             document.getElementById('metrics').innerHTML = html;
-
-            // Загружаем список пользователей
-            loadUsers();
         }
 
         async function loadUsers() {
@@ -186,6 +222,49 @@ ADMIN_HTML = """
                 html += '</table></div>';
                 document.getElementById('users-table').innerHTML = html;
             }
+        }
+
+        async function loadPendingPhotos() {
+            const res = await fetch('/api/admin/photos/pending', {
+                headers: {'Authorization': 'Bearer ' + token}
+            });
+            if (res.ok) {
+                const photos = await res.json();
+                let html = '<div class="card"><h3>🖼️ Модерация фото</h3>';
+                if (photos.length === 0) {
+                    html += '<p>Нет фото, ожидающих проверки.</p>';
+                } else {
+                    for (const p of photos) {
+                        html += `<div class="photo-item">
+                            <img src="/photos/${p.park_id}/${p.filename}" style="width:100px; height:100px; object-fit:cover; border-radius:8px;">
+                            <div>
+                                <b>Парк: ${p.park_id}</b><br>
+                                <small>${p.original_name} (${p.created_at})</small>
+                            </div>
+                            <button class="approve-btn" onclick="approvePhoto(${p.id})">✅ Одобрить</button>
+                            <button class="reject-btn" onclick="rejectPhoto(${p.id})">❌ Отклонить</button>
+                        </div>`;
+                    }
+                }
+                html += '</div>';
+                document.getElementById('photos-moderation').innerHTML = html;
+            }
+        }
+
+        async function approvePhoto(photoId) {
+            await fetch('/api/admin/photos/' + photoId + '/approve', {
+                method: 'POST',
+                headers: {'Authorization': 'Bearer ' + token}
+            });
+            loadPendingPhotos();
+        }
+
+        async function rejectPhoto(photoId) {
+            await fetch('/api/admin/photos/' + photoId + '/reject', {
+                method: 'POST',
+                headers: {'Authorization': 'Bearer ' + token}
+            });
+            loadPendingPhotos();
         }
     </script>
 </body>
