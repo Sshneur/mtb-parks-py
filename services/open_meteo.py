@@ -3,6 +3,10 @@ import asyncio
 import time
 from typing import Optional
 from datetime import datetime, timedelta
+import os
+
+# Прокси из переменной окружения
+PROXY_URL = os.getenv("PROXY_URL")  # например: socks5://user:pass@host:port
 
 _cache = {}
 CACHE_TTL_FORECAST = 5 * 60
@@ -23,10 +27,15 @@ def set_to_cache(key: str, data: dict, ttl: int):
 async def fetch_with_retry(url: str, retries: int = 3) -> Optional[dict]:
     for i in range(retries):
         try:
-            async with httpx.AsyncClient(timeout=15) as client:
-                response = await client.get(url)
-                response.raise_for_status()
-                return response.json()
+            # Используем прокси, если он задан
+            if PROXY_URL:
+                async with httpx.AsyncClient(proxy=PROXY_URL, timeout=15) as client:
+                    response = await client.get(url)
+            else:
+                async with httpx.AsyncClient(timeout=15) as client:
+                    response = await client.get(url)
+            response.raise_for_status()
+            return response.json()
         except Exception as e:
             if i == retries - 1:
                 print(f"Open-Meteo: ошибка после {retries} попыток: {e}")
@@ -35,7 +44,6 @@ async def fetch_with_retry(url: str, retries: int = 3) -> Optional[dict]:
             await asyncio.sleep(1 * (i + 1))
 
 async def get_forecast(lat: float, lon: float) -> Optional[dict]:
-    """Почасовой прогноз на 3 дня (72 часа) с добавленными параметрами"""
     cache_key = f"forecast_{lat:.4f}_{lon:.4f}"
     cached = get_from_cache(cache_key)
     if cached:
@@ -48,7 +56,6 @@ async def get_forecast(lat: float, lon: float) -> Optional[dict]:
         f"&daily=temperature_2m_max,rain_sum"
         f"&timezone=UTC&forecast_days=3"
     )
-    
     print(f"🌐 Open-Meteo: запрос прогноза на 3 дня...")
     data = await fetch_with_retry(url)
     if data:
@@ -56,7 +63,6 @@ async def get_forecast(lat: float, lon: float) -> Optional[dict]:
     return data
 
 async def get_history(lat: float, lon: float, days: int = 30) -> Optional[dict]:
-    """Почасовая история за N дней с добавленными параметрами"""
     cache_key = f"history_{lat:.4f}_{lon:.4f}_{days}"
     cached = get_from_cache(cache_key)
     if cached:
@@ -73,7 +79,6 @@ async def get_history(lat: float, lon: float, days: int = 30) -> Optional[dict]:
         f"&hourly=temperature_2m,rain,wind_speed_10m,shortwave_radiation,relativehumidity_2m,surface_pressure"
         f"&timezone=UTC"
     )
-    
     print(f"🌐 Open-Meteo: запрос истории за {days} дней...")
     data = await fetch_with_retry(url)
     if data:
@@ -81,7 +86,6 @@ async def get_history(lat: float, lon: float, days: int = 30) -> Optional[dict]:
     return data
 
 async def get_forecast_daily(lat: float, lon: float) -> Optional[dict]:
-    """Дневной прогноз на 6 дней (daily)"""
     cache_key = f"daily_{lat:.4f}_{lon:.4f}"
     cached = get_from_cache(cache_key)
     if cached:
@@ -93,7 +97,6 @@ async def get_forecast_daily(lat: float, lon: float) -> Optional[dict]:
         f"&daily=temperature_2m_max,rain_sum,weather_code"
         f"&timezone=UTC&forecast_days=6"
     )
-    
     print(f"🌐 Open-Meteo: запрос дневного прогноза...")
     data = await fetch_with_retry(url)
     if data:
