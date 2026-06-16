@@ -22,7 +22,7 @@ async function loadUser() {
         if (res.ok) {
             currentUser = await res.json();
             document.getElementById('userInfo').style.display = 'inline';
-            document.getElementById('userEmail').textContent = currentUser.email;
+            document.getElementById('userEmail').textContent = currentUser.username || currentUser.email;
             document.getElementById('loginBtn').style.display = 'none';
         } else {
             logout();
@@ -39,57 +39,6 @@ function logout() {
     document.getElementById('loginBtn').style.display = 'inline';
     allFavorites = [];
 }
-
-// ==================== МОДАЛЬНОЕ ОКНО ====================
-var modal = document.getElementById('authModal');
-var closeModal = document.querySelector('.close-modal');
-var isRegister = false;
-
-document.getElementById('loginBtn').onclick = () => { modal.classList.remove('hidden'); };
-closeModal.onclick = () => { modal.classList.add('hidden'); };
-
-document.getElementById('toggleMode').onclick = function(e) {
-    e.preventDefault();
-    isRegister = !isRegister;
-    document.getElementById('modalTitle').textContent = isRegister ? 'Регистрация' : 'Вход';
-    document.getElementById('authSubmitBtn').textContent = isRegister ? 'Зарегистрироваться' : 'Войти';
-    document.getElementById('authToggle').innerHTML = isRegister
-        ? 'Уже есть аккаунт? <a href="#" id="toggleMode">Войти</a>'
-        : 'Нет аккаунта? <a href="#" id="toggleMode">Зарегистрироваться</a>';
-    document.getElementById('toggleMode').onclick = arguments.callee;
-};
-
-document.getElementById('authForm').onsubmit = async function(e) {
-    e.preventDefault();
-    const email = document.getElementById('authEmail').value;
-    const password = document.getElementById('authPassword').value;
-    const url = isRegister ? '/api/auth/register' : '/api/auth/login';
-    const res = await fetch(url, {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({email, password})
-    });
-    const data = await res.json();
-    if (data.ok) {
-        if (!isRegister) {
-            token = data.token;
-            localStorage.setItem('token', token);
-            await loadUser();
-        } else {
-            alert('Регистрация успешна! Теперь войдите.');
-            isRegister = false;
-            document.getElementById('modalTitle').textContent = 'Вход';
-            document.getElementById('authSubmitBtn').textContent = 'Войти';
-            document.getElementById('authToggle').innerHTML = 'Нет аккаунта? <a href="#" id="toggleMode">Зарегистрироваться</a>';
-            document.getElementById('toggleMode').onclick = arguments.callee;
-        }
-        modal.classList.add('hidden');
-        document.getElementById('authError').textContent = '';
-        loadAll();
-    } else {
-        document.getElementById('authError').textContent = data.detail || 'Ошибка';
-    }
-};
 
 document.getElementById('logoutBtn').onclick = function() { logout(); loadAll(); };
 
@@ -173,7 +122,7 @@ function getVoteLabel(vote) {
 
 // ==================== ЗАГРУЗКА ДАННЫХ ====================
 var currentGroup = 'mtb_parks';
-var currentModel = 'standard';
+var currentModel = 'standard'; // 'standard' или 'pm'
 var allFavorites = [];
 
 async function loadFavorites() {
@@ -273,7 +222,7 @@ function renderAll(parkDataArray) {
     var park = parkDataArray[i];
     var isFav = allFavorites.includes(park.parkId);
     html += '<div class="card">';
-    html += '<div class="park-title">' + park.name + ' <span class="coords">' + park.lat.toFixed(4) + ', ' + park.lon.toFixed(4) + '</span>';
+    html += '<div class="park-title"><a href="/park/' + park.parkId + '" style="color:inherit; text-decoration:none;">' + park.name + '</a> <span class="coords">' + park.lat.toFixed(4) + ', ' + park.lon.toFixed(4) + '</span>';
     if (currentUser) {
         html += '<span class="fav-icon' + (isFav ? ' active' : '') + '" data-park-id="' + park.parkId + '">' + (isFav ? '♥' : '♡') + '</span>';
     }

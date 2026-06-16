@@ -5,8 +5,7 @@ from typing import Optional
 from datetime import datetime, timedelta
 import os
 
-# Прокси из переменной окружения
-PROXY_URL = os.getenv("PROXY_URL")  # например: socks5://user:pass@host:port
+PROXY_URL = os.getenv("PROXY_URL")
 
 _cache = {}
 CACHE_TTL_FORECAST = 5 * 60
@@ -27,7 +26,6 @@ def set_to_cache(key: str, data: dict, ttl: int):
 async def fetch_with_retry(url: str, retries: int = 3) -> Optional[dict]:
     for i in range(retries):
         try:
-            # Используем прокси, если он задан
             if PROXY_URL:
                 async with httpx.AsyncClient(proxy=PROXY_URL, timeout=15) as client:
                     response = await client.get(url)
@@ -95,7 +93,7 @@ async def get_forecast_daily(lat: float, lon: float) -> Optional[dict]:
         f"https://api.open-meteo.com/v1/forecast"
         f"?latitude={lat}&longitude={lon}"
         f"&daily=temperature_2m_max,rain_sum,weather_code"
-        f"&timezone=UTC&forecast_days=6"
+        f"&timezone=UTC&forecast_days=7"
     )
     print(f"🌐 Open-Meteo: запрос дневного прогноза...")
     data = await fetch_with_retry(url)
