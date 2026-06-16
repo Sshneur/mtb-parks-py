@@ -36,13 +36,14 @@ PARK_HTML_TEMPLATE = """
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes">
     <title>{{ park_name }} — МТБ Парки 2.0</title>
     <link rel="stylesheet" href="/css/style.css">
     <style>
         .park-container { max-width: 800px; margin: 0 auto; padding: 20px; }
         .back-link { margin-bottom: 20px; display: inline-block; color: #74a8e2; text-decoration: none; }
         .back-link:hover { text-decoration: underline; }
-        .chart-box { margin: 30px 0; max-width: 100%; }
+        .chart-box { margin: 30px 0; max-width: 100%; background: rgba(18,22,30,0.85); border: 1px solid rgba(74,144,226,0.25); border-radius: 12px; padding: 15px; }
         .chart-box canvas { max-height: 300px; }
         .status-badge { font-size: 24px; font-weight: bold; margin: 20px 0; }
         .timer { font-size: 18px; color: #ccc; }
@@ -58,8 +59,57 @@ PARK_HTML_TEMPLATE = """
             margin-right: 10px;
         }
         .route-btn:hover { opacity: 0.9; }
+
+        /* ---------- Адаптация для мобильных ---------- */
+        @media (max-width: 600px) {
+            .park-container { padding: 10px; }
+            .chart-box { padding: 10px; margin: 20px 0; }
+            .chart-box canvas { max-height: 250px; }
+            .route-btn {
+                display: block;
+                width: 100%;
+                text-align: center;
+                margin-right: 0;
+                margin-bottom: 10px;
+                box-sizing: border-box;
+            }
+            .status-badge { font-size: 20px; }
+            .timer { font-size: 16px; }
+            h1 { font-size: 24px; }
+            h2 { font-size: 20px; }
+            #photoForm {
+                display: flex;
+                flex-direction: column;
+                gap: 10px;
+            }
+            #photoForm input[type="file"] {
+                width: 100%;
+                font-size: 16px;
+            }
+            #photoForm button {
+                width: 100%;
+                padding: 14px;
+                font-size: 16px;
+            }
+            #photoGallery {
+                justify-content: space-between;
+            }
+            #photoGallery img {
+                width: calc(50% - 5px);  /* две колонки с отступом */
+                height: auto;
+                aspect-ratio: 1 / 1;
+                object-fit: cover;
+            }
+        }
+
+        @media (max-width: 400px) {
+            .chart-box canvas { max-height: 220px; }
+            h1 { font-size: 22px; }
+            .status-badge { font-size: 18px; }
+        }
     </style>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
 </head>
 <body>
     <div class="park-container">
@@ -71,8 +121,6 @@ PARK_HTML_TEMPLATE = """
 
         <a href="https://yandex.ru/maps/?rtext=~{{ lat }},{{ lon }}&rtt=auto"
            target="_blank" class="route-btn">🗺️ Проложить маршрут (Яндекс)</a>
-        <a href="https://www.google.com/maps/dir/?api=1&destination={{ lat }},{{ lon }}"
-           target="_blank" class="route-btn" style="background:#4285f4;">Проложить маршрут (Google)</a>
 
         <div class="status-badge" id="soilStatus">Загрузка...</div>
         <div class="timer" id="dryTimer"></div>
@@ -90,7 +138,7 @@ PARK_HTML_TEMPLATE = """
         <div style="margin-top:20px;">
             <h3>Фотографии грунта</h3>
             <form id="photoForm" enctype="multipart/form-data">
-                <input type="file" id="photoFile" accept="image/*">
+                <input type="file" id="photoFile" name="file" accept="image/*">
                 <button type="submit">Загрузить фото</button>
             </form>
             <div id="photoGallery" style="display:flex; flex-wrap:wrap; gap:10px; margin-top:10px;"></div>
@@ -118,28 +166,41 @@ async def park_page(park_id: str):
 
 @router.get("/api/park/{park_id}/weather")
 async def get_park_weather(park_id: str, days: int = Query(7, ge=1, le=30)):
+    """Возвращает агрегированные по дням данные температуры (max) и осадков (сумма) из weather_daily."""
     park = get_park(park_id)
     if not park:
         return JSONResponse({"error": "Парк не найден"}, status_code=404)
 
     conn = get_connection()
     try:
-        since = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat()
+        since = (datetime.now(timezone.utc) - timedelta(days=days)).strftime("%Y-%m-%d")
         rows = conn.execute("""
-            SELECT timestamp, temperature, rain
-            FROM weather_hourly
-            WHERE park_id = ? AND timestamp >= ?
-            ORDER BY timestamp ASC
+            SELECT date, temperature_max, rain_sum
+            FROM weather_daily
+            WHERE park_id = ? AND date >= ?
+            ORDER BY date ASC
         """, (park_id, since)).fetchall()
 
-        data = []
-        for row in rows:
-            data.append({
-                "timestamp": row["timestamp"],
-                "temperature": row["temperature"],
-                "rain": row["rain"] or 0.0
+        # Формируем массив ровно из 7 элементов
+        result_days = []
+        today = datetime.now(timezone.utc).date()
+        for i in range(days - 1, -1, -1):
+            target_date = (today - timedelta(days=i)).isoformat()
+            result_days.append({
+                "date": target_date,
+                "temp_max": None,
+                "rain_total": 0.0
             })
-        return {"park_id": park_id, "weather": data}
+
+        for row in rows:
+            day_str = row["date"]
+            for d in result_days:
+                if d["date"] == day_str:
+                    d["temp_max"] = row["temperature_max"]
+                    d["rain_total"] = row["rain_sum"] or 0.0
+                    break
+
+        return {"park_id": park_id, "weather": result_days}
     finally:
         conn.close()
 
@@ -268,20 +329,19 @@ async def upload_park_photo(park_id: str, request: Request):
     with open(filepath, "wb") as f:
         f.write(await file.read())
 
+    # Временно ставим user_id = 1 (админ) для теста
+    user_id = 1
     conn = get_connection()
     try:
         conn.execute(
-            "INSERT INTO park_photos (park_id, filename, original_name, status) VALUES (?, ?, ?, 'pending')",
-            (park_id, filename, file.filename)
+            "INSERT INTO park_photos (park_id, user_id, filename, original_name, status) VALUES (?, ?, ?, ?, 'pending')",
+            (park_id, user_id, filename, file.filename)
         )
         conn.commit()
         photo_id = conn.execute("SELECT last_insert_rowid()").fetchone()[0]
+        print(f"Фото {filename} сохранено, id={photo_id}")
     finally:
         conn.close()
-
-    # Отправляем фото на модерацию в Telegram
-    from telegram_bot import send_photo_for_moderation
-    asyncio.create_task(send_photo_for_moderation(park_id, filename, photo_id))
 
     return {"ok": True, "filename": filename}
 
@@ -293,10 +353,14 @@ async def get_park_photos(park_id: str):
 
     conn = get_connection()
     try:
-        rows = conn.execute(
-            "SELECT id, filename, original_name, created_at FROM park_photos WHERE park_id = ? AND status = 'approved' ORDER BY created_at DESC LIMIT 20",
-            (park_id,)
-        ).fetchall()
+        rows = conn.execute("""
+            SELECT p.id, p.filename, p.original_name, p.created_at, u.username
+            FROM park_photos p
+            LEFT JOIN users u ON p.user_id = u.id
+            WHERE p.park_id = ? AND p.status = 'approved'
+            ORDER BY p.created_at DESC
+            LIMIT 20
+        """, (park_id,)).fetchall()
         return [dict(r) for r in rows]
     finally:
         conn.close()

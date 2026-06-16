@@ -7,53 +7,79 @@
         const weatherResp = await fetch(`/api/park/${parkId}/weather?days=7`);
         if (!weatherResp.ok) throw new Error('Ошибка загрузки погоды');
         const weatherData = await weatherResp.json();
-        const hourly = weatherData.weather;
+        const daily = weatherData.weather;  // массив из 7 объектов {date, temp_max, rain_total}
 
-        const labels = hourly.map(h => {
-            const d = new Date(h.timestamp);
-            return d.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short', hour: '2-digit' });
+        const labels = daily.map(d => {
+            const date = new Date(d.date);
+            return date.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' });
         });
-        const temps = hourly.map(h => h.temperature);
-        const rains = hourly.map(h => h.rain);
+        const temps = daily.map(d => d.temp_max);
+        const rains = daily.map(d => d.rain_total);
 
+        // Регистрируем плагин для подписей значений
+        Chart.register(ChartDataLabels);
+
+        // График температуры (столбцы с подписями)
         new Chart(document.getElementById('tempChart'), {
-            type: 'line',
+            type: 'bar',
             data: {
                 labels,
                 datasets: [{
-                    label: 'Температура (°C)',
+                    label: 'Температура max (°C)',
                     data: temps,
-                    borderColor: '#e74c3c',
-                    backgroundColor: 'rgba(231, 76, 60, 0.1)',
-                    fill: true,
-                    tension: 0.3,
-                    pointRadius: 0,
+                    backgroundColor: '#e74c3c',
+                    borderRadius: 4,
                 }]
             },
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
-                plugins: { legend: { display: false } },
-                scales: { x: { display: false }, y: { title: { display: true, text: '°C' } } }
+                plugins: {
+                    legend: { display: false },
+                    datalabels: {
+                        anchor: 'end',
+                        align: 'top',
+                        color: '#fff',
+                        font: { weight: 'bold', size: 12 },
+                        formatter: (value) => value !== null ? value + '°' : ''
+                    }
+                },
+                scales: {
+                    x: { title: { display: true, text: 'День', color: '#aaa' } },
+                    y: { title: { display: true, text: '°C', color: '#aaa' }, beginAtZero: true }
+                }
             }
         });
 
+        // График осадков (столбцы с подписями)
         new Chart(document.getElementById('rainChart'), {
             type: 'bar',
             data: {
                 labels,
                 datasets: [{
-                    label: 'Осадки (мм/час)',
+                    label: 'Осадки (мм/день)',
                     data: rains,
                     backgroundColor: '#3498db',
-                    borderRadius: 2,
+                    borderRadius: 4,
                 }]
             },
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
-                plugins: { legend: { display: false } },
-                scales: { x: { display: false }, y: { title: { display: true, text: 'мм/час' } } }
+                plugins: {
+                    legend: { display: false },
+                    datalabels: {
+                        anchor: 'end',
+                        align: 'top',
+                        color: '#fff',
+                        font: { weight: 'bold', size: 12 },
+                        formatter: (value) => value > 0 ? value + 'мм' : ''
+                    }
+                },
+                scales: {
+                    x: { title: { display: true, text: 'День', color: '#aaa' } },
+                    y: { title: { display: true, text: 'мм', color: '#aaa' }, beginAtZero: true }
+                }
             }
         });
     } catch (err) {
@@ -166,13 +192,21 @@
             const gallery = document.getElementById('photoGallery');
             gallery.innerHTML = '';
             photos.forEach(p => {
+                const card = document.createElement('div');
+                card.style.cssText = 'width: 200px; margin-bottom: 15px;';
+
                 const img = document.createElement('img');
                 img.src = `/photos/${parkId}/${p.filename}`;
-                img.style.width = '150px';
-                img.style.height = '150px';
-                img.style.objectFit = 'cover';
-                img.style.borderRadius = '8px';
-                gallery.appendChild(img);
+                img.style.cssText = 'width: 100%; height: 200px; object-fit: cover; border-radius: 8px;';
+
+                const info = document.createElement('div');
+                info.style.cssText = 'font-size: 12px; color: #aaa; margin-top: 4px; text-align: center;';
+                const date = new Date(p.created_at).toLocaleDateString('ru-RU');
+                info.textContent = `${date}${p.username ? ', ' + p.username : ''}`;
+
+                card.appendChild(img);
+                card.appendChild(info);
+                gallery.appendChild(card);
             });
         } catch (err) {
             console.error(err);

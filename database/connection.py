@@ -61,13 +61,23 @@ def init_db():
             message TEXT,
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP
         );
+
+        CREATE TABLE IF NOT EXISTS park_photos (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            park_id TEXT NOT NULL,
+            user_id INTEGER,
+            filename TEXT NOT NULL,
+            original_name TEXT,
+            status TEXT DEFAULT 'pending',
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        );
     """)
 
-    # Добавляем новые колонки для Пенмана-Монтейта, если их ещё нет
+    # Добавляем новые колонки, если их ещё нет
     try:
         cursor.execute("ALTER TABLE weather_hourly ADD COLUMN relative_humidity REAL")
     except sqlite3.OperationalError:
-        pass  # колонка уже есть
+        pass
 
     try:
         cursor.execute("ALTER TABLE weather_hourly ADD COLUMN surface_pressure REAL")
@@ -78,8 +88,14 @@ def init_db():
         cursor.execute("ALTER TABLE users ADD COLUMN failed_attempts INTEGER DEFAULT 0")
     except sqlite3.OperationalError:
         pass
+
     try:
         cursor.execute("ALTER TABLE users ADD COLUMN locked_until TEXT")
+    except sqlite3.OperationalError:
+        pass
+
+    try:
+        cursor.execute("ALTER TABLE users ADD COLUMN username TEXT")
     except sqlite3.OperationalError:
         pass
 
