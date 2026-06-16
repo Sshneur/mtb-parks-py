@@ -7,7 +7,7 @@
         const weatherResp = await fetch(`/api/park/${parkId}/weather?days=7`);
         if (!weatherResp.ok) throw new Error('Ошибка загрузки погоды');
         const weatherData = await weatherResp.json();
-        const daily = weatherData.weather;  // массив из 7 объектов {date, temp_max, rain_total}
+        const daily = weatherData.weather;
 
         const labels = daily.map(d => {
             const date = new Date(d.date);
@@ -16,10 +16,8 @@
         const temps = daily.map(d => d.temp_max);
         const rains = daily.map(d => d.rain_total);
 
-        // Регистрируем плагин для подписей значений
         Chart.register(ChartDataLabels);
 
-        // График температуры (столбцы с подписями)
         new Chart(document.getElementById('tempChart'), {
             type: 'bar',
             data: {
@@ -51,7 +49,6 @@
             }
         });
 
-        // График осадков (столбцы с подписями)
         new Chart(document.getElementById('rainChart'), {
             type: 'bar',
             data: {
@@ -154,17 +151,21 @@
         document.getElementById('voteAvg').textContent = 'Ошибка загрузки оценок';
     }
 
-    // ---------- ЗАГРУЗКА И ГАЛЕРЕЯ ФОТО ----------
-    const photoForm = document.getElementById('photoForm');
-    if (photoForm) {
-        photoForm.addEventListener('submit', async (e) => {
+    // ---------- ЗАГРУЗКА ФОТО (ИСПРАВЛЕННАЯ ВЕРСИЯ) ----------
+    const submitBtn = document.getElementById('photoSubmitBtn');
+    if (submitBtn) {
+        submitBtn.addEventListener('click', async function(e) {
             e.preventDefault();
             const fileInput = document.getElementById('photoFile');
             const file = fileInput.files[0];
-            if (!file) return;
+            if (!file) {
+                alert('Файл не выбран');
+                return;
+            }
 
             const formData = new FormData();
-            formData.append('file', file);
+            // Явно задаём имя поля, даже если атрибут name отсутствует
+            formData.append('file', file, file.name);
 
             try {
                 const resp = await fetch(`/api/park/${parkId}/photos`, {
@@ -175,11 +176,11 @@
                     fileInput.value = '';
                     loadPhotos();
                 } else {
-                    alert('Ошибка загрузки фото');
+                    const errText = await resp.text();
+                    alert('Ошибка сервера: ' + resp.status + ' ' + errText);
                 }
             } catch (err) {
-                console.error(err);
-                alert('Ошибка загрузки');
+                alert('Ошибка сети: ' + err.message);
             }
         });
     }
@@ -194,16 +195,13 @@
             photos.forEach(p => {
                 const card = document.createElement('div');
                 card.style.cssText = 'width: 200px; margin-bottom: 15px;';
-
                 const img = document.createElement('img');
                 img.src = `/photos/${parkId}/${p.filename}`;
                 img.style.cssText = 'width: 100%; height: 200px; object-fit: cover; border-radius: 8px;';
-
                 const info = document.createElement('div');
                 info.style.cssText = 'font-size: 12px; color: #aaa; margin-top: 4px; text-align: center;';
                 const date = new Date(p.created_at).toLocaleDateString('ru-RU');
                 info.textContent = `${date}${p.username ? ', ' + p.username : ''}`;
-
                 card.appendChild(img);
                 card.appendChild(info);
                 gallery.appendChild(card);

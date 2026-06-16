@@ -139,7 +139,7 @@ PARK_HTML_TEMPLATE = """
             <h3>Фотографии грунта</h3>
             <form id="photoForm" enctype="multipart/form-data">
                 <input type="file" id="photoFile" name="file" accept="image/*">
-                <button type="submit">Загрузить фото</button>
+                <button type="submit" id="photoSubmitBtn">Загрузить фото</button>
             </form>
             <div id="photoGallery" style="display:flex; flex-wrap:wrap; gap:10px; margin-top:10px;"></div>
         </div>
