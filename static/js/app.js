@@ -21,9 +21,8 @@ async function loadUser() {
         const res = await fetch('/api/user/me', { headers: { 'Authorization': 'Bearer ' + token } });
         if (res.ok) {
             currentUser = await res.json();
-            document.getElementById('userInfo').style.display = 'inline';
-            document.getElementById('userEmail').textContent = currentUser.username || currentUser.email;
-            document.getElementById('loginBtn').style.display = 'none';
+            updateBurgerAuth();
+            await updateLevelDisplay();
         } else {
             logout();
         }
@@ -35,12 +34,98 @@ function logout() {
     currentUser = null;
     myVotes = {};
     localStorage.removeItem('token');
-    document.getElementById('userInfo').style.display = 'none';
-    document.getElementById('loginBtn').style.display = 'inline';
     allFavorites = [];
+    updateBurgerAuth();
+    document.getElementById('levelMobile').style.display = 'none';
 }
 
-document.getElementById('logoutBtn').onclick = function() { logout(); loadAll(); };
+// ==================== БУРГЕР МЕНЮ ====================
+const burgerBtn = document.getElementById('burgerBtn');
+const burgerNav = document.getElementById('burgerNav');
+
+if (burgerBtn && burgerNav) {
+    burgerBtn.addEventListener('click', function(e) {
+        e.stopPropagation();
+        this.classList.toggle('active');
+        burgerNav.classList.toggle('open');
+    });
+
+    document.addEventListener('click', function(e) {
+        if (!burgerBtn.contains(e.target) && !burgerNav.contains(e.target)) {
+            burgerBtn.classList.remove('active');
+            burgerNav.classList.remove('open');
+        }
+    });
+}
+
+function updateBurgerAuth() {
+    const userInfoMobile = document.getElementById('userInfoMobile');
+    const userEmailMobile = document.getElementById('userEmailMobile');
+    const logoutMobile = document.getElementById('logoutMobile');
+    const loginMobile = document.getElementById('loginMobile');
+
+    if (currentUser) {
+        userInfoMobile.style.display = 'block';
+        userEmailMobile.textContent = currentUser.username || currentUser.email;
+        logoutMobile.style.display = 'block';
+        loginMobile.style.display = 'none';
+    } else {
+        userInfoMobile.style.display = 'none';
+        logoutMobile.style.display = 'none';
+        loginMobile.style.display = 'block';
+    }
+}
+
+// Обработчик кнопки "Выйти" в бургере
+document.getElementById('logoutBtnMobile').addEventListener('click', function() {
+    logout();
+    loadAll();
+    if (burgerBtn) {
+        burgerBtn.classList.remove('active');
+        burgerNav.classList.remove('open');
+    }
+});
+
+// Пункт "Избранное" в меню
+document.getElementById('favoritesMobile').addEventListener('click', function(e) {
+    e.preventDefault();
+    // Переключаем группу на избранное
+    document.querySelectorAll('.group-btn').forEach(b => b.classList.remove('active'));
+    const favBtn = document.querySelector('.group-btn[data-group="favorites"]');
+    if (favBtn) favBtn.classList.add('active');
+    currentGroup = 'favorites';
+    loadAll();
+    // Закрыть меню
+    burgerBtn.classList.remove('active');
+    burgerNav.classList.remove('open');
+});
+
+// ==================== ОБНОВЛЕНИЕ УРОВНЯ В МЕНЮ ====================
+async function updateLevelDisplay() {
+    const levelMobile = document.getElementById('levelMobile');
+    const levelDisplay = document.getElementById('levelDisplay');
+    if (!levelMobile || !levelDisplay) return;
+
+    if (!currentUser) {
+        levelMobile.style.display = 'none';
+        return;
+    }
+
+    try {
+        const res = await fetch('/api/user/stats', {
+            headers: { 'Authorization': 'Bearer ' + token }
+        });
+        if (res.ok) {
+            const data = await res.json();
+            levelDisplay.textContent = `🎯 Уровень: ${data.level} (оценок: ${data.photo_votes_count})`;
+            levelMobile.style.display = 'block';
+        } else {
+            levelMobile.style.display = 'none';
+        }
+    } catch (e) {
+        levelMobile.style.display = 'none';
+    }
+}
 
 // ==================== ФОРМАТИРОВАНИЕ ДАТ ====================
 var DAYS = ['Вс', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб'];
@@ -79,8 +164,7 @@ function processWeatherData(result) {
     daily: [],
     parkId: park.id,
     avgVote: null,
-    voteCount: 0,
-    myVote: null
+    voteCount: 0
   };
 
   if (!forecastData) return data;
@@ -122,7 +206,7 @@ function getVoteLabel(vote) {
 
 // ==================== ЗАГРУЗКА ДАННЫХ ====================
 var currentGroup = 'mtb_parks';
-var currentModel = 'standard'; // 'standard' или 'pm'
+var currentModel = 'standard';
 var allFavorites = [];
 
 async function loadFavorites() {
@@ -159,15 +243,6 @@ async function enrichWithVotes(parkDataArray) {
         for (var p of parkDataArray) {
             p.avgVote = allVotes[p.parkId]?.avg || null;
             p.voteCount = allVotes[p.parkId]?.count || 0;
-        }
-    }
-    if (currentUser) {
-        const myRes = await fetch('/api/vote/my', { headers: { 'Authorization': 'Bearer ' + token } });
-        if (myRes.ok) {
-            myVotes = await myRes.json();
-            for (var p of parkDataArray) {
-                p.myVote = myVotes[p.parkId] || null;
-            }
         }
     }
 }
@@ -214,7 +289,7 @@ function loadAll() {
   xhr.send();
 }
 
-// ==================== РЕНДЕРИНГ ====================
+// ==================== РЕНДЕРИНГ (без кнопок голосования) ====================
 function renderAll(parkDataArray) {
   var dashboard = document.getElementById('dashboard');
   var html = '';
@@ -275,25 +350,13 @@ function renderAll(parkDataArray) {
     }
     html += '</div>';
 
-    // Виджет голосования
+    // Только рейтинг (без кнопок голосования), в одну строку
     html += '<div class="vote-widget">';
     if (park.avgVote !== null) {
-        html += '<div class="vote-result">Оценка: ' + park.avgVote.toFixed(1) + ' (' + getVoteLabel(Math.round(park.avgVote)) + '), голосов: ' + park.voteCount + '</div>';
+        html += '<div class="vote-result">⭐ ' + park.avgVote.toFixed(1) + ' (' + getVoteLabel(Math.round(park.avgVote)) + '), голосов: ' + park.voteCount + '</div>';
         html += '<div class="avg-bar"><div class="avg-fill" style="width:' + ((park.avgVote-1)/4*100) + '%"></div></div>';
     } else {
         html += '<div class="vote-result">Пока нет голосов</div>';
-    }
-    if (currentUser) {
-        html += '<div class="vote-options">';
-        var labels = ['🌿', '💧', '🌵', '✅', '🪨'];
-        var titles = ['Болото', 'Мокро', 'Альденте', 'Сухо', 'Бетон'];
-        for (var v = 1; v <= 5; v++) {
-            html += '<div class="vote-option' + (park.myVote === v ? ' selected' : '') + '" data-vote="' + v + '" data-park-id="' + park.parkId + '">';
-            html += '<span class="vote-emoji">' + labels[v-1] + '</span>';
-            html += '<span>' + titles[v-1] + '</span>';
-            html += '</div>';
-        }
-        html += '</div>';
     }
     html += '</div>';
 
@@ -303,37 +366,6 @@ function renderAll(parkDataArray) {
   window._parkData = parkDataArray;
   startLiveTimers();
   attachFavListeners();
-  attachVoteListeners();
-}
-
-function attachVoteListeners() {
-    if (!currentUser) return;
-    document.querySelectorAll('.vote-option').forEach(option => {
-        option.addEventListener('click', async function() {
-            const parkId = this.dataset.parkId;
-            const vote = parseInt(this.dataset.vote);
-            const card = this.closest('.card');
-            card.querySelectorAll('.vote-option').forEach(opt => opt.classList.remove('selected'));
-            this.classList.add('selected');
-            const res = await fetch('/api/vote/' + parkId, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
-                body: JSON.stringify({ vote: vote })
-            });
-            if (res.ok) {
-                const data = await res.json();
-                myVotes[parkId] = vote;
-                const resultDiv = card.querySelector('.vote-result');
-                if (resultDiv) {
-                    resultDiv.textContent = 'Оценка: ' + data.new_avg.toFixed(1) + ' (' + getVoteLabel(Math.round(data.new_avg)) + '), голосов: ' + data.vote_count;
-                }
-                const fillBar = card.querySelector('.avg-fill');
-                if (fillBar) {
-                    fillBar.style.width = ((data.new_avg - 1) / 4 * 100) + '%';
-                }
-            }
-        });
-    });
 }
 
 function attachFavListeners() {

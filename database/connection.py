@@ -69,7 +69,33 @@ def init_db():
             filename TEXT NOT NULL,
             original_name TEXT,
             status TEXT DEFAULT 'pending',
+            vote INTEGER,
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        );
+
+        CREATE TABLE IF NOT EXISTS weather_daily (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            park_id TEXT NOT NULL,
+            date TEXT NOT NULL,
+            temperature_max REAL,
+            rain_sum REAL,
+            UNIQUE(park_id, date)
+        );
+
+        CREATE TABLE IF NOT EXISTS votes_history (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            park_id TEXT NOT NULL,
+            user_id INTEGER,
+            vote INTEGER,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        );
+
+        CREATE TABLE IF NOT EXISTS dry_dates (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            park_id TEXT NOT NULL,
+            date TEXT NOT NULL,
+            dry_hours REAL,
+            UNIQUE(park_id, date)
         );
     """)
 
@@ -99,13 +125,23 @@ def init_db():
     except sqlite3.OperationalError:
         pass
 
+    try:
+        cursor.execute("ALTER TABLE park_photos ADD COLUMN vote INTEGER")
+    except sqlite3.OperationalError:
+        pass
+
+    try:
+        cursor.execute("ALTER TABLE users ADD COLUMN photo_votes_count INTEGER DEFAULT 0")
+    except sqlite3.OperationalError:
+        pass
+
     conn.commit()
     conn.close()
     print("✅ База данных инициализирована")
 
 
 def get_db():
-    """Генератор подключений (для FastAPI Depends)"""
+    """Генератор подключений для FastAPI Depends"""
     conn = get_connection()
     try:
         yield conn

@@ -56,13 +56,29 @@ async def get_metrics(user=Depends(get_admin_user)):
 
 @router.get("/api/admin/users")
 async def get_users(user=Depends(get_admin_user)):
-    """Возвращает список всех пользователей (только для админа)"""
+    """Возвращает список всех пользователей с колонкой photo_votes_count"""
     conn = get_connection()
     try:
         rows = conn.execute(
-            "SELECT id, email, username, role, created_at FROM users ORDER BY created_at DESC"
+            "SELECT id, email, username, role, created_at, photo_votes_count FROM users ORDER BY photo_votes_count DESC"
         ).fetchall()
         return [dict(r) for r in rows]
+    finally:
+        conn.close()
+
+@router.post("/api/admin/users/{user_id}/promote")
+async def promote_user(user_id: int, admin_user=Depends(get_admin_user)):
+    """Повышает пользователя до админа (только для админов)"""
+    conn = get_connection()
+    try:
+        user = conn.execute("SELECT id, role FROM users WHERE id = ?", (user_id,)).fetchone()
+        if not user:
+            raise HTTPException(status_code=404, detail="Пользователь не найден")
+        if user["role"] == "admin":
+            return {"ok": True, "message": "Пользователь уже админ"}
+        conn.execute("UPDATE users SET role = 'admin' WHERE id = ?", (user_id,))
+        conn.commit()
+        return {"ok": True, "message": f"Пользователь {user_id} теперь админ"}
     finally:
         conn.close()
 
@@ -72,7 +88,7 @@ async def get_pending_photos(user=Depends(get_admin_user)):
     conn = get_connection()
     try:
         rows = conn.execute("""
-            SELECT id, park_id, filename, original_name, created_at
+            SELECT id, park_id, filename, original_name, created_at, user_id
             FROM park_photos
             WHERE status = 'pending'
             ORDER BY created_at DESC
@@ -116,19 +132,20 @@ ADMIN_HTML = """
     <meta charset="UTF-8">
     <title>Админ-панель МТБ Парки</title>
     <style>
-        body { font-family: sans-serif; margin: 20px; }
-        .card { border: 1px solid #ccc; border-radius: 8px; padding: 16px; margin: 10px 0; }
+        body { font-family: sans-serif; margin: 20px; background: #0b0d14; color: #eef5ff; }
+        .card { border: 1px solid rgba(74,144,226,0.25); border-radius: 8px; padding: 16px; margin: 10px 0; background: rgba(18,22,30,0.85); }
         table { border-collapse: collapse; width: 100%; }
-        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
-        th { background: #f0f0f0; }
-        .error { color: red; }
+        th, td { border: 1px solid #333; padding: 8px; text-align: left; }
+        th { background: #1a2a3a; }
+        .error { color: #ff6b6b; }
         .hidden { display: none; }
         #login-form { margin-bottom: 20px; }
-        input { padding: 8px; margin: 4px; }
-        button { padding: 8px 16px; }
-        .approve-btn { background: #4caf50; color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; }
-        .reject-btn { background: #e74c3c; color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; }
-        .photo-item { margin: 10px; display: flex; align-items: center; gap: 10px; }
+        input { padding: 8px; margin: 4px; border-radius: 6px; border: 1px solid #555; background: #1a1e2b; color: white; }
+        button { padding: 8px 16px; border-radius: 6px; border: none; cursor: pointer; }
+        .approve-btn { background: #4caf50; color: white; }
+        .reject-btn { background: #e74c3c; color: white; }
+        .photo-item { margin: 10px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+        .promote-btn { background: #f39c12; color: white; }
     </style>
 </head>
 <body>
@@ -146,7 +163,7 @@ ADMIN_HTML = """
         <div id="metrics"></div>
         <div id="users-table"></div>
         <div id="photos-moderation"></div>
-        <button onclick="logout()">Выйти</button>
+        <button onclick="logout()" style="margin-top:20px; background:#e74c3c; color:white;">Выйти</button>
     </div>
 
     <script>
@@ -215,12 +232,39 @@ ADMIN_HTML = """
             });
             if (res.ok) {
                 const users = await res.json();
-                let html = '<div class="card"><h3>👥 Пользователи</h3><table><tr><th>ID</th><th>Email</th><th>Никнейм</th><th>Роль</th><th>Дата регистрации</th></tr>';
+                let html = '<div class="card"><h3>👥 Пользователи</h3><table><tr><th>ID</th><th>Email</th><th>Никнейм</th><th>Роль</th><th>Оценок</th><th>Действие</th></tr>';
                 for (const u of users) {
-                    html += `<tr><td>${u.id}</td><td>${u.email}</td><td>${u.username || '—'}</td><td>${u.role}</td><td>${u.created_at}</td></tr>`;
+                    const isAdmin = u.role === 'admin';
+                    html += `<tr>
+                        <td>${u.id}</td>
+                        <td>${u.email}</td>
+                        <td>${u.username || '—'}</td>
+                        <td>${u.role}</td>
+                        <td><strong>${u.photo_votes_count || 0}</strong></td>
+                        <td>`;
+                    if (!isAdmin) {
+                        html += `<button class="promote-btn" onclick="promoteUser(${u.id})">⭐ Сделать админом</button>`;
+                    } else {
+                        html += `<span style="color:#4caf50;">✅ Админ</span>`;
+                    }
+                    html += `</td></tr>`;
                 }
                 html += '</table></div>';
                 document.getElementById('users-table').innerHTML = html;
+            }
+        }
+
+        async function promoteUser(userId) {
+            if (!confirm('Подтвердите повышение пользователя до администратора?')) return;
+            const res = await fetch('/api/admin/users/' + userId + '/promote', {
+                method: 'POST',
+                headers: {'Authorization': 'Bearer ' + token}
+            });
+            if (res.ok) {
+                alert('Пользователь повышен до админа!');
+                loadUsers();
+            } else {
+                alert('Ошибка при повышении');
             }
         }
 

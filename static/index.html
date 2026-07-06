@@ -5,72 +5,48 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes">
   <title>МТБ Парки 2.0</title>
   <link rel="stylesheet" href="css/style.css">
-  <!-- PWA -->
   <link rel="manifest" href="/manifest.json">
   <meta name="theme-color" content="#0b0d14">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black">
   <meta name="apple-mobile-web-app-title" content="МТБ Парки">
   <link rel="apple-touch-icon" href="/icons/icon.svg">
-  <style>
-    .header-right { display: flex; align-items: center; gap: 10px; }
-    .btn-small { padding: 6px 12px; font-size: 14px; cursor: pointer; }
-    .modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; }
-    .modal.hidden { display: none; }
-    .modal-content { background: white; padding: 20px; border-radius: 8px; min-width: 300px; position: relative; }
-    .close-modal { position: absolute; top: 8px; right: 12px; cursor: pointer; font-size: 20px; }
-    .error { color: red; margin-top: 8px; }
-    .vote-widget { margin-top: 12px; }
-    .vote-result { font-size: 14px; margin-bottom: 6px; }
-    .avg-bar { height: 8px; background: #e0e0e0; border-radius: 4px; margin: 4px 0 8px; }
-    .avg-fill { height: 100%; border-radius: 4px; background: linear-gradient(to right, #8b5e3c, #4caf50); }
-    .vote-options { display: flex; justify-content: space-between; gap: 6px; }
-    .vote-option {
-      display: flex; flex-direction: column; align-items: center;
-      cursor: pointer; padding: 6px 8px; border-radius: 8px;
-      border: 2px solid transparent; transition: all 0.2s;
-      font-size: 12px; text-align: center;
-    }
-    .vote-option:hover { background: #f0f0f0; }
-    .vote-option.selected { border-color: rgba(74, 144, 226, 0.25); background: transparent; }
-    .vote-emoji { font-size: 22px; }
-    .fav-icon {
-      color: #aaa;
-      font-size: 20px;
-      cursor: pointer;
-      transition: color 0.2s;
-      vertical-align: middle;
-      margin-left: 6px;
-    }
-    .fav-icon.active { color: #e74c3c; }
-    .model-btn {
-      padding: 10px 18px;
-      border: 1px solid rgba(74, 144, 226, 0.25);
-      background: rgba(18, 22, 30, 0.85);
-      color: #ddd;
-      border-radius: 28px;
-      cursor: pointer;
-      font-size: 14px;
-      transition: all 0.2s;
-    }
-    .model-btn.active {
-      background: rgba(74, 144, 226, 0.2);
-      border-color: rgba(74, 144, 226, 0.5);
-      color: white;
-    }
-  </style>
 </head>
 <body>
-    <header class="header">
-    <h1 class="site-title">🚵 Состояние грунта МТБ трейлов</h1>
-    <div class="datetime" id="liveDateTime">--</div>
-    <div class="header-right">
-      <span id="userInfo" style="display:none;">
-        <span id="userEmail"></span>
-        <button id="logoutBtn" class="btn-small">Выйти</button>
-      </span>
-      <a href="/login" class="btn-small">Войти</a>
+  <header class="header">
+    <div class="header-container">
+      <!-- Бургер-меню слева -->
+      <div class="burger-menu">
+        <button class="burger-btn" id="burgerBtn" aria-label="Меню">
+          <span class="burger-line"></span>
+          <span class="burger-line"></span>
+          <span class="burger-line"></span>
+        </button>
+        <nav class="burger-nav" id="burgerNav">
+          <ul>
+            <li id="userInfoMobile" style="display:none;">
+              <span class="user-name" id="userEmailMobile"></span>
+            </li>
+            <li id="logoutMobile" style="display:none;">
+              <button id="logoutBtnMobile" class="menu-btn">Выйти</button>
+            </li>
+            <li id="loginMobile">
+              <a href="/login" class="menu-link">Войти</a>
+            </li>
+            <li><a href="/" class="menu-link">Главная</a></li>
+            <li><a href="#" class="menu-link" id="favoritesMobile">⭐ Избранное</a></li>
+            <li id="levelMobile" style="display:none;">
+              <span class="menu-link" id="levelDisplay" style="cursor:default; color:#ffd966;">🎯 Уровень: 1 (оценок: 0)</span>
+            </li>
+            <li><a href="/contacts" class="menu-link">📞 Контакты</a></li>
+            <li><a href="/development" class="menu-link">🚀 Развитие проекта</a></li>
+          </ul>
+        </nav>
+      </div>
+      <!-- Заголовок по центру -->
+      <h1 class="site-title">🚵 Состояние грунта МТБ трейлов</h1>
     </div>
+    <div class="datetime" id="liveDateTime">--</div>
     <div class="group-switch" id="groupSwitch">
       <button class="group-btn active" data-group="mtb_parks">🚵 МТБ Парки</button>
       <button class="group-btn" data-group="mtb_mountains">🏔️ МТБ Горы</button>
@@ -79,22 +55,16 @@
     </div>
   </header>
 
-  <!-- Переключатель модели -->
   <div style="margin:10px 0; text-align:center;">
     <span style="margin-right:8px; color:#ddd;">Формула испарения:</span>
     <button id="modelStandardBtn" class="model-btn active" style="margin:0 5px;">old</button>
     <button id="modelPmBtn" class="model-btn" style="margin:0 5px;">new</button>
   </div>
 
-  
-  </nav>
-
   <main class="dashboard" id="dashboard">
     <div class="loading">⏳ Загрузка данных...</div>
   </main>
   <button class="refresh-btn" id="refreshBtn">🔄 Обновить данные</button>
-
-  
 
   <script src="js/app.js"></script>
   <script>
