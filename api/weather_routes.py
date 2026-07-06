@@ -23,6 +23,8 @@ def _parse_time(t) -> datetime:
 
 def _to_msk(t) -> str:
     dt = _parse_time(t)
+    return dt.strftime("%Y-%m-%dT%H:%M") + "Z"
+    dt = _parse_time(t)
     msk = dt.astimezone(MOSCOW_TZ)
     return msk.strftime("%Y-%m-%dT%H:%M")
 
