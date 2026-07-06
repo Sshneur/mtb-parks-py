@@ -2,6 +2,49 @@
     const parkId = window.location.pathname.split('/').pop();
     if (!parkId) return;
 
+    // ---------- ПРОВЕРКА АВТОРИЗАЦИИ ----------
+    const token = localStorage.getItem('token') || '';
+    let currentUser = null;
+
+    async function loadUser() {
+        if (!token) return;
+        try {
+            const res = await fetch('/api/user/me', { headers: { 'Authorization': 'Bearer ' + token } });
+            if (res.ok) {
+                currentUser = await res.json();
+                // Показываем форму загрузки, скрываем сообщение о входе
+                document.getElementById('authMessage').style.display = 'none';
+                document.getElementById('photoForm').style.display = 'block';
+            } else {
+                document.getElementById('authMessage').style.display = 'block';
+                document.getElementById('photoForm').style.display = 'none';
+            }
+        } catch(e) {
+            document.getElementById('authMessage').style.display = 'block';
+            document.getElementById('photoForm').style.display = 'none';
+        }
+    }
+    await loadUser();
+
+    // ---------- ВЫБОР ОЦЕНКИ ----------
+    const voteButtons = document.querySelectorAll('.vote-btn');
+    let selectedVote = null;
+
+    voteButtons.forEach(btn => {
+        btn.addEventListener('click', function() {
+            // Снимаем выделение со всех
+            voteButtons.forEach(b => {
+                b.style.borderColor = '#555';
+                b.style.background = 'transparent';
+            });
+            // Выделяем текущий
+            this.style.borderColor = '#74a8e2';
+            this.style.background = 'rgba(74, 144, 226, 0.2)';
+            selectedVote = parseInt(this.dataset.vote);
+            document.getElementById('selectedVote').value = selectedVote;
+        });
+    });
+
     // ---------- ЗАГРУЗКА ПОГОДЫ И ГРАФИКИ ----------
     try {
         const weatherResp = await fetch(`/api/park/${parkId}/weather?days=7`);
@@ -151,7 +194,7 @@
         document.getElementById('voteAvg').textContent = 'Ошибка загрузки оценок';
     }
 
-    // ---------- ЗАГРУЗКА ФОТО (ИСПРАВЛЕННАЯ ВЕРСИЯ) ----------
+    // ---------- ЗАГРУЗКА ФОТО (НОВАЯ ВЕРСИЯ) ----------
     const submitBtn = document.getElementById('photoSubmitBtn');
     if (submitBtn) {
         submitBtn.addEventListener('click', async function(e) {
@@ -159,32 +202,57 @@
             const fileInput = document.getElementById('photoFile');
             const file = fileInput.files[0];
             if (!file) {
-                alert('Файл не выбран');
+                alert('Выберите файл');
+                return;
+            }
+
+            const vote = document.getElementById('selectedVote').value;
+            if (!vote) {
+                alert('Пожалуйста, выберите оценку состояния грунта');
                 return;
             }
 
             const formData = new FormData();
-            // Явно задаём имя поля, даже если атрибут name отсутствует
             formData.append('file', file, file.name);
+            formData.append('vote', vote);
+
+            const statusDiv = document.getElementById('uploadStatus');
+            statusDiv.textContent = '⏳ Загрузка...';
+            statusDiv.style.color = '#ffd966';
 
             try {
                 const resp = await fetch(`/api/park/${parkId}/photos`, {
                     method: 'POST',
+                    headers: { 'Authorization': 'Bearer ' + token },
                     body: formData
                 });
+
                 if (resp.ok) {
+                    const data = await resp.json();
+                    statusDiv.textContent = '✅ Фото загружено! Оценка: ' + vote;
+                    statusDiv.style.color = '#4caf50';
                     fileInput.value = '';
-                    loadPhotos();
+                    // Сброс выбора оценки
+                    voteButtons.forEach(b => {
+                        b.style.borderColor = '#555';
+                        b.style.background = 'transparent';
+                    });
+                    document.getElementById('selectedVote').value = '';
+                    selectedVote = null;
+                    loadPhotos(); // Обновляем галерею
                 } else {
                     const errText = await resp.text();
-                    alert('Ошибка сервера: ' + resp.status + ' ' + errText);
+                    statusDiv.textContent = '❌ Ошибка сервера: ' + resp.status + ' ' + errText;
+                    statusDiv.style.color = '#ff6b6b';
                 }
             } catch (err) {
-                alert('Ошибка сети: ' + err.message);
+                statusDiv.textContent = '❌ Ошибка сети: ' + err.message;
+                statusDiv.style.color = '#ff6b6b';
             }
         });
     }
 
+    // ---------- ЗАГРУЗКА ГАЛЕРЕИ ----------
     async function loadPhotos() {
         try {
             const resp = await fetch(`/api/park/${parkId}/photos`);
@@ -192,22 +260,47 @@
             const photos = await resp.json();
             const gallery = document.getElementById('photoGallery');
             gallery.innerHTML = '';
+
+            if (photos.length === 0) {
+                gallery.innerHTML = '<p style="color:#aaa;">Фото пока нет. Будьте первым!</p>';
+                return;
+            }
+
+            const voteLabels = {
+                1: '🌿 Болото',
+                2: '💧 Мокро',
+                3: '🌵 Альденте',
+                4: '✅ Сухо',
+                5: '🪨 Бетон'
+            };
+
             photos.forEach(p => {
                 const card = document.createElement('div');
-                card.style.cssText = 'width: 200px; margin-bottom: 15px;';
+                card.style.cssText = 'background: rgba(18,22,30,0.85); border-radius:12px; padding:10px; border:1px solid rgba(74,144,226,0.2);';
+
                 const img = document.createElement('img');
                 img.src = `/photos/${parkId}/${p.filename}`;
-                img.style.cssText = 'width: 100%; height: 200px; object-fit: cover; border-radius: 8px;';
+                img.style.cssText = 'width:100%; aspect-ratio:1/1; object-fit:cover; border-radius:8px;';
+
                 const info = document.createElement('div');
-                info.style.cssText = 'font-size: 12px; color: #aaa; margin-top: 4px; text-align: center;';
-                const date = new Date(p.created_at).toLocaleDateString('ru-RU');
-                info.textContent = `${date}${p.username ? ', ' + p.username : ''}`;
+                info.style.cssText = 'margin-top:8px; font-size:13px; color:#ddd; text-align:center;';
+
+                const date = new Date(p.created_at).toLocaleDateString('ru-RU', { day:'numeric', month:'long', year:'numeric' });
+                const username = p.username || 'Аноним';
+                const voteText = p.vote ? voteLabels[p.vote] || p.vote : '—';
+
+                info.innerHTML = `
+                    <div><strong>${username}</strong></div>
+                    <div style="font-size:12px; color:#aaa;">${date}</div>
+                    <div style="font-size:14px; font-weight:bold; color:#74a8e2;">${voteText}</div>
+                `;
+
                 card.appendChild(img);
                 card.appendChild(info);
                 gallery.appendChild(card);
             });
         } catch (err) {
-            console.error(err);
+            console.error('Ошибка загрузки фото:', err);
         }
     }
     loadPhotos();

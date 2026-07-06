@@ -1,10 +1,11 @@
-from fastapi import APIRouter, Query, Request
+from fastapi import APIRouter, Query, Request, Depends, HTTPException
 from fastapi.responses import HTMLResponse, JSONResponse
 from database.crud import get_park
 from database.connection import get_connection
 from datetime import datetime, timedelta, timezone
 from services.penman_monteith import calc_pm_evaporation
 from services.soil_calculator import get_soil_status
+from api.dependencies import get_current_user
 import os as _os, uuid, asyncio
 
 router = APIRouter()
@@ -31,6 +32,26 @@ def _parse_time(t):
         dt = dt.replace(tzinfo=timezone.utc)
     return dt
 
+def _to_msk(t):
+    dt = _parse_time(t)
+    msk = dt.astimezone(timezone(timedelta(hours=3)))
+    return msk.strftime("%Y-%m-%dT%H:%M")
+
+def _weather_code(temp, rain):
+    if rain and rain > 2:
+        return 63
+    elif rain and rain > 0.5:
+        return 61
+    elif rain and rain > 0:
+        return 80
+    elif temp and temp > 25:
+        return 1
+    elif temp and temp > 15:
+        return 2
+    else:
+        return 3
+
+# HTML-шаблон страницы парка (с обновлённой формой загрузки фото)
 PARK_HTML_TEMPLATE = """
 <!DOCTYPE html>
 <html lang="ru">
@@ -60,7 +81,6 @@ PARK_HTML_TEMPLATE = """
         }
         .route-btn:hover { opacity: 0.9; }
 
-        /* ---------- Адаптация для мобильных ---------- */
         @media (max-width: 600px) {
             .park-container { padding: 10px; }
             .chart-box { padding: 10px; margin: 20px 0; }
@@ -92,13 +112,12 @@ PARK_HTML_TEMPLATE = """
                 font-size: 16px;
             }
             #photoGallery {
-                justify-content: space-between;
+                grid-template-columns: 1fr 1fr !important;
             }
-            #photoGallery img {
-                width: calc(50% - 5px);  /* две колонки с отступом */
-                height: auto;
-                aspect-ratio: 1 / 1;
-                object-fit: cover;
+            .vote-btn {
+                flex: 1 0 45% !important;
+                font-size: 12px !important;
+                padding: 8px 6px !important;
             }
         }
 
@@ -106,6 +125,9 @@ PARK_HTML_TEMPLATE = """
             .chart-box canvas { max-height: 220px; }
             h1 { font-size: 22px; }
             .status-badge { font-size: 18px; }
+            .vote-btn {
+                flex: 1 0 100% !important;
+            }
         }
     </style>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
@@ -135,13 +157,43 @@ PARK_HTML_TEMPLATE = """
             <canvas id="rainChart"></canvas>
         </div>
 
+        <!-- НОВАЯ ФОРМА ЗАГРУЗКИ ФОТО С ОЦЕНКОЙ -->
         <div style="margin-top:20px;">
-            <h3>Фотографии грунта</h3>
-            <form id="photoForm" enctype="multipart/form-data">
-                <input type="file" id="photoFile" name="file" accept="image/*">
-                <button type="submit" id="photoSubmitBtn">Загрузить фото</button>
-            </form>
-            <div id="photoGallery" style="display:flex; flex-wrap:wrap; gap:10px; margin-top:10px;"></div>
+            <h3>📸 Фотографии грунта</h3>
+            <div id="photoUploadArea">
+                <div id="authMessage" style="display:none; color:#ff6b6b; padding:10px; background:rgba(255,0,0,0.1); border-radius:8px; margin-bottom:10px;">
+                    ⚠️ <a href="/login" style="color:#74a8e2;">Войдите</a>, чтобы загружать фото
+                </div>
+                <form id="photoForm" enctype="multipart/form-data" style="display:none;">
+                    <div style="margin-bottom:10px;">
+                        <label style="display:block; margin-bottom:5px; font-weight:600;">Оцените состояние грунта:</label>
+                        <div id="voteButtons" style="display:flex; gap:8px; flex-wrap:wrap; justify-content:center;">
+                            <button type="button" class="vote-btn" data-vote="1" style="padding:10px 14px; border:2px solid #555; border-radius:12px; background:transparent; color:white; font-size:14px; cursor:pointer; transition:all 0.2s; flex:1 0 60px;">
+                                🌿 Болото
+                            </button>
+                            <button type="button" class="vote-btn" data-vote="2" style="padding:10px 14px; border:2px solid #555; border-radius:12px; background:transparent; color:white; font-size:14px; cursor:pointer; transition:all 0.2s; flex:1 0 60px;">
+                                💧 Мокро
+                            </button>
+                            <button type="button" class="vote-btn" data-vote="3" style="padding:10px 14px; border:2px solid #555; border-radius:12px; background:transparent; color:white; font-size:14px; cursor:pointer; transition:all 0.2s; flex:1 0 60px;">
+                                🌵 Альденте
+                            </button>
+                            <button type="button" class="vote-btn" data-vote="4" style="padding:10px 14px; border:2px solid #555; border-radius:12px; background:transparent; color:white; font-size:14px; cursor:pointer; transition:all 0.2s; flex:1 0 60px;">
+                                ✅ Сухо
+                            </button>
+                            <button type="button" class="vote-btn" data-vote="5" style="padding:10px 14px; border:2px solid #555; border-radius:12px; background:transparent; color:white; font-size:14px; cursor:pointer; transition:all 0.2s; flex:1 0 60px;">
+                                🪨 Бетон
+                            </button>
+                        </div>
+                        <input type="hidden" id="selectedVote" value="">
+                    </div>
+                    <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
+                        <input type="file" id="photoFile" name="file" accept="image/*" style="flex:1; padding:8px; border:1px solid #555; border-radius:8px; background:#1a1e2b; color:white;">
+                        <button type="submit" id="photoSubmitBtn" style="padding:12px 24px; background:#4caf50; color:white; border:none; border-radius:28px; font-weight:bold; cursor:pointer;">📤 Загрузить</button>
+                    </div>
+                    <div id="uploadStatus" style="margin-top:8px; font-size:14px;"></div>
+                </form>
+            </div>
+            <div id="photoGallery" style="display:grid; grid-template-columns:repeat(auto-fill, minmax(200px, 1fr)); gap:15px; margin-top:15px;"></div>
         </div>
 
         <div id="park-content">Загрузка данных...</div>
@@ -166,31 +218,33 @@ async def park_page(park_id: str):
 
 @router.get("/api/park/{park_id}/weather")
 async def get_park_weather(park_id: str, days: int = Query(7, ge=1, le=30)):
-    """Возвращает агрегированные по дням данные температуры (max) и осадков (сумма) из weather_daily."""
+    """Возвращает данные за последние 7 полных дней (без учёта сегодня) из weather_daily."""
     park = get_park(park_id)
     if not park:
         return JSONResponse({"error": "Парк не найден"}, status_code=404)
 
     conn = get_connection()
     try:
-        since = (datetime.now(timezone.utc) - timedelta(days=days)).strftime("%Y-%m-%d")
-        rows = conn.execute("""
-            SELECT date, temperature_max, rain_sum
-            FROM weather_daily
-            WHERE park_id = ? AND date >= ?
-            ORDER BY date ASC
-        """, (park_id, since)).fetchall()
-
-        # Формируем массив ровно из 7 элементов
-        result_days = []
         today = datetime.now(timezone.utc).date()
-        for i in range(days - 1, -1, -1):
+        # Строим массив ровно из 7 дней: от (today - 7) до (today - 1)
+        result_days = []
+        for i in range(7, 0, -1):
             target_date = (today - timedelta(days=i)).isoformat()
             result_days.append({
                 "date": target_date,
                 "temp_max": None,
                 "rain_total": 0.0
             })
+
+        # Запрашиваем из БД только нужный диапазон
+        since = (today - timedelta(days=7)).isoformat()
+        until = (today - timedelta(days=1)).isoformat()
+        rows = conn.execute("""
+            SELECT date, temperature_max, rain_sum
+            FROM weather_daily
+            WHERE park_id = ? AND date >= ? AND date <= ?
+            ORDER BY date ASC
+        """, (park_id, since, until)).fetchall()
 
         for row in rows:
             day_str = row["date"]
@@ -206,6 +260,7 @@ async def get_park_weather(park_id: str, days: int = Query(7, ge=1, le=30)):
 
 @router.get("/api/park/{park_id}/status")
 async def get_park_status(park_id: str):
+    """Возвращает статус грунта (пересчитывается на лету, но можно читать из БД)."""
     park = get_park(park_id)
     if not park:
         return JSONResponse({"error": "Парк не найден"}, status_code=404)
@@ -309,41 +364,64 @@ async def get_park_votes_history(park_id: str, days: int = Query(30, ge=1, le=90
         conn.close()
 
 @router.post("/api/park/{park_id}/photos")
-async def upload_park_photo(park_id: str, request: Request):
+async def upload_park_photo(park_id: str, request: Request, user=Depends(get_current_user)):
+    """
+    Загрузка фото с оценкой (только для авторизованных пользователей)
+    Оценка: 1-5 (Болото, Мокро, Альденте, Сухо, Бетон)
+    """
     park = get_park(park_id)
     if not park:
         return JSONResponse({"error": "Парк не найден"}, status_code=404)
 
-    from fastapi import UploadFile, File
+    from fastapi import UploadFile, File, Form
+
     form = await request.form()
     file = form.get("file")
+    vote_str = form.get("vote")
+
     if not file:
         return JSONResponse({"error": "Файл не найден"}, status_code=400)
 
+    if not vote_str:
+        return JSONResponse({"error": "Оценка не указана"}, status_code=400)
+
+    try:
+        vote = int(vote_str)
+        if vote < 1 or vote > 5:
+            raise ValueError
+    except ValueError:
+        return JSONResponse({"error": "Оценка должна быть числом от 1 до 5"}, status_code=400)
+
+    # Сохраняем файл
     ext = file.filename.split('.')[-1] if '.' in file.filename else 'jpg'
     filename = f"{datetime.now().strftime('%Y%m%d_%H%M%S')}_{uuid.uuid4().hex[:6]}.{ext}"
     base_dir = _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__)))
     filepath = _os.path.join(base_dir, "data", "photos", park_id, filename)
     _os.makedirs(_os.path.dirname(filepath), exist_ok=True)
-    
+
     with open(filepath, "wb") as f:
         f.write(await file.read())
 
-    # Временно ставим user_id = 1 (админ) для теста
-    user_id = 1
+    # Сохраняем запись в БД (user_id из токена)
+    user_id = user["user_id"]
     conn = get_connection()
     try:
         conn.execute(
-            "INSERT INTO park_photos (park_id, user_id, filename, original_name, status) VALUES (?, ?, ?, ?, 'pending')",
-            (park_id, user_id, filename, file.filename)
+            "INSERT INTO park_photos (park_id, user_id, filename, original_name, vote, status) VALUES (?, ?, ?, ?, ?, 'pending')",
+            (park_id, user_id, filename, file.filename, vote)
+        )
+        # Увеличиваем счётчик оценок у пользователя
+        conn.execute(
+            "UPDATE users SET photo_votes_count = photo_votes_count + 1 WHERE id = ?",
+            (user_id,)
         )
         conn.commit()
         photo_id = conn.execute("SELECT last_insert_rowid()").fetchone()[0]
-        print(f"Фото {filename} сохранено, id={photo_id}")
+        print(f"Фото {filename} сохранено, id={photo_id}, vote={vote}, user_id={user_id}")
     finally:
         conn.close()
 
-    return {"ok": True, "filename": filename}
+    return {"ok": True, "filename": filename, "vote": vote, "photo_id": photo_id}
 
 @router.get("/api/park/{park_id}/photos")
 async def get_park_photos(park_id: str):
@@ -354,7 +432,7 @@ async def get_park_photos(park_id: str):
     conn = get_connection()
     try:
         rows = conn.execute("""
-            SELECT p.id, p.filename, p.original_name, p.created_at, u.username
+            SELECT p.id, p.filename, p.original_name, p.created_at, p.vote, u.username
             FROM park_photos p
             LEFT JOIN users u ON p.user_id = u.id
             WHERE p.park_id = ? AND p.status = 'approved'

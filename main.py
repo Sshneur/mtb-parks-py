@@ -1,7 +1,7 @@
 from fastapi import FastAPI, Request
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import HTMLResponse, JSONResponse
 from dotenv import load_dotenv
 from contextlib import asynccontextmanager
 import uvicorn
@@ -20,6 +20,10 @@ logging.basicConfig(
     datefmt='%Y-%m-%d %H:%M:%S'
 )
 logger = logging.getLogger(__name__)
+
+# Создаём папки при старте (до инициализации приложения)
+_os.makedirs("data", exist_ok=True)
+_os.makedirs("data/photos", exist_ok=True)
 
 
 # ============================================================
@@ -135,6 +139,192 @@ app.include_router(pm_router)
 from api.park_routes import router as park_router
 app.include_router(park_router)
 
+# ============================================================
+# СТАТИЧЕСКИЕ СТРАНИЦЫ (контакты, развитие проекта)
+# ============================================================
+
+CONTACTS_HTML = """
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Контакты — МТБ Парки 2.0</title>
+    <link rel="stylesheet" href="/css/style.css">
+    <style>
+        .contacts-container {
+            max-width: 600px;
+            margin: 60px auto;
+            padding: 30px;
+            background: rgba(18,22,30,0.9);
+            border: 1px solid rgba(74,144,226,0.25);
+            border-radius: 16px;
+            text-align: center;
+            color: #eef5ff;
+        }
+        .contacts-container h1 {
+            font-size: 2rem;
+            margin-bottom: 20px;
+            color: #74a8e2;
+        }
+        .contacts-container .telegram-link {
+            display: inline-block;
+            margin: 20px 0;
+            padding: 14px 28px;
+            background: #0088cc;
+            color: white;
+            border-radius: 40px;
+            text-decoration: none;
+            font-size: 1.2rem;
+            font-weight: 600;
+            transition: background 0.3s;
+        }
+        .contacts-container .telegram-link:hover {
+            background: #006699;
+        }
+        .contacts-container .message {
+            font-size: 1.1rem;
+            color: #b8d6ff;
+            margin-top: 15px;
+        }
+        .back-link {
+            display: inline-block;
+            margin-top: 30px;
+            color: #74a8e2;
+            text-decoration: none;
+        }
+        .back-link:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <div class="contacts-container">
+        <h1>📞 Контакты</h1>
+        <p>Свяжитесь со мной по Telegram:</p>
+        <a href="https://t.me/sshhsss" target="_blank" class="telegram-link">@sshhsss</a>
+        <div class="message">
+            ❓ Если вашего парка нет в списке — напишите мне, и я добавлю его!
+        </div>
+        <a href="/" class="back-link">← На главную</a>
+    </div>
+</body>
+</html>
+"""
+
+DEVELOPMENT_HTML = """
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Развитие проекта — МТБ Парки 2.0</title>
+    <link rel="stylesheet" href="/css/style.css">
+    <style>
+        .dev-container {
+            max-width: 700px;
+            margin: 60px auto;
+            padding: 30px;
+            background: rgba(18,22,30,0.9);
+            border: 1px solid rgba(74,144,226,0.25);
+            border-radius: 16px;
+            color: #eef5ff;
+        }
+        .dev-container h1 {
+            font-size: 2rem;
+            margin-bottom: 20px;
+            color: #ffd966;
+            text-align: center;
+        }
+        .dev-container p {
+            font-size: 1.1rem;
+            line-height: 1.6;
+            color: #b8d6ff;
+        }
+        .dev-container .plan {
+            margin: 30px 0;
+            padding: 0;
+            list-style: none;
+        }
+        .dev-container .plan li {
+            padding: 16px 20px;
+            margin: 10px 0;
+            background: rgba(255,255,255,0.05);
+            border-radius: 12px;
+            border-left: 4px solid #74a8e2;
+            font-size: 1.05rem;
+            color: #e2edff;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        .dev-container .plan .icon {
+            font-size: 1.5rem;
+        }
+        .dev-container .callout {
+            margin-top: 30px;
+            padding: 20px;
+            background: rgba(74,144,226,0.15);
+            border-radius: 12px;
+            text-align: center;
+        }
+        .dev-container .callout a {
+            color: #74a8e2;
+            text-decoration: none;
+            font-weight: 600;
+        }
+        .dev-container .callout a:hover {
+            text-decoration: underline;
+        }
+        .back-link {
+            display: inline-block;
+            margin-top: 30px;
+            color: #74a8e2;
+            text-decoration: none;
+        }
+        .back-link:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <div class="dev-container">
+        <h1>🚀 Развитие проекта</h1>
+        <p>Мы постоянно работаем над улучшением сервиса. Вот что планируется в ближайшее время:</p>
+        <ul class="plan">
+            <li>
+                <span class="icon">📡</span>
+                <span><strong>Установка тестового датчика влажности грунта</strong><br>
+                Мы планируем разместить физический датчик (ESP8266 + ёмкостной сенсор) в одном из парков, 
+                чтобы получать реальные показания влажности в режиме реального времени. Это позволит 
+                сравнивать данные модели с реальностью и повысить точность прогнозов.</span>
+            </li>
+        </ul>
+        <div class="callout">
+            <p>💡 <strong>Хотите помочь или предложить идею?</strong><br>
+            Напишите мне в Telegram: <a href="https://t.me/sshhsss" target="_blank">@sshhsss</a></p>
+            <p style="font-size:0.9rem; color:#94afcf; margin-top:8px;">
+                Мы открыты к сотрудничеству и новым идеям!
+            </p>
+        </div>
+        <a href="/" class="back-link">← На главную</a>
+    </div>
+</body>
+</html>
+"""
+
+@app.get("/contacts", response_class=HTMLResponse)
+async def contacts_page():
+    return HTMLResponse(content=CONTACTS_HTML)
+
+@app.get("/development", response_class=HTMLResponse)
+async def development_page():
+    return HTMLResponse(content=DEVELOPMENT_HTML)
+
+# ============================================================
+# РАЗДАЧА СТАТИКИ
+# ============================================================
+
 # Раздача папки с фотографиями (ДО корневой статики, чтобы /photos не перехватывался)
 photos_path = _os.path.join(_os.path.dirname(__file__), "data", "photos")
 if _os.path.exists(photos_path):
@@ -145,6 +335,8 @@ static_path = _os.path.join(_os.path.dirname(__file__), "static")
 if _os.path.exists(static_path):
     app.mount("/", StaticFiles(directory="static", html=True), name="static")
 
-# Точка входа
+# ============================================================
+# ТОЧКА ВХОДА
+# ============================================================
 if __name__ == "__main__":
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    uvicorn.run(app, host="127.0.0.1", port=8000)
