@@ -12,7 +12,6 @@
             const res = await fetch('/api/user/me', { headers: { 'Authorization': 'Bearer ' + token } });
             if (res.ok) {
                 currentUser = await res.json();
-                // Показываем форму загрузки, скрываем сообщение о входе
                 document.getElementById('authMessage').style.display = 'none';
                 document.getElementById('photoForm').style.display = 'block';
             } else {
@@ -32,12 +31,10 @@
 
     voteButtons.forEach(btn => {
         btn.addEventListener('click', function() {
-            // Снимаем выделение со всех
             voteButtons.forEach(b => {
                 b.style.borderColor = '#555';
                 b.style.background = 'transparent';
             });
-            // Выделяем текущий
             this.style.borderColor = '#74a8e2';
             this.style.background = 'rgba(74, 144, 226, 0.2)';
             selectedVote = parseInt(this.dataset.vote);
@@ -160,41 +157,40 @@
         console.error('Ошибка загрузки статуса:', err);
     }
 
-    // ---------- ИСТОРИЯ ГОЛОСОВАНИЙ ----------
+    // ---------- СРЕДНЯЯ ОЦЕНКА (ВМЕСТО ИСТОРИИ) ----------
     try {
-        const historyResp = await fetch(`/api/park/${parkId}/votes-history?days=30`);
-        if (historyResp.ok) {
-            const historyData = await historyResp.json();
-            const history = historyData.history || [];
+        const voteResp = await fetch(`/api/park/${parkId}/votes-history`);
+        if (voteResp.ok) {
+            const data = await voteResp.json();
             const voteDiv = document.getElementById('voteAvg');
-            if (history.length > 0) {
-                const labels = {1: 'Болото', 2: 'Мокро', 3: 'Альденте', 4: 'Сухо', 5: 'Бетон'};
-                let html = '<h3>История народных оценок</h3>';
-                html += '<table style="width:100%; border-collapse:collapse;">';
-                html += '<tr><th>Дата</th><th>Оценка</th><th>Статус</th><th>Голосов</th></tr>';
-                for (const h of history) {
-                    const label = labels[Math.round(h.avg)] || '';
-                    html += `<tr>
-                        <td>${h.date}</td>
-                        <td>${h.avg.toFixed(1)}</td>
-                        <td>${label}</td>
-                        <td>${h.count}</td>
-                    </tr>`;
-                }
-                html += '</table>';
-                voteDiv.innerHTML = html;
+            if (data.avg !== null && data.avg !== undefined && data.count > 0) {
+                const labels = {1: '🌿 Болото', 2: '💧 Мокро', 3: '🌵 Альденте', 4: '✅ Сухо', 5: '🪨 Бетон'};
+                const rounded = Math.round(data.avg);
+                const label = labels[rounded] || '';
+                voteDiv.innerHTML = `
+                    <div style="margin:10px 0; padding:12px; background:rgba(0,20,40,0.7); border-radius:12px; text-align:center;">
+                        <div style="font-size:1.2rem; font-weight:600; color:#ffd966;">
+                            ⭐ Средняя оценка: ${data.avg.toFixed(1)} (${data.count} голосов)
+                        </div>
+                        <div style="font-size:1.1rem; color:#b8d6ff;">${label}</div>
+                    </div>
+                `;
             } else {
-                voteDiv.textContent = 'Народная оценка: пока нет голосов';
+                voteDiv.innerHTML = `
+                    <div style="margin:10px 0; padding:12px; background:rgba(0,20,40,0.7); border-radius:12px; text-align:center; color:#94afcf;">
+                        📸 Пока нет оценок. Загрузите фото с оценкой!
+                    </div>
+                `;
             }
         } else {
-            document.getElementById('voteAvg').textContent = 'Народная оценка: пока нет голосов';
+            document.getElementById('voteAvg').textContent = 'Ошибка загрузки оценок';
         }
     } catch (err) {
-        console.error('Ошибка загрузки истории голосований:', err);
+        console.error('Ошибка загрузки средней оценки:', err);
         document.getElementById('voteAvg').textContent = 'Ошибка загрузки оценок';
     }
 
-    // ---------- ЗАГРУЗКА ФОТО (НОВАЯ ВЕРСИЯ) ----------
+    // ---------- ЗАГРУЗКА ФОТО ----------
     const submitBtn = document.getElementById('photoSubmitBtn');
     if (submitBtn) {
         submitBtn.addEventListener('click', async function(e) {
@@ -232,14 +228,15 @@
                     statusDiv.textContent = '✅ Фото загружено! Оценка: ' + vote;
                     statusDiv.style.color = '#4caf50';
                     fileInput.value = '';
-                    // Сброс выбора оценки
                     voteButtons.forEach(b => {
                         b.style.borderColor = '#555';
                         b.style.background = 'transparent';
                     });
                     document.getElementById('selectedVote').value = '';
                     selectedVote = null;
-                    loadPhotos(); // Обновляем галерею
+                    loadPhotos();
+                    // Обновляем среднюю оценку после загрузки
+                    fetchAverageVote();
                 } else {
                     const errText = await resp.text();
                     statusDiv.textContent = '❌ Ошибка сервера: ' + resp.status + ' ' + errText;
@@ -303,5 +300,38 @@
             console.error('Ошибка загрузки фото:', err);
         }
     }
+
+    // ---------- ОБНОВЛЕНИЕ СРЕДНЕЙ ОЦЕНКИ (для вызова после загрузки фото) ----------
+    async function fetchAverageVote() {
+        try {
+            const resp = await fetch(`/api/park/${parkId}/votes-history`);
+            if (resp.ok) {
+                const data = await resp.json();
+                const voteDiv = document.getElementById('voteAvg');
+                if (data.avg !== null && data.avg !== undefined && data.count > 0) {
+                    const labels = {1: '🌿 Болото', 2: '💧 Мокро', 3: '🌵 Альденте', 4: '✅ Сухо', 5: '🪨 Бетон'};
+                    const rounded = Math.round(data.avg);
+                    const label = labels[rounded] || '';
+                    voteDiv.innerHTML = `
+                        <div style="margin:10px 0; padding:12px; background:rgba(0,20,40,0.7); border-radius:12px; text-align:center;">
+                            <div style="font-size:1.2rem; font-weight:600; color:#ffd966;">
+                                ⭐ Средняя оценка: ${data.avg.toFixed(1)} (${data.count} голосов)
+                            </div>
+                            <div style="font-size:1.1rem; color:#b8d6ff;">${label}</div>
+                        </div>
+                    `;
+                } else {
+                    voteDiv.innerHTML = `
+                        <div style="margin:10px 0; padding:12px; background:rgba(0,20,40,0.7); border-radius:12px; text-align:center; color:#94afcf;">
+                            📸 Пока нет оценок. Загрузите фото с оценкой!
+                        </div>
+                    `;
+                }
+            }
+        } catch (e) {
+            console.error('Ошибка обновления оценки:', e);
+        }
+    }
+
     loadPhotos();
 })();

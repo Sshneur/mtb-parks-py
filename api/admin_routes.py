@@ -119,12 +119,18 @@ async def reject_photo(photo_id: int, user=Depends(get_admin_user)):
     finally:
         conn.close()
 
+# ===== НОВЫЙ ЭНДПОИНТ ДЛЯ ОБНОВЛЕНИЯ =====
+@router.post("/api/admin/refresh")
+async def refresh_data(user=Depends(get_admin_user)):
+    """Принудительное обновление данных в админке"""
+    return {"ok": True, "message": "Данные обновлены"}
+
 @router.get("/admin", response_class=HTMLResponse)
 async def admin_panel():
     """Отдаёт HTML админ-панели"""
     return HTMLResponse(content=ADMIN_HTML)
 
-# Простая HTML-страница админ-панели
+# ===== ОБНОВЛЁННЫЙ HTML =====
 ADMIN_HTML = """
 <!DOCTYPE html>
 <html lang="ru">
@@ -159,11 +165,14 @@ ADMIN_HTML = """
     </div>
 
     <div id="dashboard" class="hidden">
-        <h2>📊 Метрики</h2>
+        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; margin-bottom:15px;">
+            <h2>📊 Метрики</h2>
+            <button onclick="refreshAll()" style="padding:10px 24px; background:#4caf50; color:white; border:none; border-radius:8px; cursor:pointer; font-weight:bold;">🔄 Обновить данные</button>
+        </div>
         <div id="metrics"></div>
         <div id="users-table"></div>
         <div id="photos-moderation"></div>
-        <button onclick="logout()" style="margin-top:20px; background:#e74c3c; color:white;">Выйти</button>
+        <button onclick="logout()" style="margin-top:20px; background:#e74c3c; color:white; padding:10px 20px; border:none; border-radius:8px; cursor:pointer;">Выйти</button>
     </div>
 
     <script>
@@ -309,6 +318,34 @@ ADMIN_HTML = """
                 headers: {'Authorization': 'Bearer ' + token}
             });
             loadPendingPhotos();
+        }
+
+        // === НОВАЯ ФУНКЦИЯ ДЛЯ ОБНОВЛЕНИЯ ===
+        async function refreshAll() {
+            const btn = event.target;
+            btn.textContent = '⏳ Обновление...';
+            btn.disabled = true;
+            try {
+                const res = await fetch('/api/admin/refresh', {
+                    method: 'POST',
+                    headers: { 'Authorization': 'Bearer ' + token }
+                });
+                if (res.ok) {
+                    await loadMetrics();
+                    await loadUsers();
+                    await loadPendingPhotos();
+                    btn.textContent = '✅ Обновлено';
+                    setTimeout(() => { btn.textContent = '🔄 Обновить данные'; btn.disabled = false; }, 1500);
+                } else {
+                    alert('Ошибка обновления');
+                    btn.textContent = '🔄 Обновить данные';
+                    btn.disabled = false;
+                }
+            } catch (e) {
+                alert('Ошибка сети');
+                btn.textContent = '🔄 Обновить данные';
+                btn.disabled = false;
+            }
         }
     </script>
 </body>

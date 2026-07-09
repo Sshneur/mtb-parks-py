@@ -6,9 +6,22 @@ from datetime import datetime, timedelta, timezone
 from services.penman_monteith import calc_pm_evaporation
 from services.soil_calculator import get_soil_status
 from api.dependencies import get_current_user
-import os as _os, uuid, asyncio
+import os as _os, uuid
+import logging
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
+
+# ===== ФУНКЦИЯ ДЛЯ ОПРЕДЕЛЕНИЯ ВРЕМЕНИ СБРОСА (4:00 МСК) =====
+def get_reset_time_msk():
+    now_msk = datetime.now(timezone.utc) + timedelta(hours=3)
+    if now_msk.hour >= 4:
+        reset_msk = now_msk.replace(hour=4, minute=0, second=0, microsecond=0)
+    else:
+        reset_msk = (now_msk - timedelta(days=1)).replace(hour=4, minute=0, second=0, microsecond=0)
+    reset_utc = reset_msk - timedelta(hours=3)
+    return reset_utc
 
 SURFACE_PARAMS = {
     "asphalt": {"z0m": 0.001, "d": 0, "r_s": 0},
@@ -51,7 +64,7 @@ def _weather_code(temp, rain):
     else:
         return 3
 
-# HTML-шаблон страницы парка (с обновлённой формой загрузки фото)
+# ===== ПОЛНЫЙ HTML-ШАБЛОН СТРАНИЦЫ ПАРКА =====
 PARK_HTML_TEMPLATE = """
 <!DOCTYPE html>
 <html lang="ru">
@@ -157,7 +170,6 @@ PARK_HTML_TEMPLATE = """
             <canvas id="rainChart"></canvas>
         </div>
 
-        <!-- НОВАЯ ФОРМА ЗАГРУЗКИ ФОТО С ОЦЕНКОЙ -->
         <div style="margin-top:20px;">
             <h3>📸 Фотографии грунта</h3>
             <div id="photoUploadArea">
@@ -208,7 +220,6 @@ async def park_page(park_id: str):
     park = get_park(park_id)
     if not park:
         return HTMLResponse("<h1>Парк не найден</h1>", status_code=404)
-    
     html = PARK_HTML_TEMPLATE.replace("{{ park_name }}", park.get("name", ""))
     html = html.replace("{{ lat }}", str(park.get("lat", "")))
     html = html.replace("{{ lon }}", str(park.get("lon", "")))
@@ -218,25 +229,16 @@ async def park_page(park_id: str):
 
 @router.get("/api/park/{park_id}/weather")
 async def get_park_weather(park_id: str, days: int = Query(7, ge=1, le=30)):
-    """Возвращает данные за последние 7 полных дней (без учёта сегодня) из weather_daily."""
     park = get_park(park_id)
     if not park:
         return JSONResponse({"error": "Парк не найден"}, status_code=404)
-
     conn = get_connection()
     try:
         today = datetime.now(timezone.utc).date()
-        # Строим массив ровно из 7 дней: от (today - 7) до (today - 1)
         result_days = []
         for i in range(7, 0, -1):
             target_date = (today - timedelta(days=i)).isoformat()
-            result_days.append({
-                "date": target_date,
-                "temp_max": None,
-                "rain_total": 0.0
-            })
-
-        # Запрашиваем из БД только нужный диапазон
+            result_days.append({"date": target_date, "temp_max": None, "rain_total": 0.0})
         since = (today - timedelta(days=7)).isoformat()
         until = (today - timedelta(days=1)).isoformat()
         rows = conn.execute("""
@@ -245,7 +247,6 @@ async def get_park_weather(park_id: str, days: int = Query(7, ge=1, le=30)):
             WHERE park_id = ? AND date >= ? AND date <= ?
             ORDER BY date ASC
         """, (park_id, since, until)).fetchall()
-
         for row in rows:
             day_str = row["date"]
             for d in result_days:
@@ -253,18 +254,15 @@ async def get_park_weather(park_id: str, days: int = Query(7, ge=1, le=30)):
                     d["temp_max"] = row["temperature_max"]
                     d["rain_total"] = row["rain_sum"] or 0.0
                     break
-
         return {"park_id": park_id, "weather": result_days}
     finally:
         conn.close()
 
 @router.get("/api/park/{park_id}/status")
 async def get_park_status(park_id: str):
-    """Возвращает статус грунта (пересчитывается на лету, но можно читать из БД)."""
     park = get_park(park_id)
     if not park:
         return JSONResponse({"error": "Парк не найден"}, status_code=404)
-
     conn = get_connection()
     try:
         rows = conn.execute("""
@@ -273,20 +271,16 @@ async def get_park_status(park_id: str):
             ORDER BY timestamp ASC
         """, (park_id,)).fetchall()
         all_data = [dict(r) for r in rows]
-
         if not all_data:
             return {"status": "Нет данных", "dryHours": 0, "moisture": 0}
-
         now_utc = datetime.now(timezone.utc)
         soil_type = park.get("soil_type", "loam")
         surf = SURFACE_PARAMS.get(soil_type, SURFACE_PARAMS["loam"])
         forest_coef = park.get("forest_coef", 0.3)
-
         W = 0.0
         last_rain_time = None
         total_rain = 0.0
         recent_evaps = []
-
         for hour in all_data:
             timestamp = _parse_time(hour["timestamp"])
             temp = hour.get("temperature") or 15
@@ -295,7 +289,6 @@ async def get_park_status(park_id: str):
             rain = hour.get("rain") or 0
             rel_hum = hour.get("relative_humidity")
             press = hour.get("surface_pressure")
-
             if rain > 0:
                 W = min(1.0, W + rain / 10)
                 total_rain += rain
@@ -311,20 +304,16 @@ async def get_park_status(park_id: str):
                 W = max(0.0, W - evap / 10)
                 if (now_utc - timestamp).total_seconds() <= 86400:
                     recent_evaps.append(evap)
-
         if recent_evaps:
             last_evap = sum(recent_evaps) / len(recent_evaps)
         else:
             last_evap = 0.001
-
         dry_hours = W / (last_evap / 10) if last_evap > 0 else 0
         dry_target = None
         if dry_hours > 0:
             dry_target = (now_utc + timedelta(hours=dry_hours)).timestamp() * 1000
-
         hours_since_rain = (now_utc - last_rain_time).total_seconds() / 3600 if last_rain_time else None
         status = get_soil_status(total_rain, dry_hours, hours_since_rain, soil_type == "asphalt")
-
         return {
             "status": status,
             "dryHours": round(dry_hours, 1),
@@ -335,74 +324,88 @@ async def get_park_status(park_id: str):
     finally:
         conn.close()
 
+# ===== ИСПРАВЛЕННЫЙ ЭНДПОИНТ С КОРРЕКТНЫМ СРАВНЕНИЕМ ДАТ =====
 @router.get("/api/park/{park_id}/votes-history")
-async def get_park_votes_history(park_id: str, days: int = Query(30, ge=1, le=90)):
+async def get_park_votes_history(park_id: str):
     park = get_park(park_id)
     if not park:
         return JSONResponse({"error": "Парк не найден"}, status_code=404)
-
     conn = get_connection()
     try:
-        since = (datetime.now(timezone.utc) - timedelta(days=days)).strftime("%Y-%m-%d")
-        rows = conn.execute("""
-            SELECT DATE(created_at) as day, AVG(vote) as avg, COUNT(*) as cnt
-            FROM votes_history
-            WHERE park_id = ? AND DATE(created_at) >= ?
-            GROUP BY day
-            ORDER BY day ASC
-        """, (park_id, since)).fetchall()
+        reset_time_utc = get_reset_time_msk()
+        reset_time_str = reset_time_utc.strftime("%Y-%m-%d %H:%M:%S")
+        rain_period_start = (reset_time_utc - timedelta(hours=24)).strftime("%Y-%m-%d %H:%M:%S")
 
-        history = []
-        for row in rows:
-            history.append({
-                "date": row["day"],
-                "avg": round(row["avg"], 2),
-                "count": row["cnt"]
-            })
-        return {"park_id": park_id, "history": history}
+        # Проверяем дождь в период перед сбросом
+        rain_rows = conn.execute("""
+            SELECT COUNT(*) as cnt FROM weather_hourly
+            WHERE park_id = ? AND rain > 0
+              AND datetime(timestamp) >= datetime(?) AND datetime(timestamp) < datetime(?)
+        """, (park_id, rain_period_start, reset_time_str)).fetchone()
+
+        rain_reset = False
+        avg = None
+        count = 0
+
+        if rain_rows and rain_rows["cnt"] > 0:
+            rain_reset = True
+            row = conn.execute("""
+                SELECT AVG(vote) as avg, COUNT(*) as cnt
+                FROM park_photos
+                WHERE park_id = ? AND status = 'approved' AND datetime(created_at) > datetime(?)
+            """, (park_id, reset_time_str)).fetchone()
+            if row and row["cnt"] > 0:
+                avg = round(row["avg"], 2)
+                count = row["cnt"]
+            else:
+                avg = None
+                count = 0
+        else:
+            row = conn.execute("""
+                SELECT AVG(vote) as avg, COUNT(*) as cnt
+                FROM park_photos
+                WHERE park_id = ? AND status = 'approved'
+            """, (park_id,)).fetchone()
+            avg = round(row["avg"], 2) if row["avg"] is not None else None
+            count = row["cnt"] or 0
+
+        return {
+            "park_id": park_id,
+            "avg": avg,
+            "count": count,
+            "rain_reset": rain_reset
+        }
+    except Exception as e:
+        logger.error(f"Ошибка в votes-history для {park_id}: {e}")
+        return JSONResponse({"error": str(e)}, status_code=500)
     finally:
         conn.close()
 
 @router.post("/api/park/{park_id}/photos")
 async def upload_park_photo(park_id: str, request: Request, user=Depends(get_current_user)):
-    """
-    Загрузка фото с оценкой (только для авторизованных пользователей)
-    Оценка: 1-5 (Болото, Мокро, Альденте, Сухо, Бетон)
-    """
     park = get_park(park_id)
     if not park:
         return JSONResponse({"error": "Парк не найден"}, status_code=404)
-
-    from fastapi import UploadFile, File, Form
-
     form = await request.form()
     file = form.get("file")
     vote_str = form.get("vote")
-
     if not file:
         return JSONResponse({"error": "Файл не найден"}, status_code=400)
-
     if not vote_str:
         return JSONResponse({"error": "Оценка не указана"}, status_code=400)
-
     try:
         vote = int(vote_str)
         if vote < 1 or vote > 5:
             raise ValueError
     except ValueError:
         return JSONResponse({"error": "Оценка должна быть числом от 1 до 5"}, status_code=400)
-
-    # Сохраняем файл
     ext = file.filename.split('.')[-1] if '.' in file.filename else 'jpg'
     filename = f"{datetime.now().strftime('%Y%m%d_%H%M%S')}_{uuid.uuid4().hex[:6]}.{ext}"
     base_dir = _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__)))
     filepath = _os.path.join(base_dir, "data", "photos", park_id, filename)
     _os.makedirs(_os.path.dirname(filepath), exist_ok=True)
-
     with open(filepath, "wb") as f:
         f.write(await file.read())
-
-    # Сохраняем запись в БД (user_id из токена)
     user_id = user["user_id"]
     conn = get_connection()
     try:
@@ -410,7 +413,6 @@ async def upload_park_photo(park_id: str, request: Request, user=Depends(get_cur
             "INSERT INTO park_photos (park_id, user_id, filename, original_name, vote, status) VALUES (?, ?, ?, ?, ?, 'pending')",
             (park_id, user_id, filename, file.filename, vote)
         )
-        # Увеличиваем счётчик оценок у пользователя
         conn.execute(
             "UPDATE users SET photo_votes_count = photo_votes_count + 1 WHERE id = ?",
             (user_id,)
@@ -420,7 +422,6 @@ async def upload_park_photo(park_id: str, request: Request, user=Depends(get_cur
         print(f"Фото {filename} сохранено, id={photo_id}, vote={vote}, user_id={user_id}")
     finally:
         conn.close()
-
     return {"ok": True, "filename": filename, "vote": vote, "photo_id": photo_id}
 
 @router.get("/api/park/{park_id}/photos")
@@ -428,7 +429,6 @@ async def get_park_photos(park_id: str):
     park = get_park(park_id)
     if not park:
         return JSONResponse({"error": "Парк не найден"}, status_code=404)
-
     conn = get_connection()
     try:
         rows = conn.execute("""

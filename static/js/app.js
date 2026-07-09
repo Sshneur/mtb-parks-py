@@ -76,7 +76,6 @@ function updateBurgerAuth() {
     }
 }
 
-// Обработчик кнопки "Выйти" в бургере
 document.getElementById('logoutBtnMobile').addEventListener('click', function() {
     logout();
     loadAll();
@@ -86,21 +85,18 @@ document.getElementById('logoutBtnMobile').addEventListener('click', function() 
     }
 });
 
-// Пункт "Избранное" в меню
 document.getElementById('favoritesMobile').addEventListener('click', function(e) {
     e.preventDefault();
-    // Переключаем группу на избранное
     document.querySelectorAll('.group-btn').forEach(b => b.classList.remove('active'));
     const favBtn = document.querySelector('.group-btn[data-group="favorites"]');
     if (favBtn) favBtn.classList.add('active');
     currentGroup = 'favorites';
     loadAll();
-    // Закрыть меню
     burgerBtn.classList.remove('active');
     burgerNav.classList.remove('open');
 });
 
-// ==================== ОБНОВЛЕНИЕ УРОВНЯ В МЕНЮ ====================
+// ==================== ОБНОВЛЕНИЕ УРОВНЯ ====================
 async function updateLevelDisplay() {
     const levelMobile = document.getElementById('levelMobile');
     const levelDisplay = document.getElementById('levelDisplay');
@@ -133,7 +129,7 @@ var MONTHS = ['янв', 'фев', 'мар', 'апр', 'мая', 'июн', 'ию�
 function formatDay(date) { return DAYS[date.getDay()] + ' ' + date.getDate() + ' ' + MONTHS[date.getMonth()]; }
 function isToday(date) { var today = new Date(); return date.getDate() === today.getDate() && date.getMonth() === today.getMonth() && date.getFullYear() === today.getFullYear(); }
 
-// ==================== ФУНКЦИИ ТАЙМЕРА ====================
+// ==================== ТАЙМЕР ====================
 function formatTimerText(ms) {
   if (ms <= 0) return { text: '', ready: true };
   var sec = Math.floor(ms / 1000);
@@ -164,7 +160,8 @@ function processWeatherData(result) {
     daily: [],
     parkId: park.id,
     avgVote: null,
-    voteCount: 0
+    voteCount: 0,
+    rainReset: false
   };
 
   if (!forecastData) return data;
@@ -241,8 +238,9 @@ async function enrichWithVotes(parkDataArray) {
     if (votesRes.ok) {
         var allVotes = await votesRes.json();
         for (var p of parkDataArray) {
-            p.avgVote = allVotes[p.parkId]?.avg || null;
-            p.voteCount = allVotes[p.parkId]?.count || 0;
+            p.avgVote = allVotes[p.parkId]?.avg ?? null;
+            p.voteCount = allVotes[p.parkId]?.count ?? 0;
+            p.rainReset = allVotes[p.parkId]?.rain_reset ?? false;
         }
     }
 }
@@ -289,7 +287,7 @@ function loadAll() {
   xhr.send();
 }
 
-// ==================== РЕНДЕРИНГ (без кнопок голосования) ====================
+// ==================== РЕНДЕРИНГ ====================
 function renderAll(parkDataArray) {
   var dashboard = document.getElementById('dashboard');
   var html = '';
@@ -313,6 +311,20 @@ function renderAll(parkDataArray) {
     html += '<div class="rain-amount ' + (park.rain_total > 0.5 ? 'wet' : 'dry') + '">Осадки за 7 д: ' + park.rain_total.toFixed(1) + ' мм</div>';
     html += '</div>';
 
+    // Прогноз на 6 часов (перенесён выше графика осадков)
+    html += '<div class="hourly-strip"><div class="section-title">Прогноз на 6 часов</div><div class="hourly-row">';
+    for (var j = 0; j < park.hourly.length; j++) {
+      var s = park.hourly[j];
+      html += '<div class="hourly-cell' + (s.isNow ? ' now-cell' : '') + '">';
+      html += '<div class="hour-time">' + (s.isNow ? '<span class="now-badge">СЕЙЧАС</span>' : s.time.slice(0,5)) + '</div>';
+      html += '<div class="hour-emoji">' + getEmoji(s.code) + '</div>';
+      html += '<div class="hour-temp">' + (s.temp !== null ? s.temp + '°' : '--') + '</div>';
+      html += '<div class="hour-rain">' + (s.rain > 0 ? s.rain.toFixed(1) + 'мм' : '0') + '</div>';
+      html += '</div>';
+    }
+    html += '</div></div>';
+
+    // График осадков (теперь после прогноза)
     if (park.hourly.length > 0) {
       html += '<div class="rain-graph"><div class="section-title">Осадки (мм/час)</div><div class="rain-bars">';
       var maxRain = 0.1;
@@ -326,18 +338,7 @@ function renderAll(parkDataArray) {
       html += '</div></div>';
     }
 
-    html += '<div class="hourly-strip"><div class="section-title">Прогноз на 6 часов</div><div class="hourly-row">';
-    for (var j = 0; j < park.hourly.length; j++) {
-      var s = park.hourly[j];
-      html += '<div class="hourly-cell' + (s.isNow ? ' now-cell' : '') + '">';
-      html += '<div class="hour-time">' + (s.isNow ? '<span class="now-badge">СЕЙЧАС</span>' : s.time.slice(0,5)) + '</div>';
-      html += '<div class="hour-emoji">' + getEmoji(s.code) + '</div>';
-      html += '<div class="hour-temp">' + (s.temp !== null ? s.temp + '°' : '--') + '</div>';
-      html += '<div class="hour-rain">' + (s.rain > 0 ? s.rain.toFixed(1) + 'мм' : '0') + '</div>';
-      html += '</div>';
-    }
-    html += '</div></div>';
-
+    // Дневной прогноз
     html += '<div class="daily-table"><div class="section-title">Прогноз на 6 дней</div>';
     for (var j = 0; j < park.daily.length; j++) {
       var d = park.daily[j];
@@ -350,19 +351,36 @@ function renderAll(parkDataArray) {
     }
     html += '</div>';
 
-    // Только рейтинг (без кнопок голосования), в одну строку
+    // Виджет оценок (с учётом rainReset)
     html += '<div class="vote-widget">';
-    if (park.avgVote !== null) {
+    if (park.avgVote !== null && park.avgVote !== undefined) {
         html += '<div class="vote-result">⭐ ' + park.avgVote.toFixed(1) + ' (' + getVoteLabel(Math.round(park.avgVote)) + '), голосов: ' + park.voteCount + '</div>';
         html += '<div class="avg-bar"><div class="avg-fill" style="width:' + ((park.avgVote-1)/4*100) + '%"></div></div>';
+    } else if (park.rainReset) {
+        html += '<div class="vote-result" style="color:#ff6b6b;">🌧️ Оценки сброшены после дождя. Загрузите новое фото!</div>';
     } else {
-        html += '<div class="vote-result">Пока нет голосов</div>';
+        html += '<div class="vote-result">Пока нет оценок</div>';
     }
     html += '</div>';
 
     html += '</div>'; // card
   }
   dashboard.innerHTML = html;
+
+  // ===== ДОБАВЛЯЕМ КЛИК ПО КАРТОЧКЕ (кроме интерактивных элементов) =====
+  document.querySelectorAll('.card').forEach(card => {
+      card.addEventListener('click', function(e) {
+          // Игнорируем клики по кнопкам, ссылкам и избранному
+          if (e.target.closest('.fav-icon') || e.target.closest('a') || e.target.closest('button')) {
+              return;
+          }
+          const link = this.querySelector('.park-title a');
+          if (link) {
+              window.location.href = link.href;
+          }
+      });
+  });
+
   window._parkData = parkDataArray;
   startLiveTimers();
   attachFavListeners();
@@ -371,7 +389,8 @@ function renderAll(parkDataArray) {
 function attachFavListeners() {
     if (!currentUser) return;
     document.querySelectorAll('.fav-icon').forEach(el => {
-        el.onclick = async function() {
+        el.onclick = async function(e) {
+            e.stopPropagation(); // предотвращаем клик по карточке
             var parkId = this.dataset.parkId;
             var isFav = allFavorites.includes(parkId);
             var method = isFav ? 'DELETE' : 'POST';
@@ -395,7 +414,7 @@ function attachFavListeners() {
     });
 }
 
-// ==================== ЖИВЫЕ ТАЙМЕРЫ ====================
+// ==================== ТАЙМЕРЫ ====================
 var timerInterval;
 function startLiveTimers() {
   if (timerInterval) clearInterval(timerInterval);
@@ -439,7 +458,7 @@ document.querySelectorAll('.group-btn').forEach(function(btn) {
   });
 });
 
-// ==================== МОДЕЛЬ (СТАНДАРТНАЯ / ПМ) ====================
+// ==================== МОДЕЛИ ====================
 document.getElementById('modelStandardBtn').addEventListener('click', function() {
     document.getElementById('modelStandardBtn').classList.add('active');
     document.getElementById('modelPmBtn').classList.remove('active');
