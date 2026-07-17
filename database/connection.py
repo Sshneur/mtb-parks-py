@@ -79,6 +79,7 @@ def init_db():
             date TEXT NOT NULL,
             temperature_max REAL,
             rain_sum REAL,
+            weather_code INTEGER,
             UNIQUE(park_id, date)
         );
 
@@ -134,6 +135,40 @@ def init_db():
         cursor.execute("ALTER TABLE users ADD COLUMN photo_votes_count INTEGER DEFAULT 0")
     except sqlite3.OperationalError:
         pass
+
+    try:
+        cursor.execute("ALTER TABLE weather_daily ADD COLUMN weather_code INTEGER")
+    except sqlite3.OperationalError:
+        pass
+
+    try:
+        cursor.execute("ALTER TABLE park_photos ADD COLUMN comment TEXT DEFAULT ''")
+    except sqlite3.OperationalError:
+        pass
+
+    try:
+        cursor.execute("ALTER TABLE parks ADD COLUMN description TEXT DEFAULT ''")
+    except sqlite3.OperationalError:
+        pass
+
+    try:
+        cursor.execute("ALTER TABLE parks ADD COLUMN trails_count INTEGER DEFAULT 0")
+    except sqlite3.OperationalError:
+        pass
+
+    try:
+        cursor.execute("ALTER TABLE parks ADD COLUMN dry_hours_default INTEGER DEFAULT 72")
+    except sqlite3.OperationalError:
+        pass
+
+    # Обновляем description и trails_count для существующих парков
+    from database.models import PARKS as PARKS_DATA
+    for group_id, group_data in PARKS_DATA.items():
+        for park in group_data["parks"]:
+            cursor.execute(
+                "UPDATE parks SET description = ?, trails_count = ? WHERE id = ? AND (description IS NULL OR description = '')",
+                (park.get("description", ""), park.get("trails_count", 0), park["id"])
+            )
 
     conn.commit()
     conn.close()

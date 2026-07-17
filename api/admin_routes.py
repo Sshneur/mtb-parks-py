@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Request, HTTPException, Depends
 from fastapi.responses import HTMLResponse, JSONResponse
 from database.connection import get_connection
+from database.models import SOIL_COEFFICIENTS
 from jose import jwt
 import os
 
@@ -88,7 +89,7 @@ async def get_pending_photos(user=Depends(get_admin_user)):
     conn = get_connection()
     try:
         rows = conn.execute("""
-            SELECT id, park_id, filename, original_name, created_at, user_id
+            SELECT id, park_id, filename, original_name, created_at, user_id, comment
             FROM park_photos
             WHERE status = 'pending'
             ORDER BY created_at DESC
@@ -114,6 +115,46 @@ async def reject_photo(photo_id: int, user=Depends(get_admin_user)):
     conn = get_connection()
     try:
         conn.execute("UPDATE park_photos SET status = 'rejected' WHERE id = ?", (photo_id,))
+        conn.commit()
+        return {"ok": True}
+    finally:
+        conn.close()
+
+# ===== УПРАВЛЕНИЕ ПАРКАМИ =====
+@router.get("/api/admin/parks")
+async def get_all_parks_admin(user=Depends(get_admin_user)):
+    """Все парки с editable-полями"""
+    conn = get_connection()
+    try:
+        rows = conn.execute("SELECT * FROM parks ORDER BY group_id, name").fetchall()
+        parks = []
+        for r in rows:
+            p = dict(r)
+            p["soil_options"] = list(SOIL_COEFFICIENTS.keys())
+            parks.append(p)
+        return parks
+    finally:
+        conn.close()
+
+@router.put("/api/admin/parks/{park_id}")
+async def update_park(park_id: str, data: dict, user=Depends(get_admin_user)):
+    """Обновляет настройки парка"""
+    allowed = {"name", "description", "trails_count", "soil_type", "forest_coef", "dry_hours_default", "is_active"}
+    conn = get_connection()
+    try:
+        park = conn.execute("SELECT * FROM parks WHERE id = ?", (park_id,)).fetchone()
+        if not park:
+            raise HTTPException(status_code=404, detail="Парк не найден")
+        updates = []
+        values = []
+        for key, val in data.items():
+            if key in allowed:
+                updates.append(f"{key} = ?")
+                values.append(val)
+        if not updates:
+            return {"ok": False, "message": "Нет полей для обновления"}
+        values.append(park_id)
+        conn.execute(f"UPDATE parks SET {', '.join(updates)} WHERE id = ?", values)
         conn.commit()
         return {"ok": True}
     finally:
@@ -171,6 +212,7 @@ ADMIN_HTML = """
         </div>
         <div id="metrics"></div>
         <div id="users-table"></div>
+        <div id="parks-table"></div>
         <div id="photos-moderation"></div>
         <button onclick="logout()" style="margin-top:20px; background:#e74c3c; color:white; padding:10px 20px; border:none; border-radius:8px; cursor:pointer;">Выйти</button>
     </div>
@@ -193,6 +235,7 @@ ADMIN_HTML = """
                 document.getElementById('dashboard').classList.remove('hidden');
                 loadMetrics();
                 loadUsers();
+                loadParks();
                 loadPendingPhotos();
             } else {
                 document.getElementById('login-error').textContent = 'Неверный email или пароль';
@@ -277,6 +320,51 @@ ADMIN_HTML = """
             }
         }
 
+        async function loadParks() {
+            const res = await fetch('/api/admin/parks', {
+                headers: {'Authorization': 'Bearer ' + token}
+            });
+            if (!res.ok) return;
+            const parks = await res.json();
+            let html = '<div class="card"><h3>🏞️ Парки</h3><table><tr><th>ID</th><th>Название</th><th>Группа</th><th>Трасс</th><th>Грунт</th><th>Лес</th><th>Описание</th><th></th></tr>';
+            for (const p of parks) {
+                html += `<tr>
+                    <td>${p.id}</td>
+                    <td><input type="text" id="name_${p.id}" value="${p.name}" style="width:120px;"></td>
+                    <td>${p.group_id}</td>
+                    <td><input type="number" id="trails_${p.id}" value="${p.trails_count || 0}" style="width:50px;"></td>
+                    <td>
+                        <select id="soil_${p.id}">
+                            ${p.soil_options.map(s => `<option value="${s}" ${s === p.soil_type ? 'selected' : ''}>${s}</option>`).join('')}
+                        </select>
+                    </td>
+                    <td><input type="number" id="forest_${p.id}" value="${p.forest_coef}" step="0.05" min="0" max="1" style="width:60px;"></td>
+                    <td><input type="text" id="desc_${p.id}" value="${(p.description || '').replace(/"/g,'&quot;')}" style="width:160px;"></td>
+                    <td><button onclick="savePark('${p.id}')" style="background:#4caf50; color:white; padding:6px 12px; border:none; border-radius:6px;">💾</button></td>
+                </tr>`;
+            }
+            html += '</table></div>';
+            document.getElementById('parks-table').innerHTML = html;
+        }
+
+        async function savePark(parkId) {
+            const name = document.getElementById('name_' + parkId).value;
+            const trails = parseInt(document.getElementById('trails_' + parkId).value) || 0;
+            const soil = document.getElementById('soil_' + parkId).value;
+            const forest = parseFloat(document.getElementById('forest_' + parkId).value) || 0;
+            const desc = document.getElementById('desc_' + parkId).value;
+            const res = await fetch('/api/admin/parks/' + parkId, {
+                method: 'PUT',
+                headers: {'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json'},
+                body: JSON.stringify({name, trails_count: trails, soil_type: soil, forest_coef: forest, description: desc})
+            });
+            if (res.ok) {
+                loadParks();
+            } else {
+                alert('Ошибка сохранения');
+            }
+        }
+
         async function loadPendingPhotos() {
             const res = await fetch('/api/admin/photos/pending', {
                 headers: {'Authorization': 'Bearer ' + token}
@@ -293,6 +381,7 @@ ADMIN_HTML = """
                             <div>
                                 <b>Парк: ${p.park_id}</b><br>
                                 <small>${p.original_name} (${p.created_at})</small>
+                                ${p.comment ? `<br><span style="font-size:13px; color:#aaa;">💬 ${p.comment}</span>` : ''}
                             </div>
                             <button class="approve-btn" onclick="approvePhoto(${p.id})">✅ Одобрить</button>
                             <button class="reject-btn" onclick="rejectPhoto(${p.id})">❌ Отклонить</button>
@@ -333,6 +422,7 @@ ADMIN_HTML = """
                 if (res.ok) {
                     await loadMetrics();
                     await loadUsers();
+                    await loadParks();
                     await loadPendingPhotos();
                     btn.textContent = '✅ Обновлено';
                     setTimeout(() => { btn.textContent = '🔄 Обновить данные'; btn.disabled = false; }, 1500);

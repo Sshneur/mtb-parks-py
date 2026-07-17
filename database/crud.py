@@ -11,10 +11,12 @@ def seed_parks():
 
     for group_id, group_data in PARKS.items():
         for park in group_data["parks"]:
+            desc = park.get("description", "")
+            trails = park.get("trails_count", 0)
             cursor.execute("""
                 INSERT OR IGNORE INTO parks 
-                (id, name, group_id, lat, lon, soil_type, forest_coef)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
+                (id, name, group_id, lat, lon, soil_type, forest_coef, description, trails_count, dry_hours_default)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, (
                 park["id"],
                 park["name"],
@@ -22,7 +24,10 @@ def seed_parks():
                 park["lat"],
                 park["lon"],
                 park.get("soil", "loam"),
-                park.get("forest_coef", 0.3)
+                park.get("forest_coef", 0.3),
+                desc,
+                trails,
+                park.get("dry_hours", 72)
             ))
 
     conn.commit()

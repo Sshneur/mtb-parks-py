@@ -23,10 +23,8 @@ def _parse_time(t) -> datetime:
 
 def _to_msk(t) -> str:
     dt = _parse_time(t)
-    return dt.strftime("%Y-%m-%dT%H:%M") + "Z"
-    dt = _parse_time(t)
     msk = dt.astimezone(MOSCOW_TZ)
-    return msk.strftime("%Y-%m-%dT%H:%M")
+    return msk.strftime("%Y-%m-%dT%H:%M+03:00")
 
 
 def _weather_code(temp: float, rain: float) -> int:
@@ -87,10 +85,26 @@ async def get_weather(group_id: str):
             ORDER BY timestamp ASC
         """, (park_id, hour_start_str)).fetchall()
         
+        # Берём актуальные history-данные для текущего часа (если есть)
+        current_hour_rows = conn.execute("""
+            SELECT * FROM weather_hourly
+            WHERE park_id = ? AND source = 'history' AND timestamp >= ?
+            ORDER BY timestamp ASC LIMIT 1
+        """, (park_id, hour_start_str)).fetchall()
+        
         conn.close()
         
         all_data = [dict(r) for r in all_rows]
         forecast_data = [dict(r) for r in forecast_rows]
+        
+        # Если есть history за текущий час — подменяем первый прогноз реальными данными
+        if current_hour_rows:
+            current_real = dict(current_hour_rows[0])
+            current_real["source"] = "forecast"  # чтобы не сломать логику
+            if forecast_data:
+                forecast_data[0] = current_real
+            else:
+                forecast_data = [current_real]
         
         if all_data:
             moisture = calculate_soil_moisture_from_db(park, all_data)
@@ -145,11 +159,7 @@ async def get_weather(group_id: str):
                     "forest_coef": park["forest_coef"],
                     "rain_6d": moisture["total_rain"],
                     "rain_forecast": 0,
-                    "rain_total": sum(
-                h.get("rain", 0) or 0
-                for h in all_data
-                if _parse_time(h["timestamp"]) >= (datetime.now(timezone.utc) - timedelta(days=7))
-            ),
+                    "rain_total": sum(h.get("rain", 0) or 0 for h in all_data if _parse_time(h["timestamp"]) >= (datetime.now(timezone.utc) - timedelta(days=7))),
                     "current_moisture": moisture["current_moisture"],
                     "soilStatus": status,
                     "dryTarget": dry_target_str

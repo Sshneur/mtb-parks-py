@@ -208,9 +208,11 @@
                 return;
             }
 
+            const comment = document.getElementById('photoComment').value.trim();
             const formData = new FormData();
             formData.append('file', file, file.name);
             formData.append('vote', vote);
+            if (comment) formData.append('comment', comment);
 
             const statusDiv = document.getElementById('uploadStatus');
             statusDiv.textContent = '⏳ Загрузка...';
@@ -228,6 +230,7 @@
                     statusDiv.textContent = '✅ Фото загружено! Оценка: ' + vote;
                     statusDiv.style.color = '#4caf50';
                     fileInput.value = '';
+                    document.getElementById('photoComment').value = '';
                     voteButtons.forEach(b => {
                         b.style.borderColor = '#555';
                         b.style.background = 'transparent';
@@ -277,7 +280,15 @@
 
                 const img = document.createElement('img');
                 img.src = `/photos/${parkId}/${p.filename}`;
-                img.style.cssText = 'width:100%; aspect-ratio:1/1; object-fit:cover; border-radius:8px;';
+                img.style.cssText = 'width:100%; aspect-ratio:1/1; object-fit:cover; border-radius:8px; cursor:pointer; transition:transform 0.2s;';
+                img.onmouseenter = function() { this.style.transform = 'scale(1.03)'; };
+                img.onmouseleave = function() { this.style.transform = 'scale(1)'; };
+                img.onclick = function() {
+                    const lightbox = document.getElementById('lightbox');
+                    const lightboxImg = document.getElementById('lightboxImg');
+                    lightboxImg.src = this.src;
+                    lightbox.style.display = 'flex';
+                };
 
                 const info = document.createElement('div');
                 info.style.cssText = 'margin-top:8px; font-size:13px; color:#ddd; text-align:center;';
@@ -286,10 +297,12 @@
                 const username = p.username || 'Аноним';
                 const voteText = p.vote ? voteLabels[p.vote] || p.vote : '—';
 
+                const commentText = p.comment ? `<div style="font-size:12px; color:#aaa; margin-top:4px;">💬 ${p.comment}</div>` : '';
                 info.innerHTML = `
                     <div><strong>${username}</strong></div>
                     <div style="font-size:12px; color:#aaa;">${date}</div>
                     <div style="font-size:14px; font-weight:bold; color:#74a8e2;">${voteText}</div>
+                    ${commentText}
                 `;
 
                 card.appendChild(img);

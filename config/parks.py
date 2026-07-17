@@ -2,27 +2,29 @@ PARKS = {
     "mtb_parks": {
         "name": "МТБ Парки",
         "parks": [
-            {"id": "fili", "name": "Парк Фили", "lat": 55.740384, "lon": 37.441293, "dry_hours": 24, "start_date": None, "soil": "loam", "forest": True, "forest_coef": 0.6},
-            {"id": "erino", "name": "Байк Парк Ерино", "lat": 55.438771, "lon": 37.504228, "dry_hours": 48, "start_date": None, "soil": "loam", "forest": True, "forest_coef": 0.3},
-            {"id": "chess", "name": "Чесс Парк", "lat": 55.567215, "lon": 37.539429, "dry_hours": 72, "start_date": None, "soil": "clay_heavy", "forest": True, "forest_coef": 0.1},
-            {"id": "kozlovka", "name": "Парк Козловка", "lat": 54.831991, "lon": 38.125463, "dry_hours": 72, "start_date": None, "soil": "clay", "forest": True, "forest_coef": 0.3}
+            {"id": "fili", "name": "Парк Фили", "lat": 55.740384, "lon": 37.441293, "dry_hours": 24, "start_date": None, "soil": "loam", "forest": True, "forest_coef": 0.6, "description": "Большой парк вдоль Москвы-реки. Хорошие грунтовые трассы для кросс-кантри.", "trails_count": 5},
+            {"id": "erino", "name": "Байк Парк Ерино", "lat": 55.438771, "lon": 37.504228, "dry_hours": 48, "start_date": None, "soil": "loam", "forest": True, "forest_coef": 0.3, "description": "Специализированный байк-парк с трассами разного уровня.", "trails_count": 8},
+            {"id": "chess", "name": "Чесс Парк", "lat": 55.567215, "lon": 37.539429, "dry_hours": 72, "start_date": None, "soil": "clay_heavy", "forest": True, "forest_coef": 0.1, "description": "Глинистый грунт — долго сохнет после дождя.", "trails_count": 4},
+            {"id": "kozlovka", "name": "Парк Козловка", "lat": 54.831991, "lon": 38.125463, "dry_hours": 72, "start_date": None, "soil": "clay", "forest": True, "forest_coef": 0.3, "description": "Живописный парк в Подмосковье с лесными трассами.", "trails_count": 3},
+            {"id": "krylatskoye", "name": "Крылатские холмы", "lat": 55.767675, "lon": 37.426816, "dry_hours": 24, "start_date": None, "soil": "loam", "forest": True, "forest_coef": 0.6, "description": "Олимпийский велотрек и природные тропы в ООПТ.", "trails_count": 6}
         ]
     },
     "mtb_mountains": {
         "name": "МТБ Горы",
         "parks": [
-            {"id": "arkhyz", "name": "Байк Парк Архыз", "lat": 43.562085, "lon": 41.187730, "dry_hours": 72, "start_date": None, "soil": "loam", "forest": True, "forest_coef": 0.3},
-            {"id": "sober", "name": "Собер Трейл Парк", "lat": 44.704571, "lon": 38.539443, "dry_hours": 24, "start_date": None, "soil": "loam", "forest": True, "forest_coef": 0.3},
-            {"id": "novinki", "name": "Байк Парк Новинки", "lat": 56.196307, "lon": 43.840789, "dry_hours": 24, "start_date": None, "soil": "loam", "forest": True, "forest_coef": 0.3}
+            {"id": "arkhyz", "name": "Байк Парк Архыз", "lat": 43.562085, "lon": 41.187730, "dry_hours": 72, "start_date": None, "soil": "loam", "forest": True, "forest_coef": 0.3, "description": "Курортный байк-парк в горах Кавказа.", "trails_count": 10},
+            {"id": "sober", "name": "Собер Трейл Парк", "lat": 44.704571, "lon": 38.539443, "dry_hours": 24, "start_date": None, "soil": "loam", "forest": True, "forest_coef": 0.3, "description": "Трассы в горах Краснодарского края.", "trails_count": 6},
+            {"id": "novinki", "name": "Байк Парк Новинки", "lat": 56.196307, "lon": 43.840789, "dry_hours": 24, "start_date": None, "soil": "loam", "forest": True, "forest_coef": 0.3, "description": "Нижегородский байк-парк с современными трассами.", "trails_count": 7}
         ]
     },
     "pamps": {
         "name": "Пампы",
         "parks": [
-            {"id": "fukushima", "name": "Памп Трек Фукусима", "lat": 55.625555, "lon": 37.587399, "dry_hours": 1, "start_date": None, "soil": "asphalt", "forest": False, "forest_coef": 1.0},
-            {"id": "yangel", "name": "Памп Янгеля", "lat": 55.597198, "lon": 37.580849, "dry_hours": 1, "start_date": None, "soil": "asphalt", "forest": False, "forest_coef": 1.0}
+            {"id": "fukushima", "name": "Памп Трек Фукусима", "lat": 55.625555, "lon": 37.587399, "dry_hours": 1, "start_date": None, "soil": "asphalt", "forest": False, "forest_coef": 1.0, "description": "Асфальтовый памп-трек, сохнет мгновенно.", "trails_count": 1},
+            {"id": "yangel", "name": "Памп Янгеля", "lat": 55.597198, "lon": 37.580849, "dry_hours": 1, "start_date": None, "soil": "asphalt", "forest": False, "forest_coef": 1.0, "description": "Асфальтовый памп-трек на юге Москвы.", "trails_count": 1}
         ]
     }
+}
 }
 
 SOIL_COEFFICIENTS = {

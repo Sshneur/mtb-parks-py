@@ -33,7 +33,7 @@ _os.makedirs("data/photos", exist_ok=True)
 async def lifespan(app: FastAPI):
     """Запускается при старте сервера и завершении"""
     print("=" * 50)
-    print("  🚵 МТБ Парки 2.0 — инициализация...")
+    print("  MTB Parks 2.0 - init...")
     print("=" * 50)
     
     # Инициализируем БД
@@ -49,14 +49,14 @@ async def lifespan(app: FastAPI):
         from migrations.add_users_and_favorites import migrate
         migrate()
     except Exception as e:
-        print(f"⚠️ Миграция пропущена: {e}")
+        print(f"Migration skipped: {e}")
     
     # Применяем калибровку парков
     try:
         from database.crud import apply_park_calibration
         apply_park_calibration()
     except Exception as e:
-        print(f"⚠️ Калибровка не применена: {e}")
+        print(f"Calibration skipped: {e}")
     
     # Запускаем планировщик обновлений в фоне
     import asyncio
@@ -68,8 +68,8 @@ async def lifespan(app: FastAPI):
     # telegram_task = asyncio.create_task(start_polling())
     
     print("=" * 50)
-    print("  ✅ Сервер готов к работе")
-    print("  🌐 http://localhost:8000")
+    print("  Server ready")
+    print("  http://localhost:8000")
     print("=" * 50)
     
     yield  # Сервер работает
@@ -292,6 +292,12 @@ DEVELOPMENT_HTML = """
         <h1>🚀 Развитие проекта</h1>
         <p>Мы постоянно работаем над улучшением сервиса. Вот что планируется в ближайшее время:</p>
         <ul class="plan">
+            <li>
+                <span class="icon">🤖</span>
+                <span><strong>ИИ определяет грунт по фото и погоде</strong><br>
+                Обучаем нейросеть предсказывать состояние трасс по вашим фотографиям и метеоданным. 
+                Каждое загруженное фото с оценкой грунта — это пример для обучения. Чем больше фото — тем точнее прогноз. <strong>Грузите ваши фото! 📸</strong></span>
+            </li>
             <li>
                 <span class="icon">📡</span>
                 <span><strong>Установка тестового датчика влажности грунта</strong><br>

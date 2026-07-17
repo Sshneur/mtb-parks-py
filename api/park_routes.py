@@ -202,6 +202,9 @@ PARK_HTML_TEMPLATE = """
                         <input type="file" id="photoFile" name="file" accept="image/*" style="flex:1; padding:8px; border:1px solid #555; border-radius:8px; background:#1a1e2b; color:white;">
                         <button type="submit" id="photoSubmitBtn" style="padding:12px 24px; background:#4caf50; color:white; border:none; border-radius:28px; font-weight:bold; cursor:pointer;">📤 Загрузить</button>
                     </div>
+                    <div style="margin-top:8px;">
+                        <textarea id="photoComment" name="comment" placeholder="💬 Комментарий (необязательно)" style="width:100%; box-sizing:border-box; padding:8px; border:1px solid #555; border-radius:8px; background:#1a1e2b; color:white; font-family:inherit; font-size:13px; resize:vertical; min-height:40px; max-height:80px;"></textarea>
+                    </div>
                     <div id="uploadStatus" style="margin-top:8px; font-size:14px;"></div>
                 </form>
             </div>
@@ -210,6 +213,11 @@ PARK_HTML_TEMPLATE = """
 
         <div id="park-content">Загрузка данных...</div>
     </div>
+
+    <div id="lightbox" onclick="document.getElementById('lightbox').style.display='none'" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.92); z-index:9999; cursor:pointer; justify-content:center; align-items:center;">
+        <img id="lightboxImg" src="" style="max-width:95%; max-height:95%; object-fit:contain; border-radius:8px;">
+    </div>
+
     <script src="/js/park.js"></script>
 </body>
 </html>
@@ -234,7 +242,8 @@ async def get_park_weather(park_id: str, days: int = Query(7, ge=1, le=30)):
         return JSONResponse({"error": "Парк не найден"}, status_code=404)
     conn = get_connection()
     try:
-        today = datetime.now(timezone.utc).date()
+        moscow_tz = timezone(timedelta(hours=3))
+        today = datetime.now(moscow_tz).date()
         result_days = []
         for i in range(7, 0, -1):
             target_date = (today - timedelta(days=i)).isoformat()
@@ -263,6 +272,7 @@ async def get_park_status(park_id: str):
     park = get_park(park_id)
     if not park:
         return JSONResponse({"error": "Парк не найден"}, status_code=404)
+    from services.soil_calculator import calculate_soil_moisture_from_db, get_soil_status as calc_status
     conn = get_connection()
     try:
         rows = conn.execute("""
@@ -273,53 +283,18 @@ async def get_park_status(park_id: str):
         all_data = [dict(r) for r in rows]
         if not all_data:
             return {"status": "Нет данных", "dryHours": 0, "moisture": 0}
+        moisture = calculate_soil_moisture_from_db(park, all_data)
         now_utc = datetime.now(timezone.utc)
-        soil_type = park.get("soil_type", "loam")
-        surf = SURFACE_PARAMS.get(soil_type, SURFACE_PARAMS["loam"])
-        forest_coef = park.get("forest_coef", 0.3)
-        W = 0.0
-        last_rain_time = None
-        total_rain = 0.0
-        recent_evaps = []
-        for hour in all_data:
-            timestamp = _parse_time(hour["timestamp"])
-            temp = hour.get("temperature") or 15
-            wind = hour.get("wind_speed") or 0
-            rad = hour.get("radiation") or 0
-            rain = hour.get("rain") or 0
-            rel_hum = hour.get("relative_humidity")
-            press = hour.get("surface_pressure")
-            if rain > 0:
-                W = min(1.0, W + rain / 10)
-                total_rain += rain
-                last_rain_time = timestamp
-            else:
-                if rel_hum is None: rel_hum = 70.0
-                if press is None: press = 1013.0
-                evap = calc_pm_evaporation(
-                    temp_c=temp, wind_speed=wind, radiation=rad,
-                    relative_humidity=rel_hum, pressure_pa=press * 100,
-                    z0m=surf["z0m"], d=surf["d"], r_s=surf["r_s"]
-                ) * forest_coef
-                W = max(0.0, W - evap / 10)
-                if (now_utc - timestamp).total_seconds() <= 86400:
-                    recent_evaps.append(evap)
-        if recent_evaps:
-            last_evap = sum(recent_evaps) / len(recent_evaps)
-        else:
-            last_evap = 0.001
-        dry_hours = W / (last_evap / 10) if last_evap > 0 else 0
+        is_asphalt = park.get("soil_type") == "asphalt"
+        status = calc_status(moisture["total_rain"], moisture["dry_hours"], moisture["hours_since_rain"], is_asphalt)
         dry_target = None
-        if dry_hours > 0:
-            dry_target = (now_utc + timedelta(hours=dry_hours)).timestamp() * 1000
-        hours_since_rain = (now_utc - last_rain_time).total_seconds() / 3600 if last_rain_time else None
-        status = get_soil_status(total_rain, dry_hours, hours_since_rain, soil_type == "asphalt")
+        if moisture["dry_hours"] > 0:
+            dry_target = (now_utc + timedelta(hours=moisture["dry_hours"])).timestamp() * 1000
         return {
             "status": status,
-            "dryHours": round(dry_hours, 1),
-            "moisture": round(W, 3),
-            "dryTarget": dry_target,
-            "rain_total": round(total_rain, 1)
+            "dryHours": moisture["dry_hours"],
+            "moisture": moisture["current_moisture"],
+            "dryTarget": dry_target
         }
     finally:
         conn.close()
@@ -389,6 +364,7 @@ async def upload_park_photo(park_id: str, request: Request, user=Depends(get_cur
     form = await request.form()
     file = form.get("file")
     vote_str = form.get("vote")
+    comment = form.get("comment", "").strip()
     if not file:
         return JSONResponse({"error": "Файл не найден"}, status_code=400)
     if not vote_str:
@@ -410,8 +386,8 @@ async def upload_park_photo(park_id: str, request: Request, user=Depends(get_cur
     conn = get_connection()
     try:
         conn.execute(
-            "INSERT INTO park_photos (park_id, user_id, filename, original_name, vote, status) VALUES (?, ?, ?, ?, ?, 'pending')",
-            (park_id, user_id, filename, file.filename, vote)
+            "INSERT INTO park_photos (park_id, user_id, filename, original_name, vote, comment, status) VALUES (?, ?, ?, ?, ?, ?, 'pending')",
+            (park_id, user_id, filename, file.filename, vote, comment)
         )
         conn.execute(
             "UPDATE users SET photo_votes_count = photo_votes_count + 1 WHERE id = ?",
@@ -419,10 +395,10 @@ async def upload_park_photo(park_id: str, request: Request, user=Depends(get_cur
         )
         conn.commit()
         photo_id = conn.execute("SELECT last_insert_rowid()").fetchone()[0]
-        print(f"Фото {filename} сохранено, id={photo_id}, vote={vote}, user_id={user_id}")
+        print(f"Фото {filename} сохранено, id={photo_id}, vote={vote}, comment={comment!r}, user_id={user_id}")
     finally:
         conn.close()
-    return {"ok": True, "filename": filename, "vote": vote, "photo_id": photo_id}
+    return {"ok": True, "filename": filename, "vote": vote, "comment": comment, "photo_id": photo_id}
 
 @router.get("/api/park/{park_id}/photos")
 async def get_park_photos(park_id: str):
@@ -432,7 +408,7 @@ async def get_park_photos(park_id: str):
     conn = get_connection()
     try:
         rows = conn.execute("""
-            SELECT p.id, p.filename, p.original_name, p.created_at, p.vote, u.username
+            SELECT p.id, p.filename, p.original_name, p.created_at, p.vote, p.comment, u.username
             FROM park_photos p
             LEFT JOIN users u ON p.user_id = u.id
             WHERE p.park_id = ? AND p.status = 'approved'
