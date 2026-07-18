@@ -294,7 +294,7 @@ function renderAll(parkDataArray) {
   for (var i = 0; i < parkDataArray.length; i++) {
     var park = parkDataArray[i];
     var isFav = allFavorites.includes(park.parkId);
-    html += '<div class="card">';
+    html += '<div class="card" data-park-id="' + park.parkId + '">';
     html += '<div class="park-title"><a href="/park/' + park.parkId + '" style="color:inherit; text-decoration:none;">' + park.name + '</a> <span class="coords">' + park.lat.toFixed(4) + ', ' + park.lon.toFixed(4) + '</span>';
     if (currentUser) {
         html += '<span class="fav-icon' + (isFav ? ' active' : '') + '" data-park-id="' + park.parkId + '">' + (isFav ? '♥' : '♡') + '</span>';
@@ -367,18 +367,18 @@ function renderAll(parkDataArray) {
   }
   dashboard.innerHTML = html;
 
-  // ===== ДОБАВЛЯЕМ КЛИК ПО КАРТОЧКЕ (кроме интерактивных элементов) =====
+  // ===== КЛИК ПО КАРТОЧКЕ (кроме интерактивных элементов) =====
   document.querySelectorAll('.card').forEach(card => {
       card.addEventListener('click', function(e) {
-          // Игнорируем клики по кнопкам, ссылкам и избранному
           if (e.target.closest('.fav-icon') || e.target.closest('a') || e.target.closest('button')) {
               return;
           }
-          const link = this.querySelector('.park-title a');
-          if (link) {
-              window.location.href = link.href;
+          const parkId = this.dataset.parkId;
+          if (parkId) {
+              window.location.href = '/park/' + parkId;
           }
       });
+      card.style.cursor = 'pointer';
   });
 
   window._parkData = parkDataArray;
