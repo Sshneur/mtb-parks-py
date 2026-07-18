@@ -36,7 +36,9 @@ PARK_HTML_TEMPLATE = """
     <meta name="description" content="Состояние грунта на трассах {{ park_name }}: сухо, мокро, болото или бетон. Прогноз погоды, фото грунта, оценки райдеров.">
     <meta property="og:title" content="{{ park_name }} — МТБ Парки 2.0">
     <meta property="og:description" content="Проверь состояние грунта в {{ park_name }}. Прогноз погоды, фото, оценки райдеров.">
-    <meta property="og:image" content="https://gripchek.ru/og-image.png">
+    <meta property="og:image" content="https://gripchek.ru/og-image.jpg">
+    <meta property="og:image:secure_url" content="https://gripchek.ru/og-image.jpg">
+    <meta property="og:image:type" content="image/jpeg">
     <meta property="og:image:width" content="1200">
     <meta property="og:image:height" content="630">
     <meta property="og:url" content="https://gripchek.ru/park/{{ park_id }}">

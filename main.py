@@ -155,7 +155,9 @@ CONTACTS_HTML = """
     <meta name="description" content="Свяжитесь со мной по Telegram для добавления новых парков и предложений.">
     <meta property="og:title" content="Контакты — МТБ Парки 2.0">
     <meta property="og:description" content="Свяжитесь со мной по Telegram для добавления новых парков и предложений.">
-    <meta property="og:image" content="https://gripchek.ru/og-image.png">
+    <meta property="og:image" content="https://gripchek.ru/og-image.jpg">
+    <meta property="og:image:secure_url" content="https://gripchek.ru/og-image.jpg">
+    <meta property="og:image:type" content="image/jpeg">
     <meta property="og:image:width" content="1200">
     <meta property="og:image:height" content="630">
     <meta property="og:url" content="https://gripchek.ru">
@@ -234,7 +236,9 @@ DEVELOPMENT_HTML = """
     <meta name="description" content="Модели определения сухости грунта: физическая, ускоренная и пользовательская. Планы развития сервиса МТБ Парки.">
     <meta property="og:title" content="Развитие проекта — МТБ Парки 2.0">
     <meta property="og:description" content="Три модели расчёта влажности грунта и планы развития сервиса.">
-    <meta property="og:image" content="https://gripchek.ru/og-image.png">
+    <meta property="og:image" content="https://gripchek.ru/og-image.jpg">
+    <meta property="og:image:secure_url" content="https://gripchek.ru/og-image.jpg">
+    <meta property="og:image:type" content="image/jpeg">
     <meta property="og:image:width" content="1200">
     <meta property="og:image:height" content="630">
     <meta property="og:url" content="https://gripchek.ru">
