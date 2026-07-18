@@ -181,10 +181,11 @@ ADMIN_HTML = """
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
     <title>Админ-панель МТБ Парки</title>
     <link rel="icon" type="image/svg+xml" href="/favicon.svg">
     <style>
-        body { font-family: sans-serif; margin: 20px; background: #0b0d14; color: #eef5ff; }
+        body { font-family: -apple-system, BlinkMacSystemFont, sans-serif; margin: 20px; background: #0b0d14; color: #eef5ff; }
         .card { border: 1px solid rgba(74,144,226,0.25); border-radius: 8px; padding: 16px; margin: 10px 0; background: rgba(18,22,30,0.85); }
         table { border-collapse: collapse; width: 100%; }
         th, td { border: 1px solid #333; padding: 8px; text-align: left; }
@@ -192,18 +193,28 @@ ADMIN_HTML = """
         .error { color: #ff6b6b; }
         .hidden { display: none; }
         #login-form { margin-bottom: 20px; }
-        input { padding: 8px; margin: 4px; border-radius: 6px; border: 1px solid #555; background: #1a1e2b; color: white; }
-        button { padding: 8px 16px; border-radius: 6px; border: none; cursor: pointer; }
+        input { padding: 12px; margin: 4px; border-radius: 8px; border: 1px solid #555; background: #1a1e2b; color: white; font-size: 16px; }
+        button { padding: 12px 20px; border-radius: 8px; border: none; cursor: pointer; font-size: 16px; }
         .approve-btn { background: #4caf50; color: white; }
         .reject-btn { background: #e74c3c; color: white; }
         .photo-item { margin: 10px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
         .promote-btn { background: #f39c12; color: white; }
         .tab-bar { display: flex; gap: 4px; margin-bottom: 16px; flex-wrap: wrap; }
-        .tab-btn { padding: 10px 20px; background: #1a2a3a; color: #94afcf; border: 1px solid rgba(74,144,226,0.25); border-radius: 8px 8px 0 0; cursor: pointer; font-weight: 600; transition: all 0.2s; }
+        .tab-btn { padding: 12px 16px; background: #1a2a3a; color: #94afcf; border: 1px solid rgba(74,144,226,0.25); border-radius: 8px 8px 0 0; cursor: pointer; font-weight: 600; transition: all 0.2s; font-size: 14px; }
         .tab-btn:hover { background: #1e3050; }
         .tab-btn.active { background: rgba(18,22,30,0.85); color: #eef5ff; border-bottom: 2px solid #4a90e2; }
         .tab-content { display: none; }
         .tab-content.active { display: block; }
+        @media (max-width: 700px) {
+            body { margin: 10px; }
+            h1 { font-size: 22px; }
+            .tab-bar { gap: 2px; }
+            .tab-btn { padding: 10px 10px; font-size: 12px; flex: 1; text-align: center; }
+            table { font-size: 13px; display: block; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+            th, td { padding: 6px 4px; white-space: nowrap; }
+            #login-form input { width: 100%; box-sizing: border-box; margin: 4px 0; }
+            #login-form button { width: 100%; }
+        }
     </style>
 </head>
 <body>

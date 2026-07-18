@@ -209,20 +209,32 @@
             }
 
             const comment = document.getElementById('photoComment').value.trim();
-            const formData = new FormData();
-            formData.append('file', file, file.name);
-            formData.append('vote', vote);
-            if (comment) formData.append('comment', comment);
 
             const statusDiv = document.getElementById('uploadStatus');
             statusDiv.textContent = '⏳ Загрузка...';
             statusDiv.style.color = '#ffd966';
 
             try {
+                // Read file as base64 (workaround for Safari FormData bug)
+                const reader = new FileReader();
+                const fileData = await new Promise((resolve, reject) => {
+                    reader.onload = () => resolve(reader.result);
+                    reader.onerror = () => reject('Ошибка чтения файла');
+                    reader.readAsDataURL(file);
+                });
+
                 const resp = await fetch(`/api/park/${parkId}/photos`, {
                     method: 'POST',
-                    headers: { 'Authorization': 'Bearer ' + token },
-                    body: formData
+                    headers: {
+                        'Authorization': 'Bearer ' + token,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        file: fileData,
+                        name: file.name,
+                        vote: parseInt(vote),
+                        comment: comment || ''
+                    })
                 });
 
                 if (resp.ok) {
@@ -238,7 +250,6 @@
                     document.getElementById('selectedVote').value = '';
                     selectedVote = null;
                     loadPhotos();
-                    // Обновляем среднюю оценку после загрузки
                     fetchAverageVote();
                 } else {
                     const errText = await resp.text();
@@ -246,7 +257,7 @@
                     statusDiv.style.color = '#ff6b6b';
                 }
             } catch (err) {
-                statusDiv.textContent = '❌ Ошибка сети: ' + err.message;
+                statusDiv.textContent = '❌ Ошибка сети: ' + err;
                 statusDiv.style.color = '#ff6b6b';
             }
         });

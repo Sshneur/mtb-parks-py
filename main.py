@@ -229,9 +229,9 @@ DEVELOPMENT_HTML = """
     <title>Развитие проекта — МТБ Парки 2.0</title>
     <link rel="stylesheet" href="/css/style.css">
     <link rel="icon" type="image/svg+xml" href="/favicon.svg">
-    <meta name="description" content="Планы по развитию МТБ Парки 2.0: ИИ для анализа грунта, датчики влажности, новые парки.">
+    <meta name="description" content="Модели определения сухости грунта: физическая, ускоренная и пользовательская. Планы развития сервиса МТБ Парки.">
     <meta property="og:title" content="Развитие проекта — МТБ Парки 2.0">
-    <meta property="og:description" content="Планы по развитию сервиса: ИИ для анализа грунта, датчики влажности, новые парки.">
+    <meta property="og:description" content="Три модели расчёта влажности грунта и планы развития сервиса.">
     <meta property="og:image" content="https://gripchek.ru/og-image.png">
     <meta property="og:url" content="https://gripchek.ru">
     <meta property="og:type" content="website">
@@ -248,14 +248,39 @@ DEVELOPMENT_HTML = """
         }
         .dev-container h1 {
             font-size: 2rem;
-            margin-bottom: 20px;
+            margin-bottom: 10px;
             color: #ffd966;
             text-align: center;
         }
+        .dev-container .subtitle {
+            text-align: center;
+            color: #94afcf;
+            font-size: 1rem;
+            margin-bottom: 30px;
+        }
         .dev-container p {
-            font-size: 1.1rem;
+            font-size: 1.05rem;
             line-height: 1.6;
             color: #b8d6ff;
+        }
+        .dev-container .model-card {
+            margin: 20px 0;
+            padding: 20px;
+            background: rgba(255,255,255,0.04);
+            border-radius: 14px;
+            border: 1px solid rgba(74,144,226,0.2);
+        }
+        .dev-container .model-card h3 {
+            font-size: 1.15rem;
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .dev-container .model-card p {
+            font-size: 0.95rem;
+            color: #c8dfff;
+            margin: 0;
         }
         .dev-container .plan {
             margin: 30px 0;
@@ -268,7 +293,7 @@ DEVELOPMENT_HTML = """
             background: rgba(255,255,255,0.05);
             border-radius: 12px;
             border-left: 4px solid #74a8e2;
-            font-size: 1.05rem;
+            font-size: 1.02rem;
             color: #e2edff;
             display: flex;
             align-items: center;
@@ -276,13 +301,15 @@ DEVELOPMENT_HTML = """
         }
         .dev-container .plan .icon {
             font-size: 1.5rem;
+            flex-shrink: 0;
         }
         .dev-container .callout {
             margin-top: 30px;
-            padding: 20px;
-            background: rgba(74,144,226,0.15);
-            border-radius: 12px;
+            padding: 24px;
+            background: linear-gradient(135deg, rgba(74,144,226,0.2), rgba(74,144,226,0.05));
+            border-radius: 14px;
             text-align: center;
+            border: 1px solid rgba(74,144,226,0.3);
         }
         .dev-container .callout a {
             color: #74a8e2;
@@ -297,16 +324,40 @@ DEVELOPMENT_HTML = """
             margin-top: 30px;
             color: #74a8e2;
             text-decoration: none;
+            font-size: 1rem;
         }
         .back-link:hover {
             text-decoration: underline;
+        }
+        @media (max-width: 600px) {
+            .dev-container { margin: 20px 10px; padding: 20px; }
+            .dev-container h1 { font-size: 1.5rem; }
         }
     </style>
 </head>
 <body>
     <div class="dev-container">
         <h1>🚀 Развитие проекта</h1>
-        <p>Мы постоянно работаем над улучшением сервиса. Вот что планируется в ближайшее время:</p>
+        <p class="subtitle">Как мы определяем состояние грунта и что планируем дальше</p>
+
+        <p style="margin-bottom:24px;">Мы используем <strong>три модели</strong> для расчёта влажности грунта на трассах. Каждая даёт свой прогноз — ты можешь сравнить их и выбрать тот, которому доверяешь больше.</p>
+
+        <div class="model-card">
+            <h3>🌡️ Физическая модель (OLD)</h3>
+            <p>Рассчитывает испарение влаги по температуре, ветру, осадкам и солнечной радиации. Учитывает тип грунта (песок, глина, чернозём) и лесной покров. Надёжная и проверенная.</p>
+        </div>
+
+        <div class="model-card">
+            <h3>⚡ Ускоренная модель (NEW)</h3>
+            <p>Упрощённый алгоритм для быстрого прогноза. Использует те же метеоданные, но с меньшими вычислительными затратами. Хорошо работает в типичных условиях.</p>
+        </div>
+
+        <div class="model-card">
+            <h3>👥 Пользовательская модель</h3>
+            <p>Основана на реальных оценках райдеров — твоих и других пользователей. Если большинство отметило «Сухо» — значит сухо. Чем больше оценок, тем точнее результат. <strong>Ты можешь повлиять на прогноз!</strong></p>
+        </div>
+
+        <p style="margin-top:24px;">А вот что мы планируем сделать в ближайшее время:</p>
         <ul class="plan">
             <li>
                 <span class="icon">🤖</span>
@@ -320,6 +371,11 @@ DEVELOPMENT_HTML = """
                 Мы планируем разместить физический датчик (ESP8266 + ёмкостной сенсор) в одном из парков, 
                 чтобы получать реальные показания влажности в режиме реального времени. Это позволит 
                 сравнивать данные модели с реальностью и повысить точность прогнозов.</span>
+            </li>
+            <li>
+                <span class="icon">🗺️</span>
+                <span><strong>Карта всех парков с состоянием грунта</strong><br>
+                Уже работает! Открывай карту в меню и смотри состояние всех трасс сразу. Цветные маркеры показывают где сухо, где мокро, а где болото.</span>
             </li>
         </ul>
         <div class="callout">
@@ -361,4 +417,4 @@ if _os.path.exists(static_path):
 # ТОЧКА ВХОДА
 # ============================================================
 if __name__ == "__main__":
-    uvicorn.run(app, host="127.0.0.1", port=8000)
+    uvicorn.run(app, host="0.0.0.0", port=8000)

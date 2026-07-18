@@ -1,9 +1,9 @@
 from fastapi import APIRouter, Query, Request, Depends, HTTPException
 from fastapi.responses import HTMLResponse, JSONResponse
-from database.crud import get_park
+from database.crud import get_park, get_all_parks
 from database.connection import get_connection
 from datetime import datetime, timedelta, timezone
-from services.soil_calculator import get_soil_status
+from services.soil_calculator import get_soil_status, calculate_soil_moisture_from_db
 from api.dependencies import get_current_user
 from api.utils import parse_time, to_msk, weather_code, MOSCOW_TZ
 import os as _os, uuid
@@ -185,10 +185,100 @@ PARK_HTML_TEMPLATE = """
         <img id="lightboxImg" src="" style="max-width:95%; max-height:95%; object-fit:contain; border-radius:8px;">
     </div>
 
-    <script src="/js/park.js"></script>
+    <script src="/js/park.js?v=2"></script>
 </body>
 </html>
 """
+
+MAP_HTML = """<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Карта — МТБ Парки 2.0</title>
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="stylesheet" href="/lib/leaflet.css">
+<link rel="manifest" href="/manifest.json">
+<meta name="theme-color" content="#0b0d14">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html, body { width: 100%; height: 100%; overflow: hidden; background: #0b0d14; }
+#map { width: 100%; height: 100%; }
+.back-btn {
+  position: fixed; bottom: 20px; left: 20px; z-index: 1000;
+  width: 48px; height: 48px; border-radius: 50%;
+  background: rgba(0,0,0,0.75); border: 2px solid rgba(255,255,255,0.2);
+  color: #eef5ff; font-size: 22px; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  text-decoration: none; box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+}
+@media (max-width: 700px) {
+  .back-btn { bottom: calc(20px + env(safe-area-inset-bottom, 0px)); }
+}
+</style>
+</head>
+<body>
+<a href="/" class="back-btn">←</a>
+<div id="map"></div>
+<script src="/lib/leaflet.js"></script>
+<script>
+(function() {
+  var map = L.map('map', { zoomControl: true, attributionControl: false, fadeAnimation: false });
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 18, attribution: '&copy; <a href="https://openstreetmap.org">OSM</a>'
+  }).addTo(map);
+  map.setView([55.65, 37.49], 10);
+
+  L.control({ position: 'topright' }).onAdd = function() {
+    var div = L.DomUtil.create('div', 'leaflet-bar leaflet-control');
+    div.innerHTML = '<a href="#" style="font-size:22px;line-height:44px;display:flex;align-items:center;justify-content:center;" title="Моё местоположение">📍</a>';
+    div.onclick = function(e) {
+      e.preventDefault();
+      if (!navigator.geolocation) { alert('Геолокация не поддерживается'); return; }
+      navigator.geolocation.getCurrentPosition(function(pos) {
+        map.setView([pos.coords.latitude, pos.coords.longitude], 14);
+        L.circleMarker([pos.coords.latitude, pos.coords.longitude], {
+          radius: 8, color: '#4a90e2', fillColor: '#4a90e2', fillOpacity: 0.6
+        }).addTo(map);
+      }, function() { alert('Не удалось определить местоположение'); });
+    };
+    return div;
+  }.bind(this);
+
+  var statusColors = {
+    'Бетон': '#ffd700', 'Сухо': '#4caf50', 'Альденте': '#ff9800',
+    'Мокро': '#2196f3', 'Болото': '#9c27b0'
+  };
+
+  fetch('/api/park/list').then(function(r) { return r.json(); }).then(function(data) {
+    data.forEach(function(p) {
+      var color = '#666';
+      for (var key in statusColors) {
+        if (p.soilStatus && p.soilStatus.indexOf(key) >= 0) { color = statusColors[key]; break; }
+      }
+      L.marker([p.lat, p.lon], {
+        icon: L.divIcon({
+          html: '<div style="background:' + color + ';width:22px;height:22px;border-radius:50%;border:3px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,0.6);"></div>',
+          iconSize: [28, 28], iconAnchor: [14, 14], className: ''
+        })
+      }).addTo(map).bindPopup(
+        '<b><a href="/park/' + p.parkId + '" style="color:#4a90e2;text-decoration:none;">' + p.name + '</a></b><br>' +
+        '<span style="font-size:13px;">' + p.soilStatus + '</span>'
+      );
+    });
+  }).catch(function(e) { console.error('loadMap error', e); });
+
+  setTimeout(function() { map.invalidateSize(); }, 50);
+})();
+</script>
+</body>
+</html>"""
+
+@router.get("/map", response_class=HTMLResponse)
+async def map_page():
+    return HTMLResponse(content=MAP_HTML)
 
 @router.get("/park/{park_id}", response_class=HTMLResponse)
 async def park_page(park_id: str):
@@ -266,6 +356,41 @@ async def get_park_status(park_id: str):
     finally:
         conn.close()
 
+@router.get("/api/park/list")
+async def get_park_list():
+    parks = get_all_parks()
+    if not parks:
+        return []
+    results = []
+    conn = get_connection()
+    for park in parks:
+        rows = conn.execute("""
+            SELECT * FROM weather_hourly
+            WHERE park_id = ?
+            ORDER BY timestamp ASC
+        """, (park["id"],)).fetchall()
+        all_data = [dict(r) for r in rows]
+        if all_data:
+            moisture = calculate_soil_moisture_from_db(park, all_data)
+            is_asphalt = park.get("soil_type") == "asphalt"
+            status = get_soil_status(
+                moisture["total_rain"],
+                moisture["dry_hours"],
+                moisture["hours_since_rain"],
+                is_asphalt
+            )
+        else:
+            status = "Нет данных"
+        results.append({
+            "parkId": park["id"],
+            "name": park["name"],
+            "lat": park["lat"],
+            "lon": park["lon"],
+            "soilStatus": status
+        })
+    conn.close()
+    return results
+
 # ===== ИСПРАВЛЕННЫЙ ЭНДПОИНТ С КОРРЕКТНЫМ СРАВНЕНИЕМ ДАТ =====
 @router.get("/api/park/{park_id}/votes-history")
 async def get_park_votes_history(park_id: str):
@@ -328,27 +453,32 @@ async def upload_park_photo(park_id: str, request: Request, user=Depends(get_cur
     park = get_park(park_id)
     if not park:
         return JSONResponse({"error": "Парк не найден"}, status_code=404)
-    form = await request.form()
-    file = form.get("file")
-    vote_str = form.get("vote")
-    comment = form.get("comment", "").strip()
-    if not file:
+    body = await request.json()
+    file_data = body.get("file", "")
+    original_name = body.get("name", "photo.jpg")
+    vote = body.get("vote")
+    comment = body.get("comment", "").strip()
+    logger.info(f"Upload JSON: file_data_len={len(file_data)}, vote={vote!r}, name={original_name!r}")
+    if not file_data or "," not in file_data:
         return JSONResponse({"error": "Файл не найден"}, status_code=400)
-    if not vote_str:
+    if not vote:
         return JSONResponse({"error": "Оценка не указана"}, status_code=400)
     try:
-        vote = int(vote_str)
+        vote = int(vote)
         if vote < 1 or vote > 5:
             raise ValueError
     except ValueError:
         return JSONResponse({"error": "Оценка должна быть числом от 1 до 5"}, status_code=400)
-    ext = file.filename.split('.')[-1] if '.' in file.filename else 'jpg'
+    import base64
+    header, encoded = file_data.split(",", 1)
+    file_bytes = base64.b64decode(encoded)
+    ext = original_name.split('.')[-1] if '.' in original_name else 'jpg'
     filename = f"{datetime.now().strftime('%Y%m%d_%H%M%S')}_{uuid.uuid4().hex[:6]}.{ext}"
     base_dir = _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__)))
     filepath = _os.path.join(base_dir, "data", "photos", park_id, filename)
     _os.makedirs(_os.path.dirname(filepath), exist_ok=True)
     with open(filepath, "wb") as f:
-        f.write(await file.read())
+        f.write(file_bytes)
     user_id = user["user_id"]
     conn = get_connection()
     try:
@@ -360,7 +490,7 @@ async def upload_park_photo(park_id: str, request: Request, user=Depends(get_cur
             return JSONResponse({"error": "Лимит: не более 10 фото в час"}, status_code=429)
         conn.execute(
             "INSERT INTO park_photos (park_id, user_id, filename, original_name, vote, comment, status) VALUES (?, ?, ?, ?, ?, ?, 'pending')",
-            (park_id, user_id, filename, file.filename, vote, comment)
+            (park_id, user_id, filename, original_name, vote, comment)
         )
         conn.execute(
             "UPDATE users SET photo_votes_count = photo_votes_count + 1 WHERE id = ?",

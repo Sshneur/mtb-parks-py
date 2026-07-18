@@ -62,9 +62,44 @@ body {
 @media (max-width: 700px) {
   .dashboard {
     grid-template-columns: 1fr;
+    gap: 12px;
   }
   .site-title {
-    font-size: 1.3rem;
+    font-size: 1.1rem;
+  }
+  body {
+    padding: 10px;
+    padding-top: calc(10px + env(safe-area-inset-top));
+  }
+  .card {
+    padding: 14px 12px;
+    border-radius: 20px;
+  }
+  .current-weather {
+    gap: 8px;
+  }
+  .weather-emoji {
+    font-size: 2rem;
+    width: 40px;
+  }
+  .temp-value {
+    font-size: 2.2rem;
+  }
+  .park-title {
+    font-size: 1rem;
+  }
+  .soil-status-badge {
+    font-size: 1rem;
+    padding: 6px 12px;
+  }
+  .model-btn {
+    padding: 12px 20px;
+    font-size: 15px;
+  }
+  .refresh-btn {
+    padding: 14px 24px;
+    width: 100%;
+    max-width: 300px;
   }
 }
 
