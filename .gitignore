@@ -10,3 +10,4 @@ telegram_bot.py
 test.py
 tune_*.py
 nohup.out
+.pytest_cache/

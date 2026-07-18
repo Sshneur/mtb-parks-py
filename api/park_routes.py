@@ -3,9 +3,9 @@ from fastapi.responses import HTMLResponse, JSONResponse
 from database.crud import get_park
 from database.connection import get_connection
 from datetime import datetime, timedelta, timezone
-from services.penman_monteith import calc_pm_evaporation
 from services.soil_calculator import get_soil_status
 from api.dependencies import get_current_user
+from api.utils import parse_time, to_msk, weather_code, MOSCOW_TZ
 import os as _os, uuid
 import logging
 
@@ -23,47 +23,6 @@ def get_reset_time_msk():
     reset_utc = reset_msk - timedelta(hours=3)
     return reset_utc
 
-SURFACE_PARAMS = {
-    "asphalt": {"z0m": 0.001, "d": 0, "r_s": 0},
-    "sand": {"z0m": 0.005, "d": 0, "r_s": 70},
-    "loam": {"z0m": 0.015, "d": 0.1, "r_s": 200},
-    "clay": {"z0m": 0.015, "d": 0.1, "r_s": 150},
-    "clay_heavy": {"z0m": 0.5, "d": 1.5, "r_s": 300},
-    "chernozem": {"z0m": 0.015, "d": 0.1, "r_s": 100},
-}
-
-def _parse_time(t):
-    if isinstance(t, datetime):
-        if t.tzinfo is None:
-            return t.replace(tzinfo=timezone.utc)
-        return t
-    try:
-        dt = datetime.fromisoformat(t.replace("Z", "+00:00"))
-    except:
-        dt = datetime.fromisoformat(t)
-    if dt.tzinfo is None:
-        dt = dt.replace(tzinfo=timezone.utc)
-    return dt
-
-def _to_msk(t):
-    dt = _parse_time(t)
-    msk = dt.astimezone(timezone(timedelta(hours=3)))
-    return msk.strftime("%Y-%m-%dT%H:%M")
-
-def _weather_code(temp, rain):
-    if rain and rain > 2:
-        return 63
-    elif rain and rain > 0.5:
-        return 61
-    elif rain and rain > 0:
-        return 80
-    elif temp and temp > 25:
-        return 1
-    elif temp and temp > 15:
-        return 2
-    else:
-        return 3
-
 # ===== ПОЛНЫЙ HTML-ШАБЛОН СТРАНИЦЫ ПАРКА =====
 PARK_HTML_TEMPLATE = """
 <!DOCTYPE html>
@@ -73,6 +32,14 @@ PARK_HTML_TEMPLATE = """
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes">
     <title>{{ park_name }} — МТБ Парки 2.0</title>
     <link rel="stylesheet" href="/css/style.css">
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+    <meta name="description" content="Состояние грунта на трассах {{ park_name }}: сухо, мокро, болото или бетон. Прогноз погоды, фото грунта, оценки райдеров.">
+    <meta property="og:title" content="{{ park_name }} — МТБ Парки 2.0">
+    <meta property="og:description" content="Проверь состояние грунта в {{ park_name }}. Прогноз погоды, фото, оценки райдеров.">
+    <meta property="og:image" content="https://gripchek.ru/og-image.png">
+    <meta property="og:url" content="https://gripchek.ru">
+    <meta property="og:type" content="website">
+    <meta property="og:locale" content="ru_RU">
     <style>
         .park-container { max-width: 800px; margin: 0 auto; padding: 20px; }
         .back-link { margin-bottom: 20px; display: inline-block; color: #74a8e2; text-decoration: none; }
@@ -385,6 +352,12 @@ async def upload_park_photo(park_id: str, request: Request, user=Depends(get_cur
     user_id = user["user_id"]
     conn = get_connection()
     try:
+        recent = conn.execute(
+            "SELECT COUNT(*) FROM park_photos WHERE user_id = ? AND created_at > datetime('now', '-1 hour')",
+            (user_id,)
+        ).fetchone()[0]
+        if recent >= 10:
+            return JSONResponse({"error": "Лимит: не более 10 фото в час"}, status_code=429)
         conn.execute(
             "INSERT INTO park_photos (park_id, user_id, filename, original_name, vote, comment, status) VALUES (?, ?, ?, ?, ?, ?, 'pending')",
             (park_id, user_id, filename, file.filename, vote, comment)

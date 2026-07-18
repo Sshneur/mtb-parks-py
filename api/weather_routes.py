@@ -2,44 +2,10 @@ from fastapi import APIRouter
 from datetime import datetime, timedelta, timezone
 from database.crud import get_parks_by_group
 from services.soil_calculator import calculate_soil_moisture_from_db, get_soil_status
+from api.utils import parse_time, to_msk, weather_code, MOSCOW_TZ
+from api.cache import get_cached, set_cached
 
-MOSCOW_TZ = timezone(timedelta(hours=3))
 router = APIRouter()
-
-
-def _parse_time(t) -> datetime:
-    if isinstance(t, datetime):
-        if t.tzinfo is None:
-            return t.replace(tzinfo=timezone.utc)
-        return t
-    try:
-        dt = datetime.fromisoformat(t.replace("Z", "+00:00"))
-    except:
-        dt = datetime.fromisoformat(t)
-    if dt.tzinfo is None:
-        dt = dt.replace(tzinfo=timezone.utc)
-    return dt
-
-
-def _to_msk(t) -> str:
-    dt = _parse_time(t)
-    msk = dt.astimezone(MOSCOW_TZ)
-    return msk.strftime("%Y-%m-%dT%H:%M+03:00")
-
-
-def _weather_code(temp: float, rain: float) -> int:
-    if rain and rain > 2:
-        return 63
-    elif rain and rain > 0.5:
-        return 61
-    elif rain and rain > 0:
-        return 80
-    elif temp and temp > 25:
-        return 1
-    elif temp and temp > 15:
-        return 2
-    else:
-        return 3
 
 
 @router.get("/api/groups")
@@ -56,6 +22,9 @@ async def get_groups():
 
 @router.get("/api/weather/{group_id}")
 async def get_weather(group_id: str):
+    cached = get_cached(f"weather_{group_id}")
+    if cached:
+        return cached
     parks = get_parks_by_group(group_id)
     if not parks:
         return {"error": "Группа не найдена"}
@@ -141,7 +110,7 @@ async def get_weather(group_id: str):
             
             history = {
                 "hourly": {
-                    "time": [_to_msk(h["timestamp"]) for h in all_data],
+                    "time": [to_msk(h["timestamp"]) for h in all_data],
                     "rain": [h.get("rain") or 0 for h in all_data]
                 }
             }
@@ -159,7 +128,7 @@ async def get_weather(group_id: str):
                     "forest_coef": park["forest_coef"],
                     "rain_6d": moisture["total_rain"],
                     "rain_forecast": 0,
-                    "rain_total": sum(h.get("rain", 0) or 0 for h in all_data if _parse_time(h["timestamp"]) >= (datetime.now(timezone.utc) - timedelta(days=7))),
+                    "rain_total": sum(h.get("rain", 0) or 0 for h in all_data if parse_time(h["timestamp"]) >= (datetime.now(timezone.utc) - timedelta(days=7))),
                     "current_moisture": moisture["current_moisture"],
                     "soilStatus": status,
                     "dryTarget": dry_target_str
@@ -194,6 +163,7 @@ async def get_weather(group_id: str):
                 "error": "Парк ожидает инициализации"
             })
     
+    set_cached(f"weather_{group_id}", results)
     return results
 
 
@@ -202,7 +172,7 @@ def _build_forecast(forecast_data: list, hour_start: datetime, daily_data: dict 
     
     future_hours = []
     for h in forecast_data:
-        t = _parse_time(h["timestamp"])
+        t = parse_time(h["timestamp"])
         if t >= hour_start:
             future_hours.append(h)
         if len(future_hours) >= 6:
@@ -212,11 +182,11 @@ def _build_forecast(forecast_data: list, hour_start: datetime, daily_data: dict 
         future_hours = forecast_data[-6:] if forecast_data else []
     
     hourly_forecast = {
-        "time": [_to_msk(h["timestamp"]) for h in future_hours],
+        "time": [to_msk(h["timestamp"]) for h in future_hours],
         "temperature_2m": [h.get("temperature") or 15 for h in future_hours],
         "rain": [h.get("rain") or 0 for h in future_hours],
         "weather_code": [
-            _weather_code(h.get("temperature"), h.get("rain"))
+            weather_code(h.get("temperature"), h.get("rain"))
             for h in future_hours
         ]
     }

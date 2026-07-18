@@ -1,38 +1,18 @@
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 from database.models import SOIL_COEFFICIENTS
 
 
-def get_soil_status(rain_total: float, dry_hours: float, hours_since_rain: float = None, is_asphalt: bool = False, dry_target: datetime = None) -> str:
-    # Бетон — 144 часа без дождя
+def get_soil_status(rain_total: float, dry_hours: float, hours_since_rain: float = None, is_asphalt: bool = False) -> str:
     if hours_since_rain is not None and hours_since_rain >= 144:
         return "Бетон 🪨"
-    
-    # Болото — сохнет больше 3 суток
     if dry_hours >= 72:
         return "Болото 🌿"
-    
-    # Мокро — сохнет от 1 до 72 часов
     if dry_hours > 1 and dry_hours < 72:
         return "Мокро 💧"
-    
-    # Альденте — таймер почти закончился (≤1 часа) и был дождь
     if dry_hours > 0 and dry_hours <= 1 and rain_total > 0.5:
         return "Альденте 🌵"
-    
-    # Альденте продлённое — 24 часа после полного высыхания
-    if dry_hours <= 0 and dry_target is not None and rain_total > 0.5:
-        now = datetime.now(timezone.utc) + timedelta(hours=3)  # МСК
-        if dry_target.tzinfo is None:
-            dry_target = dry_target.replace(tzinfo=timezone.utc)
-        hours_after_dry = (now - dry_target).total_seconds() / 3600
-        if 0 <= hours_after_dry < 24:
-            return "Альденте 🌵"
-    
-    # Асфальт сохнет мгновенно
     if is_asphalt and dry_hours <= 1:
         return "Сухо ✅"
-    
-    # Всё остальное — сухо
     return "Сухо ✅"
 
 

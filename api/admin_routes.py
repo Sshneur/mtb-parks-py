@@ -149,6 +149,8 @@ async def update_park(park_id: str, data: dict, user=Depends(get_admin_user)):
         values = []
         for key, val in data.items():
             if key in allowed:
+                if key == "soil_type" and val not in SOIL_COEFFICIENTS:
+                    raise HTTPException(status_code=400, detail=f"Недопустимый тип грунта: {val}")
                 updates.append(f"{key} = ?")
                 values.append(val)
         if not updates:
@@ -164,7 +166,9 @@ async def update_park(park_id: str, data: dict, user=Depends(get_admin_user)):
 @router.post("/api/admin/refresh")
 async def refresh_data(user=Depends(get_admin_user)):
     """Принудительное обновление данных в админке"""
-    return {"ok": True, "message": "Данные обновлены"}
+    from api.cache import invalidate_cache
+    invalidate_cache()
+    return {"ok": True, "message": "Кеш сброшен, данные обновлены"}
 
 @router.get("/admin", response_class=HTMLResponse)
 async def admin_panel():
@@ -178,6 +182,7 @@ ADMIN_HTML = """
 <head>
     <meta charset="UTF-8">
     <title>Админ-панель МТБ Парки</title>
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg">
     <style>
         body { font-family: sans-serif; margin: 20px; background: #0b0d14; color: #eef5ff; }
         .card { border: 1px solid rgba(74,144,226,0.25); border-radius: 8px; padding: 16px; margin: 10px 0; background: rgba(18,22,30,0.85); }
@@ -193,6 +198,12 @@ ADMIN_HTML = """
         .reject-btn { background: #e74c3c; color: white; }
         .photo-item { margin: 10px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
         .promote-btn { background: #f39c12; color: white; }
+        .tab-bar { display: flex; gap: 4px; margin-bottom: 16px; flex-wrap: wrap; }
+        .tab-btn { padding: 10px 20px; background: #1a2a3a; color: #94afcf; border: 1px solid rgba(74,144,226,0.25); border-radius: 8px 8px 0 0; cursor: pointer; font-weight: 600; transition: all 0.2s; }
+        .tab-btn:hover { background: #1e3050; }
+        .tab-btn.active { background: rgba(18,22,30,0.85); color: #eef5ff; border-bottom: 2px solid #4a90e2; }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
     </style>
 </head>
 <body>
@@ -207,18 +218,35 @@ ADMIN_HTML = """
 
     <div id="dashboard" class="hidden">
         <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; margin-bottom:15px;">
-            <h2>📊 Метрики</h2>
-            <button onclick="refreshAll()" style="padding:10px 24px; background:#4caf50; color:white; border:none; border-radius:8px; cursor:pointer; font-weight:bold;">🔄 Обновить данные</button>
+            <h2>🚵 Админ-панель</h2>
+            <div style="display:flex; gap:10px;">
+                <button onclick="refreshAll()" style="padding:10px 24px; background:#4caf50; color:white; border:none; border-radius:8px; cursor:pointer; font-weight:bold;">🔄 Обновить данные</button>
+                <button onclick="logout()" style="background:#e74c3c; color:white; padding:10px 20px; border:none; border-radius:8px; cursor:pointer;">Выйти</button>
+            </div>
         </div>
-        <div id="metrics"></div>
-        <div id="users-table"></div>
-        <div id="parks-table"></div>
-        <div id="photos-moderation"></div>
-        <button onclick="logout()" style="margin-top:20px; background:#e74c3c; color:white; padding:10px 20px; border:none; border-radius:8px; cursor:pointer;">Выйти</button>
+
+        <div class="tab-bar">
+            <button class="tab-btn active" onclick="switchTab('metrics', this)">📊 Метрики</button>
+            <button class="tab-btn" onclick="switchTab('users', this)">👥 Пользователи</button>
+            <button class="tab-btn" onclick="switchTab('parks', this)">🏞️ Парки</button>
+            <button class="tab-btn" onclick="switchTab('photos', this)">🖼️ Модерация</button>
+        </div>
+
+        <div id="tab-metrics" class="tab-content active"><div id="metrics"></div></div>
+        <div id="tab-users" class="tab-content"><div id="users-table"></div></div>
+        <div id="tab-parks" class="tab-content"><div id="parks-table"></div></div>
+        <div id="tab-photos" class="tab-content"><div id="photos-moderation"></div></div>
     </div>
 
     <script>
-        let token = '';
+        let token = localStorage.getItem('admin_token') || '';
+
+        function switchTab(tab, btn) {
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+            btn.classList.add('active');
+            document.getElementById('tab-' + tab).classList.add('active');
+        }
 
         async function login() {
             const email = document.getElementById('email').value;
@@ -229,14 +257,12 @@ ADMIN_HTML = """
                 body: JSON.stringify({email, password})
             });
             const data = await res.json();
-            if (data.ok) {
+            if (data.ok && data.role === 'admin') {
                 token = data.token;
+                localStorage.setItem('admin_token', token);
                 document.getElementById('login-form').classList.add('hidden');
                 document.getElementById('dashboard').classList.remove('hidden');
-                loadMetrics();
-                loadUsers();
-                loadParks();
-                loadPendingPhotos();
+                loadAll();
             } else {
                 document.getElementById('login-error').textContent = 'Неверный email или пароль';
             }
@@ -244,8 +270,23 @@ ADMIN_HTML = """
 
         function logout() {
             token = '';
+            localStorage.removeItem('admin_token');
             document.getElementById('login-form').classList.remove('hidden');
             document.getElementById('dashboard').classList.add('hidden');
+        }
+
+        async function loadAll() {
+            loadMetrics();
+            loadUsers();
+            loadParks();
+            loadPendingPhotos();
+        }
+
+        // Авто-логин при загрузке
+        if (token) {
+            document.getElementById('login-form').classList.add('hidden');
+            document.getElementById('dashboard').classList.remove('hidden');
+            loadAll();
         }
 
         async function loadMetrics() {
@@ -420,10 +461,7 @@ ADMIN_HTML = """
                     headers: { 'Authorization': 'Bearer ' + token }
                 });
                 if (res.ok) {
-                    await loadMetrics();
-                    await loadUsers();
-                    await loadParks();
-                    await loadPendingPhotos();
+                    await loadAll();
                     btn.textContent = '✅ Обновлено';
                     setTimeout(() => { btn.textContent = '🔄 Обновить данные'; btn.disabled = false; }, 1500);
                 } else {

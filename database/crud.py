@@ -1,5 +1,5 @@
 import sqlite3
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from .connection import get_connection
 from .models import PARKS
 
@@ -14,7 +14,7 @@ def seed_parks():
             desc = park.get("description", "")
             trails = park.get("trails_count", 0)
             cursor.execute("""
-                INSERT OR IGNORE INTO parks 
+                INSERT OR REPLACE INTO parks 
                 (id, name, group_id, lat, lon, soil_type, forest_coef, description, trails_count, dry_hours_default)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, (
@@ -69,7 +69,7 @@ def update_park_moisture(park_id: str, moisture: float):
         UPDATE parks 
         SET current_moisture = ?, last_updated = ?
         WHERE id = ?
-    """, (moisture, datetime.utcnow().isoformat(), park_id))
+    """, (moisture, datetime.now(timezone.utc).isoformat(), park_id))
     conn.commit()
     conn.close()
 
@@ -96,7 +96,7 @@ def insert_weather_hourly(park_id: str, timestamp, temperature, rain, wind_speed
 def get_weather_hourly(park_id: str, hours: int = 24):
     """Почасовые данные за последние N часов"""
     conn = get_connection()
-    since = (datetime.utcnow() - timedelta(hours=hours)).isoformat()
+    since = (datetime.now(timezone.utc) - timedelta(hours=hours)).isoformat()
     rows = conn.execute("""
         SELECT * FROM weather_hourly 
         WHERE park_id = ? AND timestamp >= ?

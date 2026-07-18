@@ -14,8 +14,8 @@ load_dotenv()
 
 # Настройка логирования
 logging.basicConfig(
-    filename='server.log',
-    level=logging.INFO,
+    filename=_os.getenv("LOG_FILE", "server.log"),
+    level=getattr(logging, _os.getenv("LOG_LEVEL", "INFO").upper(), logging.INFO),
     format='%(asctime)s - %(levelname)s - %(message)s',
     datefmt='%Y-%m-%d %H:%M:%S'
 )
@@ -151,6 +151,14 @@ CONTACTS_HTML = """
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Контакты — МТБ Парки 2.0</title>
     <link rel="stylesheet" href="/css/style.css">
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+    <meta name="description" content="Свяжитесь со мной по Telegram для добавления новых парков и предложений.">
+    <meta property="og:title" content="Контакты — МТБ Парки 2.0">
+    <meta property="og:description" content="Свяжитесь со мной по Telegram для добавления новых парков и предложений.">
+    <meta property="og:image" content="https://gripchek.ru/og-image.png">
+    <meta property="og:url" content="https://gripchek.ru">
+    <meta property="og:type" content="website">
+    <meta property="og:locale" content="ru_RU">
     <style>
         .contacts-container {
             max-width: 600px;
@@ -220,6 +228,14 @@ DEVELOPMENT_HTML = """
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Развитие проекта — МТБ Парки 2.0</title>
     <link rel="stylesheet" href="/css/style.css">
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+    <meta name="description" content="Планы по развитию МТБ Парки 2.0: ИИ для анализа грунта, датчики влажности, новые парки.">
+    <meta property="og:title" content="Развитие проекта — МТБ Парки 2.0">
+    <meta property="og:description" content="Планы по развитию сервиса: ИИ для анализа грунта, датчики влажности, новые парки.">
+    <meta property="og:image" content="https://gripchek.ru/og-image.png">
+    <meta property="og:url" content="https://gripchek.ru">
+    <meta property="og:type" content="website">
+    <meta property="og:locale" content="ru_RU">
     <style>
         .dev-container {
             max-width: 700px;

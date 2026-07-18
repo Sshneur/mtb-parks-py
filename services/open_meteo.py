@@ -1,6 +1,7 @@
 import httpx
 import asyncio
 import time
+import random
 from typing import Optional
 from datetime import datetime, timedelta
 import os
@@ -38,8 +39,9 @@ async def fetch_with_retry(url: str, retries: int = 3) -> Optional[dict]:
             if i == retries - 1:
                 print(f"Open-Meteo: ошибка после {retries} попыток: {e}")
                 return None
-            print(f"Open-Meteo: попытка {i+1}/{retries}: {e}")
-            await asyncio.sleep(1 * (i + 1))
+            wait = (2 ** i) + random.uniform(0, 1)
+            print(f"Open-Meteo: попытка {i+1}/{retries} через {wait:.1f}с: {e}")
+            await asyncio.sleep(wait)
 
 async def get_forecast(lat: float, lon: float) -> Optional[dict]:
     cache_key = f"forecast_{lat:.4f}_{lon:.4f}"

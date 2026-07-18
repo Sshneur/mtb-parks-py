@@ -25,7 +25,6 @@ PARKS = {
         ]
     }
 }
-}
 
 SOIL_COEFFICIENTS = {
     "asphalt":     {"k_t": 0.15, "k_w": 0.20, "k_r": 0.002, "k_s": 0.05, "W0": 1.0},

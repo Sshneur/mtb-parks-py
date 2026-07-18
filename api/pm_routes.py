@@ -3,8 +3,8 @@ from datetime import datetime, timedelta, timezone
 from database.crud import get_parks_by_group
 from services.penman_monteith import calc_pm_evaporation
 from services.soil_calculator import get_soil_status
+from api.utils import parse_time, to_msk, weather_code
 
-MOSCOW_TZ = timezone(timedelta(hours=3))
 router = APIRouter()
 
 SURFACE_PARAMS = {
@@ -17,45 +17,10 @@ SURFACE_PARAMS = {
 }
 
 
-def _parse_time(t):
-    if isinstance(t, datetime):
-        if t.tzinfo is None:
-            return t.replace(tzinfo=timezone.utc)
-        return t
-    try:
-        dt = datetime.fromisoformat(t.replace("Z", "+00:00"))
-    except:
-        dt = datetime.fromisoformat(t)
-    if dt.tzinfo is None:
-        dt = dt.replace(tzinfo=timezone.utc)
-    return dt
-
-
-def _to_msk(t):
-    dt = _parse_time(t)
-    msk = dt.astimezone(MOSCOW_TZ)
-    return msk.strftime("%Y-%m-%dT%H:%M")
-
-
-def _weather_code(temp, rain):
-    if rain and rain > 2:
-        return 63
-    elif rain and rain > 0.5:
-        return 61
-    elif rain and rain > 0:
-        return 80
-    elif temp and temp > 25:
-        return 1
-    elif temp and temp > 15:
-        return 2
-    else:
-        return 3
-
-
 def _build_forecast(forecast_data: list, hour_start: datetime, daily_data: dict = None) -> dict:
     future_hours = []
     for h in forecast_data:
-        t = _parse_time(h["timestamp"])
+        t = parse_time(h["timestamp"])
         if t >= hour_start:
             future_hours.append(h)
         if len(future_hours) >= 6:
@@ -65,11 +30,11 @@ def _build_forecast(forecast_data: list, hour_start: datetime, daily_data: dict 
         future_hours = forecast_data[-6:] if forecast_data else []
 
     hourly_forecast = {
-        "time": [_to_msk(h["timestamp"]) for h in future_hours],
+        "time": [to_msk(h["timestamp"]) for h in future_hours],
         "temperature_2m": [h.get("temperature") or 15 for h in future_hours],
         "rain": [h.get("rain") or 0 for h in future_hours],
         "weather_code": [
-            _weather_code(h.get("temperature"), h.get("rain"))
+            weather_code(h.get("temperature"), h.get("rain"))
             for h in future_hours
         ]
     }
@@ -133,7 +98,7 @@ async def get_weather_pm(group_id: str):
                 total_rain = 0.0
 
                 for hour in all_data:
-                    timestamp = _parse_time(hour["timestamp"])
+                    timestamp = parse_time(hour["timestamp"])
                     temp = hour.get("temperature") or 15
                     wind = hour.get("wind_speed") or 0
                     rad = hour.get("radiation") or 0
@@ -166,7 +131,7 @@ async def get_weather_pm(group_id: str):
                 # ========== НОВОЕ: среднее испарение только за дневные часы последних 24 часов ==========
                 recent_evaps = []
                 for hour in all_data:
-                    timestamp = _parse_time(hour["timestamp"])
+                    timestamp = parse_time(hour["timestamp"])
                     if (now_utc - timestamp).total_seconds() <= 86400:
                         hour_utc = timestamp.hour
                         rad = hour.get("radiation") or 0
@@ -204,7 +169,7 @@ async def get_weather_pm(group_id: str):
                 rain_7d = sum(
                     h.get("rain", 0) or 0
                     for h in all_data
-                    if _parse_time(h["timestamp"]) >= (datetime.now(timezone.utc) - timedelta(days=7))
+                    if parse_time(h["timestamp"]) >= (datetime.now(timezone.utc) - timedelta(days=7))
                 )
 
                 forecast = _build_forecast(

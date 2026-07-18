@@ -3,7 +3,7 @@ from fastapi.responses import HTMLResponse, JSONResponse
 from pydantic import BaseModel, EmailStr
 from passlib.context import CryptContext
 from jose import jwt
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from database.connection import get_connection
 from api.limiter import limiter
 from api.dependencies import get_current_user
@@ -70,12 +70,12 @@ async def login(user: UserLogin, request: Request):
             raise HTTPException(status_code=401, detail="Неверный email или пароль")
         if row["locked_until"]:
             locked_until = datetime.fromisoformat(row["locked_until"])
-            if datetime.utcnow() < locked_until:
+            if datetime.now(timezone.utc) < locked_until:
                 raise HTTPException(status_code=403, detail="Аккаунт временно заблокирован. Попробуйте позже.")
         if not pwd_context.verify(user.password, row["password_hash"]):
             new_attempts = row["failed_attempts"] + 1
             if new_attempts >= 5:
-                lock_time = datetime.utcnow() + timedelta(minutes=15)
+                lock_time = datetime.now(timezone.utc) + timedelta(minutes=15)
                 conn.execute(
                     "UPDATE users SET failed_attempts = ?, locked_until = ? WHERE id = ?",
                     (new_attempts, lock_time.isoformat(), row["id"])
@@ -99,7 +99,7 @@ async def login(user: UserLogin, request: Request):
                 "email": row["email"],
                 "role": row["role"],
                 "username": row["username"],
-                "exp": datetime.utcnow() + timedelta(days=7)
+                "exp": datetime.now(timezone.utc) + timedelta(days=7)
             },
             SECRET_KEY,
             algorithm=ALGORITHM
