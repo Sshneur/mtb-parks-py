@@ -5,34 +5,36 @@ from .models import PARKS
 
 
 def seed_parks():
-    """Переносит парки из PARKS в БД (если их там нет)"""
+    """Переносит парки из PARKS в БД (только если их нет)"""
     conn = get_connection()
     cursor = conn.cursor()
 
     for group_id, group_data in PARKS.items():
         for park in group_data["parks"]:
-            desc = park.get("description", "")
-            trails = park.get("trails_count", 0)
-            cursor.execute("""
-                INSERT OR REPLACE INTO parks 
-                (id, name, group_id, lat, lon, soil_type, forest_coef, description, trails_count, dry_hours_default)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """, (
-                park["id"],
-                park["name"],
-                group_id,
-                park["lat"],
-                park["lon"],
-                park.get("soil", "loam"),
-                park.get("forest_coef", 0.3),
-                desc,
-                trails,
-                park.get("dry_hours", 72)
-            ))
+            exists = cursor.execute("SELECT id FROM parks WHERE id = ?", (park["id"],)).fetchone()
+            if not exists:
+                desc = park.get("description", "")
+                trails = park.get("trails_count", 0)
+                cursor.execute("""
+                    INSERT INTO parks 
+                    (id, name, group_id, lat, lon, soil_type, forest_coef, description, trails_count, dry_hours_default)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """, (
+                    park["id"],
+                    park["name"],
+                    group_id,
+                    park["lat"],
+                    park["lon"],
+                    park.get("soil", "loam"),
+                    park.get("forest_coef", 0.3),
+                    desc,
+                    trails,
+                    park.get("dry_hours", 72)
+                ))
 
     conn.commit()
     conn.close()
-    print("✅ Парки перенесены в БД")
+    print("✅ Парки проверены: новые добавлены, существующие не тронуты")
 
 
 def get_all_parks():
