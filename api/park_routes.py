@@ -37,7 +37,9 @@ PARK_HTML_TEMPLATE = """
     <meta property="og:title" content="{{ park_name }} — МТБ Парки 2.0">
     <meta property="og:description" content="Проверь состояние грунта в {{ park_name }}. Прогноз погоды, фото, оценки райдеров.">
     <meta property="og:image" content="https://gripchek.ru/og-image.png">
-    <meta property="og:url" content="https://gripchek.ru">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta property="og:url" content="https://gripchek.ru/park/{{ park_id }}">
     <meta property="og:type" content="website">
     <meta property="og:locale" content="ru_RU">
     <style>
@@ -286,6 +288,7 @@ async def park_page(park_id: str):
     if not park:
         return HTMLResponse("<h1>Парк не найден</h1>", status_code=404)
     html = PARK_HTML_TEMPLATE.replace("{{ park_name }}", park.get("name", ""))
+    html = html.replace("{{ park_id }}", park_id)
     html = html.replace("{{ lat }}", str(park.get("lat", "")))
     html = html.replace("{{ lon }}", str(park.get("lon", "")))
     html = html.replace("{{ description }}", park.get("description") or "Описание пока не добавлено")

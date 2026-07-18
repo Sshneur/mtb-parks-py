@@ -156,6 +156,8 @@ CONTACTS_HTML = """
     <meta property="og:title" content="Контакты — МТБ Парки 2.0">
     <meta property="og:description" content="Свяжитесь со мной по Telegram для добавления новых парков и предложений.">
     <meta property="og:image" content="https://gripchek.ru/og-image.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
     <meta property="og:url" content="https://gripchek.ru">
     <meta property="og:type" content="website">
     <meta property="og:locale" content="ru_RU">
@@ -233,6 +235,8 @@ DEVELOPMENT_HTML = """
     <meta property="og:title" content="Развитие проекта — МТБ Парки 2.0">
     <meta property="og:description" content="Три модели расчёта влажности грунта и планы развития сервиса.">
     <meta property="og:image" content="https://gripchek.ru/og-image.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
     <meta property="og:url" content="https://gripchek.ru">
     <meta property="og:type" content="website">
     <meta property="og:locale" content="ru_RU">

@@ -182,38 +182,47 @@ ADMIN_HTML = """
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
-    <title>Админ-панель МТБ Парки</title>
+    <title>Админ-панель — МТБ Парки</title>
     <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+    <meta name="theme-color" content="#0b0d14">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black">
     <style>
         body { font-family: -apple-system, BlinkMacSystemFont, sans-serif; margin: 20px; background: #0b0d14; color: #eef5ff; }
-        .card { border: 1px solid rgba(74,144,226,0.25); border-radius: 8px; padding: 16px; margin: 10px 0; background: rgba(18,22,30,0.85); }
+        .card { border: 1px solid rgba(74,144,226,0.25); border-radius: 12px; padding: 16px; margin: 12px 0; background: rgba(18,22,30,0.85); }
+        .card h3 { font-size: 1rem; color: #b8d6ff; margin-bottom: 10px; }
         table { border-collapse: collapse; width: 100%; }
         th, td { border: 1px solid #333; padding: 8px; text-align: left; }
         th { background: #1a2a3a; }
         .error { color: #ff6b6b; }
         .hidden { display: none; }
-        #login-form { margin-bottom: 20px; }
-        input { padding: 12px; margin: 4px; border-radius: 8px; border: 1px solid #555; background: #1a1e2b; color: white; font-size: 16px; }
-        button { padding: 12px 20px; border-radius: 8px; border: none; cursor: pointer; font-size: 16px; }
+        #login-form { max-width: 360px; margin: 40px auto; }
+        #login-form input { display: block; width: 100%; box-sizing: border-box; padding: 14px; margin: 8px 0; border-radius: 10px; border: 1px solid #555; background: #1a1e2b; color: white; font-size: 16px; }
+        #login-form button { width: 100%; padding: 14px; margin-top: 8px; border-radius: 10px; border: none; background: #4a90e2; color: white; font-size: 16px; font-weight: 600; cursor: pointer; }
+        button { padding: 12px 20px; border-radius: 10px; border: none; cursor: pointer; font-size: 15px; font-weight: 500; }
         .approve-btn { background: #4caf50; color: white; }
         .reject-btn { background: #e74c3c; color: white; }
-        .photo-item { margin: 10px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+        .photo-item { margin: 10px 0; padding: 12px; background: rgba(255,255,255,0.04); border-radius: 10px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+        .photo-item img { border-radius: 8px; max-width: 120px; }
         .promote-btn { background: #f39c12; color: white; }
         .tab-bar { display: flex; gap: 4px; margin-bottom: 16px; flex-wrap: wrap; }
-        .tab-btn { padding: 12px 16px; background: #1a2a3a; color: #94afcf; border: 1px solid rgba(74,144,226,0.25); border-radius: 8px 8px 0 0; cursor: pointer; font-weight: 600; transition: all 0.2s; font-size: 14px; }
+        .tab-btn { padding: 12px 16px; background: #1a2a3a; color: #94afcf; border: 1px solid rgba(74,144,226,0.25); border-radius: 10px 10px 0 0; cursor: pointer; font-weight: 600; transition: all 0.2s; font-size: 14px; }
         .tab-btn:hover { background: #1e3050; }
         .tab-btn.active { background: rgba(18,22,30,0.85); color: #eef5ff; border-bottom: 2px solid #4a90e2; }
         .tab-content { display: none; }
         .tab-content.active { display: block; }
+        .header-actions { display: flex; gap: 10px; flex-wrap: wrap; }
+        .header-actions button { flex: 1; min-width: 120px; }
         @media (max-width: 700px) {
             body { margin: 10px; }
-            h1 { font-size: 22px; }
+            h1 { font-size: 20px; }
             .tab-bar { gap: 2px; }
-            .tab-btn { padding: 10px 10px; font-size: 12px; flex: 1; text-align: center; }
-            table { font-size: 13px; display: block; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+            .tab-btn { padding: 10px 8px; font-size: 11px; flex: 1; text-align: center; }
+            table { font-size: 12px; display: block; overflow-x: auto; -webkit-overflow-scrolling: touch; }
             th, td { padding: 6px 4px; white-space: nowrap; }
-            #login-form input { width: 100%; box-sizing: border-box; margin: 4px 0; }
-            #login-form button { width: 100%; }
+            .photo-item { flex-direction: column; align-items: flex-start; }
+            .photo-item img { max-width: 100%; }
+            #login-form { margin: 20px 10px; }
         }
     </style>
 </head>
@@ -229,10 +238,10 @@ ADMIN_HTML = """
 
     <div id="dashboard" class="hidden">
         <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; margin-bottom:15px;">
-            <h2>🚵 Админ-панель</h2>
-            <div style="display:flex; gap:10px;">
-                <button onclick="refreshAll()" style="padding:10px 24px; background:#4caf50; color:white; border:none; border-radius:8px; cursor:pointer; font-weight:bold;">🔄 Обновить данные</button>
-                <button onclick="logout()" style="background:#e74c3c; color:white; padding:10px 20px; border:none; border-radius:8px; cursor:pointer;">Выйти</button>
+            <h2 style="margin:0;">🚵 Админ-панель</h2>
+            <div class="header-actions">
+                <button onclick="refreshAll()" style="background:#4caf50; color:white; font-weight:bold;">🔄 Обновить</button>
+                <button onclick="logout()" style="background:#e74c3c; color:white;">Выйти</button>
             </div>
         </div>
 
