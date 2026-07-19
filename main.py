@@ -432,6 +432,7 @@ PROFILE_HTML = """
         .btn-sm { padding:6px 12px; font-size:0.8rem; }
         input, select { width:100%; padding:10px; margin-bottom:8px; border:1px solid rgba(255,255,255,0.1); border-radius:8px; background:rgba(255,255,255,0.05); color:#eef5ff; font-size:0.9rem; }
         label { display:block; font-size:0.8rem; color:#94afcf; margin-bottom:3px; }
+        #favList { text-align:center; }
         .fav-item { display:inline-block; padding:4px 10px; margin:3px; background:rgba(74,144,226,0.15); border-radius:6px; font-size:0.85rem; }
         #authRequired { text-align:center; padding:40px 20px; }
         #authRequired a { color:#74a8e2; }
@@ -536,7 +537,7 @@ PROFILE_HTML = """
 
             function renderFavorites(favs) {
                 document.getElementById('favList').innerHTML = favs.length
-                    ? favs.map(f => '<span class="fav-item"><a href="/park/' + f.id + '" style="color:#eef5ff;text-decoration:none;">' + f.id + '</a></span>').join('')
+                    ? favs.map(f => '<span class="fav-item"><a href="/park/' + f.id + '" style="color:#eef5ff;text-decoration:none;">' + (f.name || f.id) + '</a></span>').join('')
                     : '<div style="color:#556677; font-size:0.9rem;">Нет избранных парков</div>';
             }
 

@@ -277,7 +277,7 @@ async def get_profile(user=Depends(get_current_user)):
             (user["user_id"],)
         ).fetchall()
         favs = conn.execute(
-            "SELECT park_id FROM favorite_parks WHERE user_id = ?",
+            "SELECT f.park_id, p.name FROM favorite_parks f LEFT JOIN parks p ON f.park_id = p.id WHERE f.user_id = ?",
             (user["user_id"],)
         ).fetchall()
         return {
@@ -287,7 +287,7 @@ async def get_profile(user=Depends(get_current_user)):
             "avatar": u["avatar"],
             "role": u["role"],
             "bikes": [dict(b) for b in bikes],
-            "favorites": [{"id": f["park_id"]} for f in favs]
+            "favorites": [{"id": f["park_id"], "name": f["name"]} for f in favs]
         }
     finally:
         conn.close()
