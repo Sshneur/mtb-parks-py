@@ -92,7 +92,7 @@ async def lifespan(app: FastAPI):
 
 # Создаём приложение
 app = FastAPI(
-    title="МТБ Парки 2.0 (Python)",
+    title="Что с грунтом? (Python)",
     lifespan=lifespan
 )
 
@@ -149,11 +149,11 @@ CONTACTS_HTML = """
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Контакты — МТБ Парки 2.0</title>
+    <title>Контакты — Что с грунтом?</title>
     <link rel="stylesheet" href="/css/style.css">
     <link rel="icon" type="image/svg+xml" href="/favicon.svg">
     <meta name="description" content="Свяжитесь со мной по Telegram для добавления новых парков и предложений.">
-    <meta property="og:title" content="Контакты — МТБ Парки 2.0">
+    <meta property="og:title" content="Контакты — Что с грунтом?">
     <meta property="og:description" content="Свяжитесь со мной по Telegram для добавления новых парков и предложений.">
     <meta property="og:image" content="https://gripchek.ru/og-image.jpg">
     <meta property="og:image:secure_url" content="https://gripchek.ru/og-image.jpg">
@@ -230,11 +230,11 @@ DEVELOPMENT_HTML = """
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Развитие проекта — МТБ Парки 2.0</title>
+    <title>Развитие проекта — Что с грунтом?</title>
     <link rel="stylesheet" href="/css/style.css">
     <link rel="icon" type="image/svg+xml" href="/favicon.svg">
-    <meta name="description" content="Модели определения сухости грунта: физическая, ускоренная и пользовательская. Планы развития сервиса МТБ Парки.">
-    <meta property="og:title" content="Развитие проекта — МТБ Парки 2.0">
+    <meta name="description" content="Модели определения сухости грунта: физическая, ускоренная и пользовательская. Планы развития сервиса.">
+    <meta property="og:title" content="Развитие проекта — Что с грунтом?">
     <meta property="og:description" content="Три модели расчёта влажности грунта и планы развития сервиса.">
     <meta property="og:image" content="https://gripchek.ru/og-image.jpg">
     <meta property="og:image:secure_url" content="https://gripchek.ru/og-image.jpg">
@@ -413,10 +413,10 @@ PROFILE_HTML = """
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Профиль — МТБ Парки 2.0</title>
+    <title>Профиль — Что с грунтом?</title>
     <link rel="stylesheet" href="/css/style.css">
     <link rel="icon" type="image/svg+xml" href="/favicon.svg">
-    <meta property="og:title" content="Профиль — МТБ Парки 2.0">
+    <meta property="og:title" content="Профиль — Что с грунтом?">
     <meta property="og:image" content="https://gripchek.ru/og-image.jpg">
     <style>
         .profile-container { max-width: 600px; margin: 0 auto; padding: 20px; }

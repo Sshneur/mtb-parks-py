@@ -30,11 +30,11 @@ PARK_HTML_TEMPLATE = """
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes">
-    <title>{{ park_name }} — МТБ Парки 2.0</title>
+    <title>{{ park_name }} — Что с грунтом?</title>
     <link rel="stylesheet" href="/css/style.css">
     <link rel="icon" type="image/svg+xml" href="/favicon.svg">
     <meta name="description" content="Состояние грунта на трассах {{ park_name }}: сухо, мокро, болото или бетон. Прогноз погоды, фото грунта, оценки райдеров.">
-    <meta property="og:title" content="{{ park_name }} — МТБ Парки 2.0">
+    <meta property="og:title" content="{{ park_name }} — Что с грунтом?">
     <meta property="og:description" content="Проверь состояние грунта в {{ park_name }}. Прогноз погоды, фото, оценки райдеров.">
     <meta property="og:image" content="https://gripchek.ru/og-image.jpg">
     <meta property="og:image:secure_url" content="https://gripchek.ru/og-image.jpg">
@@ -211,7 +211,7 @@ MAP_HTML = """<!DOCTYPE html>
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>Карта — МТБ Парки 2.0</title>
+<title>Карта — Что с грунтом?</title>
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
 <link rel="stylesheet" href="/lib/leaflet.css">
 <link rel="manifest" href="/manifest.json">

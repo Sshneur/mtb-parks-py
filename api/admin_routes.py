@@ -182,7 +182,7 @@ ADMIN_HTML = """
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
-    <title>Админ-панель — МТБ Парки</title>
+    <title>Админ-панель — Что с грунтом?</title>
     <link rel="icon" type="image/svg+xml" href="/favicon.svg">
     <meta name="theme-color" content="#0b0d14">
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -227,7 +227,7 @@ ADMIN_HTML = """
     </style>
 </head>
 <body>
-    <h1>🚵 Админ-панель МТБ Парки 2.0</h1>
+    <h1>🚵 Админ-панель — Что с грунтом?</h1>
 
     <div id="login-form">
         <input type="text" id="email" placeholder="Email">

@@ -1,6 +1,6 @@
 {
-  "name": "МТБ Парки — Погода",
-  "short_name": "МТБ Парки",
+  "name": "Где Держак? — Погода",
+  "short_name": "Где Держак?",
   "description": "Состояние грунта МТБ трейлов",
   "start_url": "/",
   "display": "standalone",
