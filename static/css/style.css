@@ -509,13 +509,13 @@ body {
 .group-switch {
   display: flex;
   justify-content: center;
-  gap: 10px;
+  gap: 8px;
   margin: 10px 0;
   flex-wrap: wrap;
 }
 
 .group-btn {
-  padding: 12px 20px;
+  padding: 12px 14px;
   background: #1a3a5a;
   color: white;
   border: 1px solid rgba(0, 180, 255, 0.3);
@@ -524,6 +524,16 @@ body {
   font-size: 0.85rem;
   font-weight: 500;
   transition: all 0.3s;
+  flex: 1 0 auto;
+  min-width: 80px;
+  text-align: center;
+}
+
+@media (max-width: 500px) {
+  .group-btn {
+    flex: 1 1 45%;
+    min-width: 0;
+  }
 }
 
 .group-btn:hover {
