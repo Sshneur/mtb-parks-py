@@ -54,9 +54,9 @@ async def get_forecast(lat: float, lon: float) -> Optional[dict]:
         f"?latitude={lat}&longitude={lon}"
         f"&hourly=temperature_2m,rain,wind_speed_10m,shortwave_radiation,relativehumidity_2m,surface_pressure"
         f"&daily=temperature_2m_max,rain_sum"
-        f"&timezone=UTC&forecast_days=3"
+        f"&timezone=UTC&forecast_days=4"
     )
-    print(f"🌐 Open-Meteo: запрос прогноза на 3 дня...")
+    print(f"Open-Meteo: запрос прогноза на 3 дня...")
     data = await fetch_with_retry(url)
     if data:
         set_to_cache(cache_key, data, CACHE_TTL_FORECAST)
@@ -79,7 +79,7 @@ async def get_history(lat: float, lon: float, days: int = 30) -> Optional[dict]:
         f"&hourly=temperature_2m,rain,wind_speed_10m,shortwave_radiation,relativehumidity_2m,surface_pressure"
         f"&timezone=UTC"
     )
-    print(f"🌐 Open-Meteo: запрос истории за {days} дней...")
+    print(f"Open-Meteo: запрос истории за {days} дней...")
     data = await fetch_with_retry(url)
     if data:
         set_to_cache(cache_key, data, CACHE_TTL_HISTORY)
@@ -97,7 +97,7 @@ async def get_forecast_daily(lat: float, lon: float) -> Optional[dict]:
         f"&daily=temperature_2m_max,rain_sum,weather_code"
         f"&timezone=UTC&forecast_days=7"
     )
-    print(f"🌐 Open-Meteo: запрос дневного прогноза...")
+    print(f"Open-Meteo: запрос дневного прогноза...")
     data = await fetch_with_retry(url)
     if data:
         set_to_cache(cache_key, data, CACHE_TTL_FORECAST)

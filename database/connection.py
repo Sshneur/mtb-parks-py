@@ -98,6 +98,23 @@ def init_db():
             dry_hours REAL,
             UNIQUE(park_id, date)
         );
+
+        CREATE TABLE IF NOT EXISTS soil_forecast_cache (
+            park_id TEXT PRIMARY KEY,
+            forecast_data TEXT NOT NULL,
+            fetched_at DATETIME NOT NULL
+        );
+
+        CREATE TABLE IF NOT EXISTS bikes (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            name TEXT NOT NULL,
+            photo TEXT,
+            rider_weight_kg REAL DEFAULT 75,
+            tire_type TEXT DEFAULT 'mtb',
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (user_id) REFERENCES users(id)
+        );
     """)
 
     # Добавляем новые колонки, если их ещё нет
@@ -158,6 +175,11 @@ def init_db():
 
     try:
         cursor.execute("ALTER TABLE parks ADD COLUMN dry_hours_default INTEGER DEFAULT 72")
+    except sqlite3.OperationalError:
+        pass
+
+    try:
+        cursor.execute("ALTER TABLE users ADD COLUMN avatar TEXT")
     except sqlite3.OperationalError:
         pass
 

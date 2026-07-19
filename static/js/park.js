@@ -58,37 +58,59 @@
 
         Chart.register(ChartDataLabels);
 
+        const maxTemp = Math.max(...temps, 0);
         new Chart(document.getElementById('tempChart'), {
-            type: 'bar',
+            type: 'line',
             data: {
                 labels,
                 datasets: [{
                     label: 'Температура max (°C)',
                     data: temps,
-                    backgroundColor: '#e74c3c',
-                    borderRadius: 4,
+                    borderColor: '#ff6b35',
+                    backgroundColor: (ctx) => {
+                        if (!ctx.chart.chartArea) return 'transparent';
+                        const g = ctx.chart.ctx.createLinearGradient(0, ctx.chart.chartArea.top, 0, ctx.chart.chartArea.bottom);
+                        g.addColorStop(0, 'rgba(255,107,53,0.35)');
+                        g.addColorStop(1, 'rgba(255,107,53,0.02)');
+                        return g;
+                    },
+                    fill: true,
+                    tension: 0.3,
+                    pointBackgroundColor: '#ff6b35',
+                    pointBorderColor: '#fff',
+                    pointBorderWidth: 2,
+                    pointRadius: 4,
+                    borderWidth: 2,
                 }]
             },
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
+                layout: { padding: { top: 20 } },
                 plugins: {
                     legend: { display: false },
                     datalabels: {
                         anchor: 'end',
-                        align: 'top',
-                        color: '#fff',
-                        font: { weight: 'bold', size: 12 },
+                        align: 'end',
+                        offset: 2,
+                        color: '#ffd966',
+                        font: { weight: 'bold', size: 11 },
                         formatter: (value) => value !== null ? value + '°' : ''
                     }
                 },
                 scales: {
-                    x: { title: { display: true, text: 'День', color: '#aaa' } },
-                    y: { title: { display: true, text: '°C', color: '#aaa' }, beginAtZero: true }
+                    x: { ticks: { color: '#94afcf' }, grid: { color: 'rgba(255,255,255,0.05)' } },
+                    y: {
+                        min: 0,
+                        max: Math.max(maxTemp + 8, 10),
+                        ticks: { color: '#94afcf', stepSize: 5 },
+                        grid: { color: 'rgba(255,255,255,0.08)' }
+                    }
                 }
             }
         });
 
+        const maxRain = Math.max(...rains, 0);
         new Chart(document.getElementById('rainChart'), {
             type: 'bar',
             data: {
@@ -96,26 +118,40 @@
                 datasets: [{
                     label: 'Осадки (мм/день)',
                     data: rains,
-                    backgroundColor: '#3498db',
-                    borderRadius: 4,
+                    backgroundColor: (ctx) => {
+                        if (!ctx.chart.chartArea) return 'rgba(52,152,219,0.6)';
+                        const g = ctx.chart.ctx.createLinearGradient(0, ctx.chart.chartArea.top, 0, ctx.chart.chartArea.bottom);
+                        g.addColorStop(0, 'rgba(52,152,219,0.85)');
+                        g.addColorStop(1, 'rgba(52,152,219,0.3)');
+                        return g;
+                    },
+                    borderRadius: 6,
+                    borderSkipped: false,
                 }]
             },
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
+                layout: { padding: { top: 20 } },
                 plugins: {
                     legend: { display: false },
                     datalabels: {
                         anchor: 'end',
-                        align: 'top',
-                        color: '#fff',
-                        font: { weight: 'bold', size: 12 },
+                        align: 'end',
+                        offset: 2,
+                        color: '#74b9ff',
+                        font: { weight: 'bold', size: 11 },
                         formatter: (value) => value > 0 ? value + 'мм' : ''
                     }
                 },
                 scales: {
-                    x: { title: { display: true, text: 'День', color: '#aaa' } },
-                    y: { title: { display: true, text: 'мм', color: '#aaa' }, beginAtZero: true }
+                    x: { ticks: { color: '#94afcf' }, grid: { color: 'rgba(255,255,255,0.05)' } },
+                    y: {
+                        beginAtZero: true,
+                        max: maxRain > 0 ? maxRain * 1.4 : 5,
+                        ticks: { color: '#94afcf' },
+                        grid: { color: 'rgba(255,255,255,0.08)' }
+                    }
                 }
             }
         });
@@ -130,7 +166,14 @@
         if (!statusResp.ok) throw new Error('Ошибка загрузки статуса');
         const status = await statusResp.json();
 
-        document.getElementById('soilStatus').textContent = status.status;
+        const statusEl = document.getElementById('soilStatus');
+        statusEl.textContent = status.status;
+        const statusColors = {'Сухо':'#4caf50','Влажно':'#8bc34a','Мокро':'#2196f3','Болото':'#795548','Бетон':'#9e9e9e'};
+        const color = Object.keys(statusColors).find(k => status.status.includes(k));
+        if (color) {
+            statusEl.style.color = statusColors[color];
+            document.getElementById('statusCard').style.borderColor = statusColors[color] + '66';
+        }
         const timerEl = document.getElementById('dryTimer');
         if (status.dryTarget) {
             function updateTimer() {
@@ -356,6 +399,135 @@
             console.error('Ошибка обновления оценки:', e);
         }
     }
+
+    // ---------- ПРОГНОЗ ГРУНТА — горизонтальный свайп ----------
+    (async function loadForecast() {
+        try {
+            const resp = await fetch(`/api/park/${parkId}/soil-forecast`);
+            if (!resp.ok) return;
+            const data = await resp.json();
+            if (!data.forecast || data.forecast.length === 0) return;
+
+            const box = document.getElementById('forecastBox');
+            const grid = document.getElementById('forecastGrid');
+            const bestEl = document.getElementById('forecastBest');
+            box.style.display = 'block';
+            grid.innerHTML = '';
+
+            const soilViz = {
+                'сухо':   { color:'#4caf50', bg:'rgba(76,175,80,0.15)', icon:'✓' },
+                'влажно': { color:'#8bc34a', bg:'rgba(139,195,74,0.12)', icon:'~' },
+                'мокро':  { color:'#2196f3', bg:'rgba(33,150,243,0.12)', icon:'≈' },
+                'болото': { color:'#795548', bg:'rgba(121,85,56,0.15)', icon:'≡' },
+            };
+
+            // horizontal scroll container
+            const scroller = document.createElement('div');
+            scroller.style.cssText = 'display:flex; overflow-x:auto; scroll-snap-type:x mandatory; -webkit-overflow-scrolling:touch; gap:0; scroll-behavior:smooth; padding:2px 0 8px;';
+            scroller.id = 'forecastScroller';
+
+            // nav dots container
+            const dotsWrap = document.createElement('div');
+            dotsWrap.style.cssText = 'display:flex; justify-content:center; gap:8px; margin-top:6px;';
+
+            let bestOverall = null;
+
+            data.forecast.forEach((day, idx) => {
+                // scroller page
+                const page = document.createElement('div');
+                page.style.cssText = 'scroll-snap-align:start; flex:0 0 100%; background:rgba(18,22,30,0.85); border:1px solid rgba(255,255,255,0.08); border-radius:18px; padding:20px 16px;';
+                page.id = 'forecastPage' + idx;
+
+                const dateObj = new Date(day.date + 'T12:00:00+03:00');
+                const dayLabel = dateObj.toLocaleDateString('ru-RU', { weekday:'short', day:'numeric', month:'short' });
+
+                const header = document.createElement('div');
+                header.textContent = dayLabel;
+                header.style.cssText = 'font-size:1.35rem; font-weight:700; color:#ffd966; text-align:center; padding-bottom:12px; border-bottom:1px solid rgba(255,255,255,0.08); margin-bottom:10px;';
+                page.appendChild(header);
+
+                if (!day.periods || day.periods.length === 0) {
+                    const empty = document.createElement('div');
+                    empty.textContent = 'Нет данных на этот день';
+                    empty.style.cssText = 'font-size:0.85rem; color:#556677; text-align:center; padding:20px 0;';
+                    page.appendChild(empty);
+                    scroller.appendChild(page);
+                    // dot
+                    const dot = document.createElement('div');
+                    dot.style.cssText = 'width:8px; height:8px; border-radius:50%; background:rgba(255,255,255,0.3); cursor:pointer;';
+                    dotsWrap.appendChild(dot);
+                    return;
+                }
+
+                day.periods.forEach(p => {
+                    const viz = soilViz[p.soil] || soilViz['сухо'];
+                    const card = document.createElement('div');
+                    card.style.cssText = `border-radius:14px; padding:14px 12px; margin-bottom:10px; background:${viz.bg}; border-left:5px solid ${viz.color};`;
+
+                    card.innerHTML = `
+                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                            <span style="font-size:1.1rem; font-weight:600; color:#eef5ff;">${p.label}</span>
+                            <span style="display:inline-flex; align-items:center; gap:8px; font-size:0.95rem; color:${viz.color}; font-weight:600;">
+                                <span style="display:inline-flex; justify-content:center; align-items:center; width:28px; height:28px; border-radius:50%; background:${viz.color}; color:#0b0d14; font-size:0.85rem; font-weight:700;">${viz.icon}</span>
+                                ${p.soil}
+                            </span>
+                        </div>
+                        <div style="display:flex; gap:20px; font-size:0.95rem; color:#8899aa;">
+                            <span>🌡 ${p.temp}°C</span>
+                            <span>💨 ${p.wind} м/с</span>
+                            <span>🌧 ${p.rain} мм</span>
+                        </div>
+                    `;
+                    page.appendChild(card);
+
+                    if (!bestOverall || (p.confidence > bestOverall.confidence && p.soil !== 'мокро' && p.soil !== 'болото')) {
+                        bestOverall = p;
+                        bestOverall.dayLabel = dayLabel;
+                    }
+                });
+
+                scroller.appendChild(page);
+
+                // nav dot
+                const dot = document.createElement('div');
+                dot.style.cssText = `width:8px; height:8px; border-radius:50%; background:${idx===0?'#ffd966':'rgba(255,255,255,0.25)'}; cursor:pointer; transition:background 0.2s;`;
+                dot.dataset.index = idx;
+                dot.addEventListener('click', () => {
+                    const target = document.getElementById('forecastPage' + idx);
+                    if (target) target.scrollIntoView({ behavior:'smooth', inline:'start' });
+                });
+                dotsWrap.appendChild(dot);
+            });
+
+            grid.appendChild(scroller);
+            grid.appendChild(dotsWrap);
+
+            // update active dot on scroll
+            scroller.addEventListener('scroll', () => {
+                const pages = scroller.querySelectorAll('[id^="forecastPage"]');
+                const dots = dotsWrap.children;
+                let active = 0;
+                const scrollLeft = scroller.scrollLeft + scroller.clientWidth / 2;
+                pages.forEach((p, i) => {
+                    const rect = p.getBoundingClientRect();
+                    const containerRect = scroller.getBoundingClientRect();
+                    if (rect.left <= containerRect.left + containerRect.width / 2) {
+                        active = i;
+                    }
+                });
+                for (let i = 0; i < dots.length; i++) {
+                    dots[i].style.background = i === active ? '#ffd966' : 'rgba(255,255,255,0.25)';
+                }
+            });
+
+            if (bestOverall) {
+                bestEl.innerHTML = `⭐ Лучшее время старта: <strong>${bestOverall.dayLabel}, ${bestOverall.label}</strong> — ${bestOverall.soil}, +${bestOverall.temp}°C, ветер ${bestOverall.wind} м/с`;
+                bestEl.style.cssText = 'margin-top:12px; font-size:1rem; color:#a0b4cc; text-align:center; padding:8px;';
+            }
+        } catch (e) {
+            console.error('Ошибка прогноза:', e);
+        }
+    })();
 
     loadPhotos();
 })();

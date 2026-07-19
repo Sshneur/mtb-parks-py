@@ -48,9 +48,8 @@ PARK_HTML_TEMPLATE = """
         .park-container { max-width: 800px; margin: 0 auto; padding: 20px; }
         .back-link { margin-bottom: 20px; display: inline-block; color: #74a8e2; text-decoration: none; }
         .back-link:hover { text-decoration: underline; }
-        .chart-box { margin: 30px 0; max-width: 100%; background: rgba(18,22,30,0.85); border: 1px solid rgba(74,144,226,0.25); border-radius: 12px; padding: 15px; }
-        .chart-box canvas { max-height: 300px; }
-        .status-badge { font-size: 24px; font-weight: bold; margin: 20px 0; }
+        .chart-box { margin: 20px 0; max-width: 100%; background: rgba(18,22,30,0.85); border: 1px solid rgba(74,144,226,0.2); border-radius: 14px; padding: 14px; }
+        .chart-box canvas { max-height: 220px; width: 100% !important; }
         .timer { font-size: 18px; color: #ccc; }
         .route-btn {
             display: inline-block;
@@ -77,7 +76,7 @@ PARK_HTML_TEMPLATE = """
                 margin-bottom: 10px;
                 box-sizing: border-box;
             }
-            .status-badge { font-size: 20px; }
+            #statusCard { padding: 12px !important; }
             .timer { font-size: 16px; }
             h1 { font-size: 24px; }
             h2 { font-size: 20px; }
@@ -108,7 +107,8 @@ PARK_HTML_TEMPLATE = """
         @media (max-width: 400px) {
             .chart-box canvas { max-height: 220px; }
             h1 { font-size: 22px; }
-            .status-badge { font-size: 18px; }
+            #statusCard { padding: 10px !important; }
+            #soilStatus { font-size: 22px !important; }
             .vote-btn {
                 flex: 1 0 100% !important;
             }
@@ -128,17 +128,29 @@ PARK_HTML_TEMPLATE = """
         <a href="https://yandex.ru/maps/?rtext=~{{ lat }},{{ lon }}&rtt=auto"
            target="_blank" class="route-btn">🗺️ Проложить маршрут (Яндекс)</a>
 
-        <div class="status-badge" id="soilStatus">Загрузка...</div>
-        <div class="timer" id="dryTimer"></div>
+        <div id="statusCard" style="background:rgba(18,22,30,0.85); border:1px solid rgba(74,144,226,0.25); border-radius:14px; padding:16px; margin:16px 0; text-align:center;">
+            <div style="font-size:0.8rem; color:#8899aa; margin-bottom:6px;">Состояние грунта по данным погоды</div>
+            <div class="status-badge" id="soilStatus" style="font-size:26px; font-weight:700;">Загрузка...</div>
+            <div class="timer" id="dryTimer" style="font-size:15px; color:#94afcf; margin-top:4px;"></div>
+        </div>
         <div id="voteAvg"></div>
 
+        <div class="forecast-box" id="forecastBox" style="display:none;">
+            <h2 style="font-size:1.2rem; margin-bottom:10px;">🌤 Прогноз грунта</h2>
+            <div id="forecastGrid"></div>
+            <div id="forecastBest" style="margin-top:10px; font-size:0.9rem; color:#a0b4cc; text-align:center;"></div>
+            <div style="margin-top:6px; font-size:0.75rem; color:#556677;">
+                <a href="/development" style="color:#556677;">Как это считается?</a>
+            </div>
+        </div>
+
         <div class="chart-box">
-            <h2>Температура за 7 дней</h2>
-            <canvas id="tempChart"></canvas>
+            <h2 style="font-size:1rem; color:#eef5ff; margin-bottom:8px;">🌡 Температура за 7 дней</h2>
+            <canvas id="tempChart" style="height:200px;"></canvas>
         </div>
         <div class="chart-box">
-            <h2>Осадки за 7 дней</h2>
-            <canvas id="rainChart"></canvas>
+            <h2 style="font-size:1rem; color:#eef5ff; margin-bottom:8px;">🌧 Осадки за 7 дней</h2>
+            <canvas id="rainChart" style="height:200px;"></canvas>
         </div>
 
         <div style="margin-top:20px;">
@@ -328,6 +340,126 @@ async def get_park_weather(park_id: str, days: int = Query(7, ge=1, le=30)):
         return {"park_id": park_id, "weather": result_days}
     finally:
         conn.close()
+
+@router.get("/api/park/{park_id}/soil-forecast")
+async def get_soil_forecast(park_id: str):
+    park = get_park(park_id)
+    if not park:
+        return JSONResponse({"error": "Парк не найден"}, status_code=404)
+
+    from services.forecast_cache import get_cached_forecast, set_cached_forecast
+    cached = get_cached_forecast(park_id)
+    if cached:
+        return cached
+
+    from services.open_meteo import get_forecast as fetch_forecast
+    data = await fetch_forecast(park["lat"], park["lon"])
+    if not data or "hourly" not in data:
+        return {"forecast": []}
+
+    hourly = data["hourly"]
+    times = hourly["time"]
+    temps = hourly["temperature_2m"]
+    rains = hourly["rain"]
+    winds = hourly["wind_speed_10m"]
+    hums = hourly.get("relativehumidity_2m", [50]*len(times))
+
+    utc = timezone.utc
+    msk = timezone(timedelta(hours=3))
+    now_msk = datetime.now(msk)
+
+    # Build hourly data, all in MSK
+    hours = []
+    for i in range(len(times)):
+        ht = parse_time(times[i])  # UTC
+        ht_msk = ht.astimezone(msk)
+        hours.append({
+            "timestamp": ht_msk,
+            "temperature": temps[i],
+            "rain": rains[i],
+            "wind_speed": winds[i],
+            "radiation": hourly.get("shortwave_radiation", [0]*len(times))[i],
+            "humidity": hums[i],
+        })
+
+    result = []
+    for day_offset in range(3):
+        day_date = now_msk.date() + timedelta(days=day_offset)
+        periods = [
+            {"id": "morning", "label": "Утро", "start": 6, "end": 12},
+            {"id": "day", "label": "День", "start": 12, "end": 18},
+            {"id": "evening", "label": "Вечер", "start": 18, "end": 0},
+        ]
+        day_periods = []
+        best = {"confidence": 0}
+        for p in periods:
+            p_start = datetime(day_date.year, day_date.month, day_date.day, p["start"], tzinfo=msk)
+            if p["end"] == 0:
+                # evening ends at midnight of next day
+                p_end = p_start.replace(hour=0) + timedelta(days=1)
+            else:
+                p_end = datetime(day_date.year, day_date.month, day_date.day, p["end"], tzinfo=msk)
+            if p_end <= now_msk:
+                continue
+
+            rain_sum = 0.0
+            temp_acc = 0.0
+            wind_acc = 0.0
+            count = 0
+            for h in hours:
+                if p_start <= h["timestamp"] < p_end:
+                    rain_sum += h["rain"]
+                    temp_acc += h["temperature"]
+                    wind_acc += h["wind_speed"]
+                    count += 1
+
+            if count == 0:
+                continue
+
+            avg_temp = round(temp_acc / count, 1)
+            avg_wind = round(wind_acc / count, 1)
+
+            if rain_sum > 10:
+                soil, emoji = "болото", "🟤"
+            elif rain_sum > 2:
+                soil, emoji = "мокро", "💧"
+            elif rain_sum > 0.5:
+                soil, emoji = "влажно", "🌵"
+            else:
+                soil, emoji = "сухо", "🟢"
+
+            confidence = max(0.3, 0.9 - day_offset * 0.2)
+            pdata = {
+                "period": p["id"], "label": p["label"],
+                "soil": soil, "emoji": emoji,
+                "temp": avg_temp, "wind": avg_wind,
+                "rain": round(rain_sum, 1),
+                "confidence": round(confidence, 2),
+            }
+            day_periods.append(pdata)
+            if pdata["confidence"] > best["confidence"] and pdata["soil"] in ("сухо", "влажно"):
+                best = pdata
+
+        days = ["пн", "вт", "ср", "чт", "пт", "сб", "вс"]
+        day_entry = {
+            "date": day_date.isoformat(),
+            "day_name": days[day_date.weekday()],
+            "periods": day_periods,
+        }
+        if best.get("soil"):
+            day_entry["best_period"] = {
+                "period": best["period"],
+                "label": best["label"],
+                "soil": best["soil"],
+                "temp": best["temp"],
+                "reason": f"{best['label']}, {best['soil']}, +{best['temp']}°C"
+            }
+        result.append(day_entry)
+
+    response = {"park_id": park_id, "forecast": result}
+    set_cached_forecast(park_id, response)
+    return response
+
 
 @router.get("/api/park/{park_id}/status")
 async def get_park_status(park_id: str):

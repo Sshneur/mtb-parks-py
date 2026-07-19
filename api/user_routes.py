@@ -188,3 +188,155 @@ async def get_user_stats(user=Depends(get_current_user)):
         }
     finally:
         conn.close()
+
+# ===== БАЙКИ (ГАРАЖ) =====
+
+class BikeCreate(BaseModel):
+    name: str
+    rider_weight_kg: float = 75
+    tire_type: str = "mtb"
+
+class BikeUpdate(BaseModel):
+    name: str = None
+    rider_weight_kg: float = None
+    tire_type: str = None
+
+@router.get("/api/user/bikes")
+async def get_bikes(user=Depends(get_current_user)):
+    conn = get_connection()
+    try:
+        rows = conn.execute(
+            "SELECT id, name, photo, rider_weight_kg, tire_type FROM bikes WHERE user_id = ? ORDER BY created_at DESC",
+            (user["user_id"],)
+        ).fetchall()
+        return [dict(r) for r in rows]
+    finally:
+        conn.close()
+
+@router.post("/api/user/bikes")
+async def create_bike(bike: BikeCreate, user=Depends(get_current_user)):
+    conn = get_connection()
+    try:
+        cur = conn.execute(
+            "INSERT INTO bikes (user_id, name, rider_weight_kg, tire_type) VALUES (?, ?, ?, ?)",
+            (user["user_id"], bike.name, bike.rider_weight_kg, bike.tire_type)
+        )
+        conn.commit()
+        return {"id": cur.lastrowid, "ok": True}
+    finally:
+        conn.close()
+
+@router.put("/api/user/bikes/{bike_id}")
+async def update_bike(bike_id: int, bike: BikeUpdate, user=Depends(get_current_user)):
+    conn = get_connection()
+    try:
+        existing = conn.execute(
+            "SELECT id FROM bikes WHERE id = ? AND user_id = ?",
+            (bike_id, user["user_id"])
+        ).fetchone()
+        if not existing:
+            raise HTTPException(status_code=404, detail="Байк не найден")
+        updates = {}
+        if bike.name is not None: updates["name"] = bike.name
+        if bike.rider_weight_kg is not None: updates["rider_weight_kg"] = bike.rider_weight_kg
+        if bike.tire_type is not None: updates["tire_type"] = bike.tire_type
+        if updates:
+            set_clause = ", ".join(f"{k} = ?" for k in updates)
+            vals = list(updates.values()) + [bike_id, user["user_id"]]
+            conn.execute(f"UPDATE bikes SET {set_clause} WHERE id = ? AND user_id = ?", vals)
+            conn.commit()
+        return {"ok": True}
+    finally:
+        conn.close()
+
+@router.delete("/api/user/bikes/{bike_id}")
+async def delete_bike(bike_id: int, user=Depends(get_current_user)):
+    conn = get_connection()
+    try:
+        conn.execute(
+            "DELETE FROM bikes WHERE id = ? AND user_id = ?",
+            (bike_id, user["user_id"])
+        )
+        conn.commit()
+        return {"ok": True}
+    finally:
+        conn.close()
+
+@router.get("/api/user/profile")
+async def get_profile(user=Depends(get_current_user)):
+    conn = get_connection()
+    try:
+        u = conn.execute(
+            "SELECT id, email, username, avatar, role FROM users WHERE id = ?",
+            (user["user_id"],)
+        ).fetchone()
+        if not u:
+            raise HTTPException(status_code=404)
+        bikes = conn.execute(
+            "SELECT id, name, photo, rider_weight_kg, tire_type FROM bikes WHERE user_id = ? ORDER BY created_at DESC",
+            (user["user_id"],)
+        ).fetchall()
+        favs = conn.execute(
+            "SELECT park_id FROM favorite_parks WHERE user_id = ?",
+            (user["user_id"],)
+        ).fetchall()
+        return {
+            "id": u["id"],
+            "email": u["email"],
+            "username": u["username"],
+            "avatar": u["avatar"],
+            "role": u["role"],
+            "bikes": [dict(b) for b in bikes],
+            "favorites": [{"id": f["park_id"]} for f in favs]
+        }
+    finally:
+        conn.close()
+
+@router.post("/api/user/avatar")
+async def upload_avatar(request: Request, user=Depends(get_current_user)):
+    import base64, uuid
+    body = await request.json()
+    file_data = body.get("file", "")
+    if not file_data or "," not in file_data:
+        return JSONResponse({"error": "Файл не найден"}, status_code=400)
+    header, encoded = file_data.split(",", 1)
+    file_bytes = base64.b64decode(encoded)
+    filename = f"avatar_{user['user_id']}_{uuid.uuid4().hex[:6]}.jpg"
+    base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    filepath = os.path.join(base_dir, "data", "photos", "avatars", filename)
+    os.makedirs(os.path.dirname(filepath), exist_ok=True)
+    with open(filepath, "wb") as f:
+        f.write(file_bytes)
+    conn = get_connection()
+    try:
+        conn.execute("UPDATE users SET avatar = ? WHERE id = ?", (f"/photos/avatars/{filename}", user["user_id"]))
+        conn.commit()
+    finally:
+        conn.close()
+    return {"ok": True, "url": f"/photos/avatars/{filename}"}
+
+@router.post("/api/user/bikes/{bike_id}/photo")
+async def upload_bike_photo(bike_id: int, request: Request, user=Depends(get_current_user)):
+    import base64, uuid
+    conn = get_connection()
+    try:
+        bike = conn.execute("SELECT id FROM bikes WHERE id = ? AND user_id = ?", (bike_id, user["user_id"])).fetchone()
+        if not bike:
+            raise HTTPException(status_code=404, detail="Байк не найден")
+        body = await request.json()
+        file_data = body.get("file", "")
+        if not file_data or "," not in file_data:
+            return JSONResponse({"error": "Файл не найден"}, status_code=400)
+        header, encoded = file_data.split(",", 1)
+        file_bytes = base64.b64decode(encoded)
+        filename = f"bike_{bike_id}_{uuid.uuid4().hex[:6]}.jpg"
+        base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        filepath = os.path.join(base_dir, "data", "photos", "bikes", filename)
+        os.makedirs(os.path.dirname(filepath), exist_ok=True)
+        with open(filepath, "wb") as f:
+            f.write(file_bytes)
+        conn.execute("UPDATE bikes SET photo = ? WHERE id = ?", (f"/photos/bikes/{filename}", bike_id))
+        conn.commit()
+        return {"ok": True, "url": f"/photos/bikes/{filename}"}
+    finally:
+        conn.close()
