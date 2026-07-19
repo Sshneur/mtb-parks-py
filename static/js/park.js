@@ -168,7 +168,7 @@
 
         const statusEl = document.getElementById('soilStatus');
         statusEl.textContent = status.status;
-        const statusColors = {'Сухо':'#4caf50','Влажно':'#8bc34a','Мокро':'#2196f3','Болото':'#795548','Бетон':'#9e9e9e'};
+        const statusColors = {'Сухо':'#4caf50','Альденте':'#26c6da','Мокро':'#2196f3','Болото':'#795548','Бетон':'#9e9e9e'};
         const color = Object.keys(statusColors).find(k => status.status.includes(k));
         if (color) {
             statusEl.style.color = statusColors[color];
@@ -415,10 +415,10 @@
             grid.innerHTML = '';
 
             const soilViz = {
-                'сухо':   { color:'#4caf50', bg:'rgba(76,175,80,0.15)', icon:'✓' },
-                'влажно': { color:'#8bc34a', bg:'rgba(139,195,74,0.12)', icon:'~' },
-                'мокро':  { color:'#2196f3', bg:'rgba(33,150,243,0.12)', icon:'≈' },
-                'болото': { color:'#795548', bg:'rgba(121,85,56,0.15)', icon:'≡' },
+                'сухо':     { color:'#4caf50', bg:'rgba(76,175,80,0.15)', icon:'✓' },
+                'альденте': { color:'#26c6da', bg:'rgba(38,198,218,0.12)', icon:'~' },
+                'мокро':    { color:'#2196f3', bg:'rgba(33,150,243,0.12)', icon:'≈' },
+                'болото':   { color:'#795548', bg:'rgba(121,85,56,0.15)', icon:'≡' },
             };
 
             // horizontal scroll container

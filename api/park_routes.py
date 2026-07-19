@@ -382,77 +382,117 @@ async def get_soil_forecast(park_id: str):
             "humidity": hums[i],
         })
 
-    result = []
-    for day_offset in range(3):
-        day_date = now_msk.date() + timedelta(days=day_offset)
-        periods = [
-            {"id": "morning", "label": "Утро", "start": 6, "end": 12},
-            {"id": "day", "label": "День", "start": 12, "end": 18},
-            {"id": "evening", "label": "Вечер", "start": 18, "end": 0},
-        ]
-        day_periods = []
-        best = {"confidence": 0}
-        for p in periods:
-            p_start = datetime(day_date.year, day_date.month, day_date.day, p["start"], tzinfo=msk)
+    from database.models import SOIL_COEFFICIENTS as _SOIL_COEF
+    _sc = _SOIL_COEF.get(park.get("soil_type", "loam"), _SOIL_COEF["loam"])
+    forest_factor = park.get("forest_coef", 0.3)
+    W = park.get("current_moisture", 0.0)
+
+    # Build flat list of all periods (day_offset, period)
+    day_dates = [now_msk.date() + timedelta(days=d) for d in range(3)]
+    period_defs = [
+        {"id": "morning", "label": "Утро", "start": 6, "end": 12},
+        {"id": "day", "label": "День", "start": 12, "end": 18},
+        {"id": "evening", "label": "Вечер", "start": 18, "end": 0},
+    ]
+    all_periods = []
+    for d in range(3):
+        for p in period_defs:
+            p_start = datetime(day_dates[d].year, day_dates[d].month, day_dates[d].day, p["start"], tzinfo=msk)
             if p["end"] == 0:
-                # evening ends at midnight of next day
                 p_end = p_start.replace(hour=0) + timedelta(days=1)
             else:
-                p_end = datetime(day_date.year, day_date.month, day_date.day, p["end"], tzinfo=msk)
+                p_end = datetime(day_dates[d].year, day_dates[d].month, day_dates[d].day, p["end"], tzinfo=msk)
             if p_end <= now_msk:
                 continue
+            all_periods.append({
+                "day_offset": d, "day_date": day_dates[d],
+                "period": p, "start": p_start, "end": p_end,
+                "hours": [], "rain_sum": 0, "temp_acc": 0, "wind_acc": 0, "count": 0,
+            })
+    if not all_periods:
+        return {"park_id": park_id, "forecast": []}
 
-            rain_sum = 0.0
-            temp_acc = 0.0
-            wind_acc = 0.0
-            count = 0
-            for h in hours:
-                if p_start <= h["timestamp"] < p_end:
-                    rain_sum += h["rain"]
-                    temp_acc += h["temperature"]
-                    wind_acc += h["wind_speed"]
-                    count += 1
+    # Sort all forecast hours and distribute into periods, tracking W
+    hours_sorted = sorted(hours, key=lambda h: h["timestamp"])
+    last_evap = 0.001
+    for h in hours_sorted:
+        if h["timestamp"] < now_msk:
+            continue
+        if h["rain"] > 0:
+            W = min(1.0, W + h["rain"] / 10)
+            last_evap = 0.001
+        else:
+            fT = 0.05 * max(h["temperature"], 0)
+            gv = 0.03 * h["wind_speed"]
+            gr = 0.001 * h["radiation"]
+            evap = forest_factor * (_sc["k_t"] * fT + _sc["k_w"] * gv + _sc["k_r"] * gr + _sc["k_s"])
+            last_evap = max(evap, 0.001)
+            W = max(0.0, W - evap)
+        # Check if this hour falls in any period
+        for ap in all_periods:
+            if ap["start"] <= h["timestamp"] < ap["end"] and ap["end"] > now_msk:
+                ap["hours"].append({"W": W, "evap": last_evap, "h": h})
+                ap["rain_sum"] += h["rain"]
+                ap["temp_acc"] += h["temperature"]
+                ap["wind_acc"] += h["wind_speed"]
+                ap["count"] += 1
+                break
 
-            if count == 0:
-                continue
+    # Now build response
+    days_names = ["пн", "вт", "ср", "чт", "пт", "сб", "вс"]
+    day_results = {}
+    for d in range(3):
+        day_results[d] = {"periods": [], "best": {"confidence": 0}}
 
-            avg_temp = round(temp_acc / count, 1)
-            avg_wind = round(wind_acc / count, 1)
+    for ap in all_periods:
+        d = ap["day_offset"]
+        count = ap["count"]
+        if count == 0:
+            continue
+        avg_temp = round(ap["temp_acc"] / count, 1)
+        avg_wind = round(ap["wind_acc"] / count, 1)
 
-            if rain_sum > 10:
-                soil, emoji = "болото", "🟤"
-            elif rain_sum > 2:
-                soil, emoji = "мокро", "💧"
-            elif rain_sum > 0.5:
-                soil, emoji = "влажно", "🌵"
-            else:
-                soil, emoji = "сухо", "🟢"
+        # Soil from last hour's W → dry_hours
+        last_h = ap["hours"][-1] if ap["hours"] else {"W": W, "evap": 0.001}
+        last_W = last_h["W"]
+        evap_last = last_h["evap"]
+        dry_hours = last_W / (evap_last / 10) if evap_last > 0 else last_W / 0.001
+        if dry_hours >= 72:
+            soil, emoji = "болото", "🟤"
+        elif dry_hours > 24:
+            soil, emoji = "мокро", "💧"
+        elif dry_hours > 0:
+            soil, emoji = "альденте", "🌵"
+        else:
+            soil, emoji = "сухо", "🟢"
 
-            confidence = max(0.3, 0.9 - day_offset * 0.2)
-            pdata = {
-                "period": p["id"], "label": p["label"],
-                "soil": soil, "emoji": emoji,
-                "temp": avg_temp, "wind": avg_wind,
-                "rain": round(rain_sum, 1),
-                "confidence": round(confidence, 2),
-            }
-            day_periods.append(pdata)
-            if pdata["confidence"] > best["confidence"] and pdata["soil"] in ("сухо", "влажно"):
-                best = pdata
-
-        days = ["пн", "вт", "ср", "чт", "пт", "сб", "вс"]
-        day_entry = {
-            "date": day_date.isoformat(),
-            "day_name": days[day_date.weekday()],
-            "periods": day_periods,
+        confidence = max(0.3, 0.9 - d * 0.2)
+        pdata = {
+            "period": ap["period"]["id"], "label": ap["period"]["label"],
+            "soil": soil, "emoji": emoji,
+            "temp": avg_temp, "wind": avg_wind,
+            "rain": round(ap["rain_sum"], 1),
+            "confidence": round(confidence, 2),
         }
-        if best.get("soil"):
+        day_results[d]["periods"].append(pdata)
+        if pdata["confidence"] > day_results[d]["best"]["confidence"] and pdata["soil"] in ("сухо", "альденте"):
+            day_results[d]["best"] = pdata
+
+    result = []
+    for d in range(3):
+        dd = day_results[d]
+        day_entry = {
+            "date": day_dates[d].isoformat(),
+            "day_name": days_names[day_dates[d].weekday()],
+            "periods": dd["periods"],
+        }
+        if dd["best"].get("soil"):
             day_entry["best_period"] = {
-                "period": best["period"],
-                "label": best["label"],
-                "soil": best["soil"],
-                "temp": best["temp"],
-                "reason": f"{best['label']}, {best['soil']}, +{best['temp']}°C"
+                "period": dd["best"]["period"],
+                "label": dd["best"]["label"],
+                "soil": dd["best"]["soil"],
+                "temp": dd["best"]["temp"],
+                "reason": f"{dd['best']['label']}, {dd['best']['soil']}, +{dd['best']['temp']}°C"
             }
         result.append(day_entry)
 

@@ -6,12 +6,12 @@ def get_soil_status(rain_total: float, dry_hours: float, hours_since_rain: float
     if hours_since_rain is not None and hours_since_rain >= 144:
         return "Бетон 🪨"
     if dry_hours >= 72:
-        return "Болото 🌿"
-    if dry_hours > 1 and dry_hours < 72:
+        return "Болото 🟤"
+    if dry_hours > 24:
         return "Мокро 💧"
-    if dry_hours > 0 and dry_hours <= 1 and rain_total > 0.5:
+    if dry_hours > 0:
         return "Альденте 🌵"
-    if is_asphalt and dry_hours <= 1:
+    if is_asphalt and dry_hours <= 0:
         return "Сухо ✅"
     return "Сухо ✅"
 
