@@ -4,7 +4,7 @@ PARKS = {
         "parks": [
             {"id": "fili", "name": "Парк Фили", "lat": 55.740384, "lon": 37.441293, "dry_hours": 24, "start_date": None, "soil": "loam", "forest": True, "forest_coef": 0.6, "description": "Большой парк вдоль Москвы-реки. Хорошие грунтовые трассы для кросс-кантри.", "trails_count": 5},
             {"id": "erino", "name": "Байк Парк Ерино", "lat": 55.438771, "lon": 37.504228, "dry_hours": 48, "start_date": None, "soil": "loam", "forest": True, "forest_coef": 0.3, "description": "Специализированный байк-парк с трассами разного уровня.", "trails_count": 8},
-            {"id": "chess", "name": "Чесс Парк", "lat": 55.567215, "lon": 37.539429, "dry_hours": 72, "start_date": None, "soil": "clay_heavy", "forest": True, "forest_coef": 0.1, "description": "Глинистый грунт — долго сохнет после дождя.", "trails_count": 4},
+            {"id": "chess", "name": "Чесс Парк", "lat": 55.567215, "lon": 37.539429, "dry_hours": 72, "start_date": None, "soil": "clay_heavy", "forest": True, "forest_coef": 0.15, "description": "Глинистый грунт — долго сохнет после дождя.", "trails_count": 4},
             {"id": "kozlovka", "name": "Парк Козловка", "lat": 54.831991, "lon": 38.125463, "dry_hours": 72, "start_date": None, "soil": "clay", "forest": True, "forest_coef": 0.3, "description": "Живописный парк в Подмосковье с лесными трассами.", "trails_count": 3},
             {"id": "krylatskoye", "name": "Крылатские холмы", "lat": 55.767675, "lon": 37.426816, "dry_hours": 24, "start_date": None, "soil": "loam", "forest": True, "forest_coef": 0.6, "description": "Олимпийский велотрек и природные тропы в ООПТ.", "trails_count": 6}
         ]
