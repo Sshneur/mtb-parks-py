@@ -142,15 +142,16 @@ async def update_daily_forecast(park: dict):
 
 
 def _recalculate_moisture(park: dict):
-    """Пересчитывает влажность по ВСЕМ данным и сохраняет в БД"""
+    """Пересчитывает влажность по историческим данным (без прогноза) и сохраняет в БД"""
     park_id = park["id"]
+    now_utc = datetime.now(timezone.utc)
     
     conn = get_connection()
     rows = conn.execute("""
         SELECT * FROM weather_hourly 
-        WHERE park_id = ? 
+        WHERE park_id = ? AND timestamp <= ?
         ORDER BY timestamp ASC
-    """, (park_id,)).fetchall()
+    """, (park_id, now_utc.isoformat())).fetchall()
     conn.close()
     
     hourly_data = [dict(r) for r in rows]

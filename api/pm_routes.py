@@ -66,13 +66,13 @@ async def get_weather_pm(group_id: str):
             from database.connection import get_connection
             conn = get_connection()
 
+            now_utc = datetime.now(timezone.utc)
             all_rows = conn.execute("""
                 SELECT * FROM weather_hourly 
-                WHERE park_id = ? 
+                WHERE park_id = ? AND timestamp <= ?
                 ORDER BY timestamp ASC
-            """, (park_id,)).fetchall()
+            """, (park_id, now_utc.isoformat())).fetchall()
 
-            now_utc = datetime.now(timezone.utc)
             hour_start = now_utc.replace(minute=0, second=0, microsecond=0)
             hour_start_str = hour_start.strftime("%Y-%m-%dT%H:%M")
             forecast_rows = conn.execute("""

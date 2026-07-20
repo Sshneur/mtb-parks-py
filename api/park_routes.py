@@ -402,8 +402,6 @@ async def get_soil_forecast(park_id: str):
                 p_end = p_start.replace(hour=0) + timedelta(days=1)
             else:
                 p_end = datetime(day_dates[d].year, day_dates[d].month, day_dates[d].day, p["end"], tzinfo=msk)
-            if p_end <= now_msk:
-                continue
             all_periods.append({
                 "day_offset": d, "day_date": day_dates[d],
                 "period": p, "start": p_start, "end": p_end,
@@ -417,21 +415,22 @@ async def get_soil_forecast(park_id: str):
     hours_sorted = sorted(hours, key=lambda h: h["timestamp"])
     last_evap = 0.001
     for h in hours_sorted:
-        if h["timestamp"] < now_msk:
-            continue
-        if h["rain"] > 0:
-            W = min(1.0, W + h["rain"] / 10)
-            last_evap = 0.001
-        else:
-            fT = 0.05 * max(h["temperature"], 0)
-            gv = 0.03 * h["wind_speed"]
-            gr = 0.001 * h["radiation"]
-            evap = forest_factor * (_sc["k_t"] * fT + _sc["k_w"] * gv + _sc["k_r"] * gr + _sc["k_s"])
-            last_evap = max(evap, 0.001)
-            W = max(0.0, W - evap)
+        is_past = h["timestamp"] < now_msk
+        # For past hours: still record weather data, but don't update W
+        if not is_past:
+            if h["rain"] > 0:
+                W = min(1.0, W + h["rain"] / 10)
+                last_evap = 0.001
+            else:
+                fT = 0.05 * max(h["temperature"], 0)
+                gv = 0.03 * h["wind_speed"]
+                gr = 0.001 * h["radiation"]
+                evap = forest_factor * (_sc["k_t"] * fT + _sc["k_w"] * gv + _sc["k_r"] * gr + _sc["k_s"])
+                last_evap = max(evap, 0.001)
+                W = max(0.0, W - evap)
         # Check if this hour falls in any period
         for ap in all_periods:
-            if ap["start"] <= h["timestamp"] < ap["end"] and ap["end"] > now_msk:
+            if ap["start"] <= h["timestamp"] < ap["end"]:
                 ap["hours"].append({"W": W, "evap": last_evap, "h": h})
                 ap["rain_sum"] += h["rain"]
                 ap["temp_acc"] += h["temperature"]
@@ -449,13 +448,11 @@ async def get_soil_forecast(park_id: str):
     for ap in all_periods:
         d = ap["day_offset"]
         count = ap["count"]
-        if count == 0:
-            continue
-        avg_temp = round(ap["temp_acc"] / count, 1)
-        avg_wind = round(ap["wind_acc"] / count, 1)
+        avg_temp = round(ap["temp_acc"] / count, 1) if count else 0
+        avg_wind = round(ap["wind_acc"] / count, 1) if count else 0
+        last_W = ap["hours"][-1]["W"] if ap["hours"] else park.get("current_moisture", 0.0)
 
         # Soil from last hour's W → dry_hours (consistent with get_soil_status)
-        last_W = ap["hours"][-1]["W"] if ap["hours"] else W
         evap_rate = park.get("evaporation_rate", 0.001)
         dry_hours = last_W / evap_rate if evap_rate > 0 else last_W / 0.001
         if dry_hours >= 72:
@@ -476,7 +473,7 @@ async def get_soil_forecast(park_id: str):
             "confidence": round(confidence, 2),
         }
         day_results[d]["periods"].append(pdata)
-        if pdata["confidence"] > day_results[d]["best"]["confidence"] and pdata["soil"] in ("сухо", "альденте"):
+        if count > 0 and ap["end"] > now_msk and pdata["confidence"] > day_results[d]["best"]["confidence"] and pdata["soil"] in ("сухо", "альденте"):
             day_results[d]["best"] = pdata
 
     result = []
@@ -510,11 +507,12 @@ async def get_park_status(park_id: str):
     from services.soil_calculator import calculate_soil_moisture_from_db, get_soil_status as calc_status
     conn = get_connection()
     try:
+        now_utc = datetime.now(timezone.utc)
         rows = conn.execute("""
             SELECT * FROM weather_hourly
-            WHERE park_id = ?
+            WHERE park_id = ? AND timestamp <= ?
             ORDER BY timestamp ASC
-        """, (park_id,)).fetchall()
+        """, (park_id, now_utc.isoformat())).fetchall()
         all_data = [dict(r) for r in rows]
         if not all_data:
             return {"status": "Нет данных", "dryHours": 0, "moisture": 0}
@@ -541,12 +539,13 @@ async def get_park_list():
         return []
     results = []
     conn = get_connection()
+    now_utc = datetime.now(timezone.utc)
     for park in parks:
         rows = conn.execute("""
             SELECT * FROM weather_hourly
-            WHERE park_id = ?
+            WHERE park_id = ? AND timestamp <= ?
             ORDER BY timestamp ASC
-        """, (park["id"],)).fetchall()
+        """, (park["id"], now_utc.isoformat())).fetchall()
         all_data = [dict(r) for r in rows]
         if all_data:
             moisture = calculate_soil_moisture_from_db(park, all_data)

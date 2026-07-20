@@ -140,7 +140,7 @@ def apply_park_calibration():
     """Устанавливает откалиброванные коэффициенты для отдельных парков."""
     conn = get_connection()
     conn.execute("UPDATE parks SET forest_coef=0.20 WHERE id='erino'")
-    conn.execute("UPDATE parks SET forest_coef=0.15 WHERE id='chess'")
+    conn.execute("UPDATE parks SET forest_coef=0.20 WHERE id='chess'")
     conn.commit()
     conn.close()
     print("✅ Калибровка парков применена (Ерино, Чесс Парк)")
