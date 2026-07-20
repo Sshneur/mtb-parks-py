@@ -160,7 +160,7 @@ def _recalculate_moisture(park: dict):
         return
     
     result = calculate_soil_moisture_from_db(park, hourly_data)
-    update_park_moisture(park_id, result["current_moisture"])
+    update_park_moisture(park_id, result["current_moisture"], result.get("evaporation_rate"))
     
     is_asphalt = park.get("soil_type") == "asphalt"
     status = get_soil_status(

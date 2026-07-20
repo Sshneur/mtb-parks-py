@@ -179,6 +179,11 @@ def init_db():
         pass
 
     try:
+        cursor.execute("ALTER TABLE parks ADD COLUMN evaporation_rate REAL DEFAULT 0.001")
+    except sqlite3.OperationalError:
+        pass
+
+    try:
         cursor.execute("ALTER TABLE users ADD COLUMN avatar TEXT")
     except sqlite3.OperationalError:
         pass

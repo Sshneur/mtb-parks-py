@@ -408,6 +408,7 @@ async def get_soil_forecast(park_id: str):
                 "day_offset": d, "day_date": day_dates[d],
                 "period": p, "start": p_start, "end": p_end,
                 "hours": [], "rain_sum": 0, "temp_acc": 0, "wind_acc": 0, "count": 0,
+                "evap_sum": 0,
             })
     if not all_periods:
         return {"park_id": park_id, "forecast": []}
@@ -436,6 +437,7 @@ async def get_soil_forecast(park_id: str):
                 ap["temp_acc"] += h["temperature"]
                 ap["wind_acc"] += h["wind_speed"]
                 ap["count"] += 1
+                ap["evap_sum"] += last_evap
                 break
 
     # Now build response
@@ -452,11 +454,10 @@ async def get_soil_forecast(park_id: str):
         avg_temp = round(ap["temp_acc"] / count, 1)
         avg_wind = round(ap["wind_acc"] / count, 1)
 
-        # Soil from last hour's W → dry_hours
-        last_h = ap["hours"][-1] if ap["hours"] else {"W": W, "evap": 0.001}
-        last_W = last_h["W"]
-        evap_last = last_h["evap"]
-        dry_hours = last_W / (evap_last / 10) if evap_last > 0 else last_W / 0.001
+        # Soil from last hour's W → dry_hours (consistent with get_soil_status)
+        last_W = ap["hours"][-1]["W"] if ap["hours"] else W
+        evap_rate = park.get("evaporation_rate", 0.001)
+        dry_hours = last_W / evap_rate if evap_rate > 0 else last_W / 0.001
         if dry_hours >= 72:
             soil, emoji = "болото", "🟤"
         elif dry_hours > 24:

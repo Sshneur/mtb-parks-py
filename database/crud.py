@@ -64,14 +64,21 @@ def get_park(park_id: str):
     return dict(park) if park else None
 
 
-def update_park_moisture(park_id: str, moisture: float):
-    """Обновляет current_moisture и last_updated"""
+def update_park_moisture(park_id: str, moisture: float, evaporation_rate: float = None):
+    """Обновляет current_moisture, evaporation_rate и last_updated"""
     conn = get_connection()
-    conn.execute("""
-        UPDATE parks 
-        SET current_moisture = ?, last_updated = ?
-        WHERE id = ?
-    """, (moisture, datetime.now(timezone.utc).isoformat(), park_id))
+    if evaporation_rate is not None:
+        conn.execute("""
+            UPDATE parks 
+            SET current_moisture = ?, evaporation_rate = ?, last_updated = ?
+            WHERE id = ?
+        """, (moisture, evaporation_rate, datetime.now(timezone.utc).isoformat(), park_id))
+    else:
+        conn.execute("""
+            UPDATE parks 
+            SET current_moisture = ?, last_updated = ?
+            WHERE id = ?
+        """, (moisture, datetime.now(timezone.utc).isoformat(), park_id))
     conn.commit()
     conn.close()
 
