@@ -11,3 +11,5 @@ test.py
 tune_*.py
 nohup.out
 .pytest_cache/
+README.md
+docs/
