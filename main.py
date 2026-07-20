@@ -12,6 +12,13 @@ from datetime import datetime
 # Загружаем .env
 load_dotenv()
 
+# Фикс кодировки для Windows (emoji в print/log)
+import sys as _sys
+if hasattr(_sys.stdout, 'reconfigure'):
+    _sys.stdout.reconfigure(encoding='utf-8')
+if hasattr(_sys.stderr, 'reconfigure'):
+    _sys.stderr.reconfigure(encoding='utf-8')
+
 # Настройка логирования
 logging.basicConfig(
     filename=_os.getenv("LOG_FILE", "server.log"),
@@ -33,7 +40,7 @@ _os.makedirs("data/photos", exist_ok=True)
 async def lifespan(app: FastAPI):
     """Запускается при старте сервера и завершении"""
     print("=" * 50)
-    print("  MTB Parks 2.0 - init...")
+    print("  Где Держак? - init...")
     print("=" * 50)
     
     # Инициализируем БД
@@ -63,9 +70,9 @@ async def lifespan(app: FastAPI):
     from updater import run_updater
     updater_task = asyncio.create_task(run_updater())
 
-    # Запускаем Telegram бота для модерации фото (пока отключён)
-    # from telegram_bot import start_polling
-    # telegram_task = asyncio.create_task(start_polling())
+    # Запускаем Telegram бота для модерации фото
+    from telegram_bot import start_polling
+    telegram_task = asyncio.create_task(start_polling())
     
     print("=" * 50)
     print("  Server ready")
@@ -83,11 +90,11 @@ async def lifespan(app: FastAPI):
         pass
     print("Сервер остановлен")
 
-    # telegram_task.cancel()
-    # try:
-    #     await telegram_task
-    # except asyncio.CancelledError:
-    #     pass
+    telegram_task.cancel()
+    try:
+        await telegram_task
+    except asyncio.CancelledError:
+        pass
 
 
 # Создаём приложение
