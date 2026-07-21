@@ -149,6 +149,31 @@ async def send_tech_monitor():
         db_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data", "weather.db")
         db_size = os.path.getsize(db_path) if os.path.exists(db_path) else 0
 
+        total_req = conn.execute(
+            "SELECT COUNT(DISTINCT ip) FROM request_log WHERE created_at > datetime('now', '-1 hour')"
+        ).fetchone()[0]
+        new_req = conn.execute("""
+            SELECT COUNT(*) FROM (
+                SELECT ip FROM request_log
+                WHERE created_at > datetime('now', '-1 hour')
+                GROUP BY ip HAVING MIN(created_at) > datetime('now', '-1 hour')
+            )
+        """).fetchone()[0]
+        return_req = total_req - new_req
+
+        reg_row = conn.execute("""
+            SELECT
+                COUNT(DISTINCT CASE WHEN user_id IS NOT NULL THEN ip END),
+                COUNT(DISTINCT CASE WHEN user_id IS NULL THEN ip END)
+            FROM request_log WHERE created_at > datetime('now', '-1 hour')
+        """).fetchone()
+        registered_visitors = reg_row[0]
+        anonymous_visitors = reg_row[1]
+
+        new_users = conn.execute(
+            "SELECT COUNT(*) FROM users WHERE created_at > datetime('now', '-1 hour')"
+        ).fetchone()[0]
+
         now = datetime.datetime.now().strftime("%Y-%m-%d %H:%M")
 
         text = (
@@ -159,7 +184,12 @@ async def send_tech_monitor():
             f"\U0001f3de\ufe0f *Парки:* {parks_active}/{parks_total} активны\n"
             f"\U0001f504 *Свежих:* {parks_fresh} (<6ч)\n"
             f"\U0001f5bc *Фото:* {total_photos} всего, {pending_photos} ждут\n"
-            f"\u26a0\ufe0f *Ошибок за 24ч:* {errors_24h}"
+            f"\u26a0\ufe0f *Ошибок за 24ч:* {errors_24h}\n\n"
+            f"\U0001f465 *Посетители за час:* {total_req}\n"
+            f"  \U0001f195 Новые: {new_req} | \U0001f504 Повторные: {return_req}\n"
+            f"  \U0001f464 Зарегистрировано: {registered_visitors}\n"
+            f"  \U0001f481 Анонимно: {anonymous_visitors}\n"
+            f"\U0001f4dd Новых регистраций: {new_users}"
         )
     except Exception as e:
         text = f"\u26a0\ufe0f *Ошибка мониторинга:* {e}"

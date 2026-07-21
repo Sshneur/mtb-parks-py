@@ -1,7 +1,7 @@
 from fastapi import FastAPI, Request
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from dotenv import load_dotenv
 from contextlib import asynccontextmanager
 import uvicorn
@@ -51,12 +51,17 @@ async def lifespan(app: FastAPI):
     from database.crud import seed_parks
     seed_parks()
     
-    # Применяем миграцию (добавляем таблицы пользователей)
+    # Применяем миграции
     try:
-        from migrations.add_users_and_favorites import migrate
-        migrate()
+        from migrations.add_users_and_favorites import migrate as m1
+        m1()
     except Exception as e:
-        print(f"Migration skipped: {e}")
+        print(f"Migration add_users skipped: {e}")
+    try:
+        from migrations.add_garage_tables import migrate as m2
+        m2()
+    except Exception as e:
+        print(f"Migration add_garage skipped: {e}")
     
     # Применяем калибровку парков
     try:
@@ -145,6 +150,9 @@ app.include_router(pm_router)
 
 from api.park_routes import router as park_router
 app.include_router(park_router)
+
+from api.garage_routes import router as garage_router
+app.include_router(garage_router)
 
 # ============================================================
 # СТАТИЧЕСКИЕ СТРАНИЦЫ (контакты, развитие проекта)
@@ -414,210 +422,11 @@ async def contacts_page():
 async def development_page():
     return HTMLResponse(content=DEVELOPMENT_HTML)
 
-PROFILE_HTML = """
-<!DOCTYPE html>
-<html lang="ru">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Профиль — Что с грунтом?</title>
-    <link rel="stylesheet" href="/css/style.css">
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg">
-    <meta property="og:title" content="Профиль — Что с грунтом?">
-    <meta property="og:image" content="https://gripchek.ru/og-image.jpg">
-    <style>
-        .profile-container { max-width: 600px; margin: 0 auto; padding: 20px; }
-        .card { background:rgba(18,22,30,0.85); border:1px solid rgba(74,144,226,0.2); border-radius:14px; padding:16px; margin-bottom:16px; }
-        .card h2 { font-size:1.1rem; color:#ffd966; margin-bottom:10px; }
-        .bike-item { display:flex; align-items:center; gap:10px; padding:10px; background:rgba(255,255,255,0.04); border-radius:10px; margin-bottom:8px; }
-        .bike-item .info { flex:1; }
-        .bike-item .name { font-weight:600; color:#eef5ff; }
-        .bike-item .detail { font-size:0.8rem; color:#94afcf; }
-        .btn { display:inline-block; padding:10px 20px; border:none; border-radius:10px; font-size:0.9rem; cursor:pointer; font-weight:600; }
-        .btn-primary { background:#4caf50; color:#fff; }
-        .btn-danger { background:#e74c3c; color:#fff; }
-        .btn-sm { padding:6px 12px; font-size:0.8rem; }
-        input, select { width:100%; padding:10px; margin-bottom:8px; border:1px solid rgba(255,255,255,0.1); border-radius:8px; background:rgba(255,255,255,0.05); color:#eef5ff; font-size:0.9rem; }
-        label { display:block; font-size:0.8rem; color:#94afcf; margin-bottom:3px; }
-        #favList { text-align:center; }
-        .fav-item { display:inline-block; padding:4px 10px; margin:3px; background:rgba(74,144,226,0.15); border-radius:6px; font-size:0.85rem; }
-        #authRequired { text-align:center; padding:40px 20px; }
-        #authRequired a { color:#74a8e2; }
-        #bikeForm { display:none; }
-        .avatar-img { width:80px; height:80px; border-radius:50%; object-fit:cover; border:2px solid rgba(74,144,226,0.3); }
-        .avatar-placeholder { width:80px; height:80px; border-radius:50%; background:rgba(255,255,255,0.08); display:flex; align-items:center; justify-content:center; font-size:2rem; color:#94afcf; }
-        @media (max-width:600px) { .profile-container { padding:10px; } }
-    </style>
-</head>
-<body>
-    <div class="profile-container">
-        <a href="/" class="back-link">← На главную</a>
-        <div id="authRequired" style="display:none;">
-            <h2>Войдите в профиль</h2>
-            <p style="color:#94afcf;">Чтобы управлять гаражом, <a href="/login">войдите</a> или <a href="/register">зарегистрируйтесь</a></p>
-        </div>
-        <div id="profileContent" style="display:none;">
-            <div class="card" style="display:flex; align-items:center; gap:16px;">
-                <div id="avatarWrap" style="position:relative; cursor:pointer;" onclick="document.getElementById('avatarInput').click()"></div>
-                <input type="file" id="avatarInput" accept="image/*" style="display:none;">
-                <div style="flex:1;">
-                    <h2 id="profileName" style="margin:0 0 4px 0;"></h2>
-                    <div id="profileEmail" style="font-size:0.85rem; color:#94afcf;"></div>
-                    <div style="font-size:0.75rem; color:#556677; margin-top:4px;">Нажми на аватар, чтобы изменить</div>
-                </div>
-            </div>
 
-            <div class="card">
-                <h2>🚲 Мой гараж</h2>
-                <div id="bikeList"></div>
-                <div style="margin-top:14px; padding-top:12px; border-top:1px solid rgba(255,255,255,0.08);">
-                    <div style="font-size:0.85rem; color:#94afcf; margin-bottom:8px;">Рассчитать давление в шинах:</div>
-                    <div style="display:flex; gap:8px; flex-wrap:wrap;">
-                        <a href="https://axs.sram.com/tirepressureguide" target="_blank" style="flex:1; text-align:center; padding:12px; background:#fa0; color:#000; border-radius:10px; text-decoration:none; font-weight:700; min-width:100px;">SRAM</a>
-                        <a href="https://int.vittoria.com/pages/tire-pressure" target="_blank" style="flex:1; text-align:center; padding:12px; background:#e74c3c; color:#fff; border-radius:10px; text-decoration:none; font-weight:600; min-width:100px;">Vittoria</a>
-                        <a href="https://www.schwalbe.com/pressureprof/" target="_blank" style="flex:1; text-align:center; padding:12px; background:#3498db; color:#fff; border-radius:10px; text-decoration:none; font-weight:600; min-width:100px;">Schwalbe</a>
-                    </div>
-                </div>
-                <button class="btn btn-primary" id="addBikeBtn" style="margin-top:8px;">+ Добавить байк</button>
-                <div id="bikeForm">
-                    <h3 id="bikeFormTitle" style="font-size:1rem; color:#eef5ff; margin-bottom:8px;">Новый байк</h3>
-                    <label>Название</label>
-                    <input type="text" id="bikeName" placeholder="Например: Kona Process 134">
-                    <label>Мой вес (кг)</label>
-                    <input type="number" id="bikeWeight" value="75" min="30" max="200">
-                    <label>Тип резины</label>
-                    <select id="bikeTire">
-                        <option value="mtb">MTB (2.2-2.5")</option>
-                        <option value="mtb_plus">MTB Plus (2.5-3.0")</option>
-                        <option value="gravel">Гравел</option>
-                        <option value="road">Шоссе</option>
-                    </select>
-                    <div style="display:flex; gap:8px;">
-                        <button class="btn btn-primary" id="saveBikeBtn">Сохранить</button>
-                        <button class="btn btn-danger" id="cancelBikeBtn">Отмена</button>
-                    </div>
-                </div>
-            </div>
 
-            <div class="card">
-                <h2>⭐ Избранные парки</h2>
-                <div id="favList"></div>
-            </div>
-        </div>
-    </div>
-    <script>
-        const TOKEN = localStorage.getItem('token');
-        if (!TOKEN) { document.getElementById('authRequired').style.display = 'block'; }
-        else {
-            document.getElementById('profileContent').style.display = 'block';
-            let editingBikeId = null;
-
-            async function loadProfile() {
-                const r = await fetch('/api/user/profile', { headers: { 'Authorization': 'Bearer ' + TOKEN } });
-                if (!r.ok) { localStorage.removeItem('token'); location.reload(); return; }
-                const p = await r.json();
-                document.getElementById('profileName').textContent = p.username || 'Пользователь';
-                document.getElementById('profileEmail').textContent = p.email;
-                const aw = document.getElementById('avatarWrap');
-                if (p.avatar) { aw.innerHTML = '<img src="' + p.avatar + '" class="avatar-img">'; }
-                else { aw.innerHTML = '<div class="avatar-placeholder">' + (p.username ? p.username[0].toUpperCase() : '?') + '</div>'; }
-                renderBikes(p.bikes);
-                renderFavorites(p.favorites);
-            }
-
-            function renderBikes(bikes) {
-                const el = document.getElementById('bikeList');
-                if (!bikes.length) { el.innerHTML = '<div style="color:#556677; font-size:0.9rem;">Нет байков. Добавьте свой велосипед!</div>'; return; }
-                el.innerHTML = bikes.map(b => `
-                    <div class="bike-item">
-                        ${b.photo ? '<img src="'+b.photo+'" style="width:50px;height:50px;border-radius:8px;object-fit:cover;">' : '<div style="width:50px;height:50px;border-radius:8px;background:rgba(255,255,255,0.05);display:flex;align-items:center;justify-content:center;font-size:1.2rem;color:#556677;">🚲</div>'}
-                        <div class="info">
-                            <div class="name">${b.name}</div>
-                            <div class="detail">${b.rider_weight_kg} кг · ${b.tire_type}</div>
-                        </div>
-                        <button class="btn btn-sm" style="background:rgba(255,255,255,0.08);color:#94afcf;" onclick="document.getElementById('bikePhotoInput_${b.id}').click()">📷</button>
-                        <input type="file" id="bikePhotoInput_${b.id}" accept="image/*" style="display:none;" onchange="uploadBikePhoto(${b.id}, this)">
-                        <button class="btn btn-danger btn-sm" onclick="deleteBike(${b.id})">✕</button>
-                    </div>
-                `).join('');
-            }
-
-            function renderFavorites(favs) {
-                document.getElementById('favList').innerHTML = favs.length
-                    ? favs.map(f => '<span class="fav-item"><a href="/park/' + f.id + '" style="color:#eef5ff;text-decoration:none;">' + (f.name || f.id) + '</a></span>').join('')
-                    : '<div style="color:#556677; font-size:0.9rem;">Нет избранных парков</div>';
-            }
-
-            document.getElementById('addBikeBtn').addEventListener('click', () => {
-                editingBikeId = null;
-                document.getElementById('bikeFormTitle').textContent = 'Новый байк';
-                document.getElementById('bikeName').value = '';
-                document.getElementById('bikeWeight').value = '75';
-                document.getElementById('bikeForm').style.display = 'block';
-            });
-
-            document.getElementById('cancelBikeBtn').addEventListener('click', () => {
-                document.getElementById('bikeForm').style.display = 'none';
-            });
-
-            document.getElementById('saveBikeBtn').addEventListener('click', async () => {
-                const name = document.getElementById('bikeName').value.trim();
-                if (!name) return alert('Введите название');
-                const body = { name, rider_weight_kg: parseFloat(document.getElementById('bikeWeight').value), tire_type: document.getElementById('bikeTire').value };
-                const url = editingBikeId ? '/api/user/bikes/' + editingBikeId : '/api/user/bikes';
-                const method = editingBikeId ? 'PUT' : 'POST';
-                const r = await fetch(url, { method, headers: { 'Authorization': 'Bearer ' + TOKEN, 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
-                if (r.ok) { document.getElementById('bikeForm').style.display = 'none'; loadProfile(); }
-                else { alert('Ошибка сохранения'); }
-            });
-
-            window.deleteBike = async (id) => {
-                if (!confirm('Удалить байк?')) return;
-                const r = await fetch('/api/user/bikes/' + id, { method: 'DELETE', headers: { 'Authorization': 'Bearer ' + TOKEN } });
-                if (r.ok) loadProfile();
-            };
-
-            window.uploadBikePhoto = async (id, input) => {
-                const file = input.files[0];
-                if (!file) return;
-                const reader = new FileReader();
-                reader.onload = async (e) => {
-                    const r = await fetch('/api/user/bikes/' + id + '/photo', {
-                        method: 'POST',
-                        headers: { 'Authorization': 'Bearer ' + TOKEN, 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ file: e.target.result, name: file.name })
-                    });
-                    if (r.ok) loadProfile();
-                };
-                reader.readAsDataURL(file);
-            };
-
-            // Avatar upload
-            document.getElementById('avatarInput').addEventListener('change', async (e) => {
-                const file = e.target.files[0];
-                if (!file) return;
-                const reader = new FileReader();
-                reader.onload = async (ev) => {
-                    const r = await fetch('/api/user/avatar', {
-                        method: 'POST',
-                        headers: { 'Authorization': 'Bearer ' + TOKEN, 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ file: ev.target.result, name: file.name })
-                    });
-                    if (r.ok) loadProfile();
-                };
-                reader.readAsDataURL(file);
-            });
-
-            loadProfile();
-        }
-    </script>
-</body>
-</html>
-"""
-
-@app.get("/profile", response_class=HTMLResponse)
+@app.get("/profile", response_class=RedirectResponse)
 async def profile_page():
-    return HTMLResponse(content=PROFILE_HTML)
+    return RedirectResponse(url="/garage")
 
 # ============================================================
 # РАЗДАЧА СТАТИКИ

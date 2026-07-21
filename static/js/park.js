@@ -32,11 +32,9 @@
     voteButtons.forEach(btn => {
         btn.addEventListener('click', function() {
             voteButtons.forEach(b => {
-                b.style.borderColor = '#555';
-                b.style.background = 'transparent';
+                b.classList.remove('vote-btn-selected');
             });
-            this.style.borderColor = '#74a8e2';
-            this.style.background = 'rgba(74, 144, 226, 0.2)';
+            this.classList.add('vote-btn-selected');
             selectedVote = parseInt(this.dataset.vote);
             document.getElementById('selectedVote').value = selectedVote;
         });
@@ -58,8 +56,20 @@
 
         Chart.register(ChartDataLabels);
 
+        function chartTheme() {
+            var light = document.documentElement.classList.contains('theme-light');
+            return {
+                tick: light ? '#4b5563' : '#8b949e',
+                grid: light ? 'rgba(0,0,0,0.1)' : 'rgba(255,255,255,0.08)',
+                text: light ? '#1a1e2b' : '#eef5ff',
+                accent: light ? '#4a90e2' : '#74b9ff'
+            };
+        }
+
+        var t = chartTheme();
+
         const maxTemp = Math.max(...temps, 0);
-        new Chart(document.getElementById('tempChart'), {
+        var tempChart = new Chart(document.getElementById('tempChart'), {
             type: 'line',
             data: {
                 labels,
@@ -93,25 +103,25 @@
                         anchor: 'end',
                         align: 'end',
                         offset: 2,
-                        color: '#ffd966',
+                        color: t.text,
                         font: { weight: 'bold', size: 11 },
                         formatter: (value) => value !== null ? value + '°' : ''
                     }
                 },
                 scales: {
-                    x: { ticks: { color: '#94afcf' }, grid: { color: 'rgba(255,255,255,0.05)' } },
+                    x: { ticks: { color: t.tick }, grid: { color: t.grid } },
                     y: {
                         min: 0,
                         max: Math.max(maxTemp + 8, 10),
-                        ticks: { color: '#94afcf', stepSize: 5 },
-                        grid: { color: 'rgba(255,255,255,0.08)' }
+                        ticks: { color: t.tick, stepSize: 5 },
+                        grid: { color: t.grid }
                     }
                 }
             }
         });
 
         const maxRain = Math.max(...rains, 0);
-        new Chart(document.getElementById('rainChart'), {
+        var rainChart = new Chart(document.getElementById('rainChart'), {
             type: 'bar',
             data: {
                 labels,
@@ -139,18 +149,18 @@
                         anchor: 'end',
                         align: 'end',
                         offset: 2,
-                        color: '#74b9ff',
+                        color: t.accent,
                         font: { weight: 'bold', size: 11 },
                         formatter: (value) => value > 0 ? value + 'мм' : ''
                     }
                 },
                 scales: {
-                    x: { ticks: { color: '#94afcf' }, grid: { color: 'rgba(255,255,255,0.05)' } },
+                    x: { ticks: { color: t.tick }, grid: { color: t.grid } },
                     y: {
                         beginAtZero: true,
                         max: maxRain > 0 ? maxRain * 1.4 : 5,
-                        ticks: { color: '#94afcf' },
-                        grid: { color: 'rgba(255,255,255,0.08)' }
+                        ticks: { color: t.tick },
+                        grid: { color: t.grid }
                     }
                 }
             }
@@ -211,16 +221,16 @@
                 const rounded = Math.round(data.avg);
                 const label = labels[rounded] || '';
                 voteDiv.innerHTML = `
-                    <div style="margin:10px 0; padding:12px; background:rgba(0,20,40,0.7); border-radius:12px; text-align:center;">
-                        <div style="font-size:1.2rem; font-weight:600; color:#ffd966;">
+                    <div class="vote-box">
+                        <div class="vote-box-title">
                             ⭐ Средняя оценка: ${data.avg.toFixed(1)} (${data.count} голосов)
                         </div>
-                        <div style="font-size:1.1rem; color:#b8d6ff;">${label}</div>
+                        <div class="vote-box-status">${label}</div>
                     </div>
                 `;
             } else {
                 voteDiv.innerHTML = `
-                    <div style="margin:10px 0; padding:12px; background:rgba(0,20,40,0.7); border-radius:12px; text-align:center; color:#94afcf;">
+                    <div class="vote-box" style="color:var(--text-muted);">
                         📸 Пока нет оценок. Загрузите фото с оценкой!
                     </div>
                 `;
@@ -306,19 +316,37 @@
         });
     }
 
-    // ---------- ЗАГРУЗКА ГАЛЕРЕИ ----------
-    async function loadPhotos() {
-        try {
-            const resp = await fetch(`/api/park/${parkId}/photos`);
-            if (!resp.ok) throw new Error('Ошибка загрузки фото');
-            const photos = await resp.json();
-            const gallery = document.getElementById('photoGallery');
-            gallery.innerHTML = '';
+    // ---------- ЗАГРУЗКА ГАЛЕРЕИ (ленивая, по 10) ----------
+    var photoOffset = 0;
+    var photoHasMore = false;
+    var photoLoading = false;
 
-            if (photos.length === 0) {
-                gallery.innerHTML = '<p style="color:#aaa;">Фото пока нет. Будьте первым!</p>';
+    async function loadPhotos(reset) {
+        if (reset === undefined) reset = true;
+        if (photoLoading) return;
+        photoLoading = true;
+        try {
+            if (reset) {
+                photoOffset = 0;
+                document.getElementById('photoGallery').innerHTML = '';
+                document.getElementById('photoGallery').dataset.page = 'loading';
+            }
+            const resp = await fetch(`/api/park/${parkId}/photos?limit=10&offset=${photoOffset}`);
+            if (!resp.ok) throw new Error('Ошибка загрузки фото');
+            const data = await resp.json();
+            const photos = data.photos;
+            const gallery = document.getElementById('photoGallery');
+
+            if (reset && photos.length === 0) {
+                gallery.innerHTML = '<p class="photo-empty">Фото пока нет. Будьте первым!</p>';
+                delete gallery.dataset.page;
+                photoLoading = false;
                 return;
             }
+
+            // Удаляем старую кнопку "Показать ещё"
+            var oldBtn = gallery.querySelector('.load-more-btn');
+            if (oldBtn) oldBtn.remove();
 
             const voteLabels = {
                 1: '🌿 Болото',
@@ -328,44 +356,55 @@
                 5: '🪨 Бетон'
             };
 
-            photos.forEach(p => {
-                const card = document.createElement('div');
-                card.style.cssText = 'background: rgba(18,22,30,0.85); border-radius:12px; padding:10px; border:1px solid rgba(74,144,226,0.2);';
+            photos.forEach(function(p) {
+                var card = document.createElement('div');
+                card.className = 'photo-card';
 
-                const img = document.createElement('img');
-                img.src = `/photos/${parkId}/${p.filename}`;
-                img.style.cssText = 'width:100%; aspect-ratio:1/1; object-fit:cover; border-radius:8px; cursor:pointer; transition:transform 0.2s;';
+                var img = document.createElement('img');
+                img.src = '/photos/' + parkId + '/' + p.filename;
+                img.className = 'photo-img';
                 img.onmouseenter = function() { this.style.transform = 'scale(1.03)'; };
                 img.onmouseleave = function() { this.style.transform = 'scale(1)'; };
                 img.onclick = function() {
-                    const lightbox = document.getElementById('lightbox');
-                    const lightboxImg = document.getElementById('lightboxImg');
+                    var lightbox = document.getElementById('lightbox');
+                    var lightboxImg = document.getElementById('lightboxImg');
                     lightboxImg.src = this.src;
                     lightbox.style.display = 'flex';
                 };
 
-                const info = document.createElement('div');
-                info.style.cssText = 'margin-top:8px; font-size:13px; color:#ddd; text-align:center;';
+                var info = document.createElement('div');
+                info.className = 'photo-info';
 
-                const date = new Date(p.created_at).toLocaleDateString('ru-RU', { day:'numeric', month:'long', year:'numeric' });
-                const username = p.username || 'Аноним';
-                const voteText = p.vote ? voteLabels[p.vote] || p.vote : '—';
+                var date = new Date(p.created_at).toLocaleDateString('ru-RU', { day:'numeric', month:'long', year:'numeric' });
+                var username = p.username || 'Аноним';
+                var voteText = p.vote ? voteLabels[p.vote] || p.vote : '—';
 
-                const commentText = p.comment ? `<div style="font-size:12px; color:#aaa; margin-top:4px;">💬 ${p.comment}</div>` : '';
-                info.innerHTML = `
-                    <div><strong>${username}</strong></div>
-                    <div style="font-size:12px; color:#aaa;">${date}</div>
-                    <div style="font-size:14px; font-weight:bold; color:#74a8e2;">${voteText}</div>
-                    ${commentText}
-                `;
+                var commentText = p.comment ? '<div class="photo-comment">💬 ' + p.comment + '</div>' : '';
+                info.innerHTML = '<div><strong>' + username + '</strong></div><div class="photo-date">' + date + '</div><div class="photo-vote">' + voteText + '</div>' + commentText;
 
                 card.appendChild(img);
                 card.appendChild(info);
                 gallery.appendChild(card);
             });
+
+            photoHasMore = data.hasMore;
+            if (photoHasMore) {
+                var loadMore = document.createElement('button');
+                loadMore.className = 'load-more-btn';
+                loadMore.textContent = '📷 Показать ещё (' + (data.total - photoOffset - photos.length) + ')';
+                loadMore.className = 'load-more-btn';
+                loadMore.onclick = function() {
+                    photoOffset += 10;
+                    loadPhotos(false);
+                };
+                gallery.appendChild(loadMore);
+            }
+
+            delete gallery.dataset.page;
         } catch (err) {
             console.error('Ошибка загрузки фото:', err);
         }
+        photoLoading = false;
     }
 
     // ---------- ОБНОВЛЕНИЕ СРЕДНЕЙ ОЦЕНКИ (для вызова после загрузки фото) ----------
@@ -380,16 +419,16 @@
                     const rounded = Math.round(data.avg);
                     const label = labels[rounded] || '';
                     voteDiv.innerHTML = `
-                        <div style="margin:10px 0; padding:12px; background:rgba(0,20,40,0.7); border-radius:12px; text-align:center;">
-                            <div style="font-size:1.2rem; font-weight:600; color:#ffd966;">
+                        <div class="vote-box">
+                            <div class="vote-box-title">
                                 ⭐ Средняя оценка: ${data.avg.toFixed(1)} (${data.count} голосов)
                             </div>
-                            <div style="font-size:1.1rem; color:#b8d6ff;">${label}</div>
+                            <div class="vote-box-status">${label}</div>
                         </div>
                     `;
                 } else {
                     voteDiv.innerHTML = `
-                        <div style="margin:10px 0; padding:12px; background:rgba(0,20,40,0.7); border-radius:12px; text-align:center; color:#94afcf;">
+                        <div class="vote-box" style="color:var(--text-muted);">
                             📸 Пока нет оценок. Загрузите фото с оценкой!
                         </div>
                     `;
@@ -435,7 +474,7 @@
             data.forecast.forEach((day, idx) => {
                 // scroller page
                 const page = document.createElement('div');
-                page.style.cssText = 'scroll-snap-align:start; flex:0 0 100%; background:rgba(18,22,30,0.85); border:1px solid rgba(255,255,255,0.08); border-radius:18px; padding:20px 16px;';
+                page.className = 'forecast-page';
                 page.id = 'forecastPage' + idx;
 
                 const dateObj = new Date(day.date + 'T12:00:00+03:00');
@@ -443,18 +482,18 @@
 
                 const header = document.createElement('div');
                 header.textContent = dayLabel;
-                header.style.cssText = 'font-size:1.35rem; font-weight:700; color:#ffd966; text-align:center; padding-bottom:12px; border-bottom:1px solid rgba(255,255,255,0.08); margin-bottom:10px;';
+                header.className = 'forecast-page-header';
                 page.appendChild(header);
 
                 if (!day.periods || day.periods.length === 0) {
                     const empty = document.createElement('div');
                     empty.textContent = 'Нет данных на этот день';
-                    empty.style.cssText = 'font-size:0.85rem; color:#556677; text-align:center; padding:20px 0;';
+                    empty.className = 'forecast-empty';
                     page.appendChild(empty);
                     scroller.appendChild(page);
                     // dot
                     const dot = document.createElement('div');
-                    dot.style.cssText = 'width:8px; height:8px; border-radius:50%; background:rgba(255,255,255,0.3); cursor:pointer;';
+                    dot.className = 'forecast-dot forecast-dot-inactive';
                     dotsWrap.appendChild(dot);
                     return;
                 }
@@ -466,13 +505,13 @@
 
                     card.innerHTML = `
                         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
-                            <span style="font-size:1.1rem; font-weight:600; color:#eef5ff;">${p.label}</span>
+                            <span class="forecast-label">${p.label}</span>
                             <span style="display:inline-flex; align-items:center; gap:8px; font-size:0.95rem; color:${viz.color}; font-weight:600;">
                                 <span style="display:inline-flex; justify-content:center; align-items:center; width:28px; height:28px; border-radius:50%; background:${viz.color}; color:#0b0d14; font-size:0.85rem; font-weight:700;">${viz.icon}</span>
                                 ${p.soil}
                             </span>
                         </div>
-                        <div style="display:flex; gap:20px; font-size:0.95rem; color:#8899aa;">
+                        <div class="forecast-details">
                             <span>🌡 ${p.temp}°C</span>
                             <span>💨 ${p.wind} м/с</span>
                             <span>🌧 ${p.rain} мм</span>
@@ -490,7 +529,7 @@
 
                 // nav dot
                 const dot = document.createElement('div');
-                dot.style.cssText = `width:8px; height:8px; border-radius:50%; background:${idx===0?'#ffd966':'rgba(255,255,255,0.25)'}; cursor:pointer; transition:background 0.2s;`;
+                dot.className = 'forecast-dot ' + (idx === 0 ? 'forecast-dot-active' : 'forecast-dot-inactive');
                 dot.dataset.index = idx;
                 dot.addEventListener('click', () => {
                     const target = document.getElementById('forecastPage' + idx);
@@ -516,13 +555,13 @@
                     }
                 });
                 for (let i = 0; i < dots.length; i++) {
-                    dots[i].style.background = i === active ? '#ffd966' : 'rgba(255,255,255,0.25)';
+                    dots[i].className = 'forecast-dot ' + (i === active ? 'forecast-dot-active' : 'forecast-dot-inactive');
                 }
             });
 
             if (bestOverall) {
                 bestEl.innerHTML = `⭐ Лучшее время старта: <strong>${bestOverall.dayLabel}, ${bestOverall.label}</strong> — ${bestOverall.soil}, +${bestOverall.temp}°C, ветер ${bestOverall.wind} м/с`;
-                bestEl.style.cssText = 'margin-top:12px; font-size:1rem; color:#a0b4cc; text-align:center; padding:8px;';
+                bestEl.className = 'best-time';
             }
         } catch (e) {
             console.error('Ошибка прогноза:', e);
@@ -530,4 +569,37 @@
     })();
 
     loadPhotos();
+
+    function updateCharts() {
+        var ct = chartTheme();
+        if (tempChart) {
+            tempChart.options.scales.x.ticks.color = ct.tick;
+            tempChart.options.scales.y.ticks.color = ct.tick;
+            tempChart.options.scales.x.grid.color = ct.grid;
+            tempChart.options.scales.y.grid.color = ct.grid;
+            tempChart.options.plugins.datalabels.color = ct.text;
+            tempChart.update();
+        }
+        if (rainChart) {
+            rainChart.options.scales.x.ticks.color = ct.tick;
+            rainChart.options.scales.y.ticks.color = ct.tick;
+            rainChart.options.scales.x.grid.color = ct.grid;
+            rainChart.options.scales.y.grid.color = ct.grid;
+            rainChart.options.plugins.datalabels.color = ct.accent;
+            rainChart.update();
+        }
+    }
+
+    // theme toggle
+    var ptBtn = document.getElementById('parkThemeToggle');
+    if (ptBtn) {
+        ptBtn.textContent = document.documentElement.classList.contains('theme-light') ? '☀️' : '🌙';
+        ptBtn.addEventListener('click', function() {
+            document.documentElement.classList.toggle('theme-light');
+            var isLight = document.documentElement.classList.contains('theme-light');
+            localStorage.setItem('theme', isLight ? 'light' : 'dark');
+            ptBtn.textContent = isLight ? '☀️' : '🌙';
+            updateCharts();
+        });
+    }
 })();

@@ -27,38 +27,8 @@
 <body>
   <header class="header">
     <div class="header-container">
-      <!-- Бургер-меню слева -->
-      <div class="burger-menu">
-        <button class="burger-btn" id="burgerBtn" aria-label="Меню">
-          <span class="burger-line"></span>
-          <span class="burger-line"></span>
-          <span class="burger-line"></span>
-        </button>
-        <nav class="burger-nav" id="burgerNav">
-          <ul>
-            <li id="userInfoMobile" style="display:none;">
-              <span class="user-name" id="userEmailMobile"></span>
-            </li>
-            <li id="logoutMobile" style="display:none;">
-              <button id="logoutBtnMobile" class="menu-btn">Выйти</button>
-            </li>
-            <li id="loginMobile">
-              <a href="/login" class="menu-link">Войти</a>
-            </li>
-            <li><a href="/" class="menu-link">Главная</a></li>
-            <li><a href="#" class="menu-link" id="favoritesMobile">⭐ Избранное</a></li>
-            <li id="levelMobile" style="display:none;">
-              <span class="menu-link" id="levelDisplay" style="cursor:default; color:#ffd966;">🎯 Уровень: 1 (оценок: 0)</span>
-            </li>
-            <li><a href="/profile" class="menu-link">🔧 Профиль</a></li>
-            <li><a href="/map" class="menu-link">🗺️ Карта</a></li>
-            <li><a href="/contacts" class="menu-link">📞 Контакты</a></li>
-            <li><a href="/development" class="menu-link">🚀 Развитие проекта</a></li>
-          </ul>
-        </nav>
-      </div>
-      <!-- Заголовок по центру -->
       <h1 class="site-title">🚵 Состояние грунта трейлов</h1>
+      <button id="themeToggle" class="theme-btn" aria-label="Сменить тему" style="position:absolute; right:0; background:none; border:none; font-size:1.3rem; cursor:pointer; padding:4px 8px; line-height:1;">🌙</button>
     </div>
     <div class="datetime" id="liveDateTime">--</div>
     <div class="group-switch" id="groupSwitch">
@@ -69,10 +39,13 @@
     </div>
   </header>
 
-  <div style="margin:10px 0; text-align:center;">
-    <span style="margin-right:8px; color:#ddd;">Формула испарения:</span>
-    <button id="modelStandardBtn" class="model-btn active" style="margin:0 5px;">old</button>
-    <button id="modelPmBtn" class="model-btn" style="margin:0 5px;">new</button>
+  <div style="margin:10px 0; text-align:center; display:flex; align-items:center; justify-content:center; gap:6px;">
+    <span style="font-size:0.8rem; color:var(--text-muted); font-weight:500;">OLD</span>
+    <label class="ios-switch">
+      <input type="checkbox" id="modelToggle">
+      <span class="ios-slider"></span>
+    </label>
+    <span style="font-size:0.8rem; color:var(--text-muted); font-weight:500;">NEW</span>
   </div>
 
   <main class="dashboard" id="dashboard">
@@ -80,10 +53,72 @@
   </main>
   <button class="refresh-btn" id="refreshBtn">🔄 Обновить данные</button>
 
+  <!-- Плавающая кнопка меню -->
+  <button class="fab-btn" id="fabBtn" aria-label="Меню">☰</button>
+
+  <!-- Оверлей и меню -->
+  <div class="fab-overlay" id="fabOverlay"></div>
+  <nav class="fab-menu" id="fabMenu">
+    <div class="fab-menu-handle"></div>
+    <ul>
+      <li id="userInfoMobile" style="display:none;">
+        <span class="user-name" id="userEmailMobile"></span>
+      </li>
+      <li id="logoutMobile" style="display:none;">
+        <button id="logoutBtnMobile" class="menu-btn">🚪 Выйти</button>
+      </li>
+      <li id="loginMobile">
+        <a href="/login" class="menu-link">🔑 Войти</a>
+      </li>
+      <li><a href="/" class="menu-link">🏠 Главная</a></li>
+      <li><a href="#" class="menu-link" id="favoritesMobile">⭐ Избранное</a></li>
+      <li id="levelMobile" style="display:none;">
+        <span class="menu-link" id="levelDisplay" style="cursor:default; color:#ffd966;">🎯 Уровень: 1 (оценок: 0)</span>
+      </li>
+      <li><a href="/garage" class="menu-link">🚲 Гараж</a></li>
+      <li><a href="/map" class="menu-link">🗺️ Карта</a></li>
+      <li><a href="/contacts" class="menu-link">📞 Контакты</a></li>
+      <li><a href="/development" class="menu-link">🚀 Развитие проекта</a></li>
+    </ul>
+  </nav>
+
+
+  <script>
+    (function() {
+      var saved = localStorage.getItem('theme');
+      if (saved === 'light') document.documentElement.classList.add('theme-light');
+      else if (!saved && window.matchMedia('(prefers-color-scheme:light)').matches) document.documentElement.classList.add('theme-light');
+    })();
+  </script>
   <script src="js/app.js"></script>
   <script>
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('/sw.js');
+    }
+
+    var themeBtn = document.getElementById('themeToggle');
+    if (themeBtn) {
+      themeBtn.textContent = document.documentElement.classList.contains('theme-light') ? '☀️' : '🌙';
+      themeBtn.addEventListener('click', function() {
+        document.documentElement.classList.toggle('theme-light');
+        var isLight = document.documentElement.classList.contains('theme-light');
+        localStorage.setItem('theme', isLight ? 'light' : 'dark');
+        themeBtn.textContent = isLight ? '☀️' : '🌙';
+        // update meta theme-color
+        var mc = document.querySelector('meta[name="theme-color"]');
+        if (mc) mc.content = isLight ? '#d5dbe3' : '#0b0d14';
+      });
+    }
+
+    var modelToggle = document.getElementById('modelToggle');
+    if (modelToggle) {
+      var savedModel = localStorage.getItem('model');
+      if (savedModel === 'pm') modelToggle.checked = true;
+      modelToggle.addEventListener('change', function() {
+        var isPm = modelToggle.checked;
+        localStorage.setItem('model', isPm ? 'pm' : 'standard');
+        window.location.reload();
+      });
     }
   </script>
 </body>

@@ -39,21 +39,44 @@ function logout() {
     document.getElementById('levelMobile').style.display = 'none';
 }
 
-// ==================== БУРГЕР МЕНЮ ====================
-const burgerBtn = document.getElementById('burgerBtn');
-const burgerNav = document.getElementById('burgerNav');
+// ==================== FAB (ПЛАВАЮЩАЯ КНОПКА) ====================
+const fabBtn = document.getElementById('fabBtn');
+const fabMenu = document.getElementById('fabMenu');
+const fabOverlay = document.getElementById('fabOverlay');
 
-if (burgerBtn && burgerNav) {
-    burgerBtn.addEventListener('click', function(e) {
-        e.stopPropagation();
-        this.classList.toggle('active');
-        burgerNav.classList.toggle('open');
+function closeFabMenu() {
+    fabMenu.classList.remove('open');
+    fabOverlay.classList.remove('open');
+}
+
+if (fabBtn && fabMenu && fabOverlay) {
+    fabBtn.addEventListener('click', function() {
+        if (fabMenu.classList.contains('open')) {
+            closeFabMenu();
+        } else {
+            fabMenu.classList.add('open');
+            fabOverlay.classList.add('open');
+        }
     });
+    fabOverlay.addEventListener('click', closeFabMenu);
 
-    document.addEventListener('click', function(e) {
-        if (!burgerBtn.contains(e.target) && !burgerNav.contains(e.target)) {
-            burgerBtn.classList.remove('active');
-            burgerNav.classList.remove('open');
+    // Скрытие при скролле вниз / показ при скролле вверх
+    var lastScrollY = window.scrollY;
+    var ticking = false;
+
+    window.addEventListener('scroll', function() {
+        if (!ticking) {
+            window.requestAnimationFrame(function() {
+                var currentScrollY = window.scrollY;
+                if (currentScrollY > lastScrollY && currentScrollY > 80) {
+                    fabBtn.classList.add('hidden');
+                } else {
+                    fabBtn.classList.remove('hidden');
+                }
+                lastScrollY = currentScrollY;
+                ticking = false;
+            });
+            ticking = true;
         }
     });
 }
@@ -76,25 +99,27 @@ function updateBurgerAuth() {
     }
 }
 
-document.getElementById('logoutBtnMobile').addEventListener('click', function() {
-    logout();
-    loadAll();
-    if (burgerBtn) {
-        burgerBtn.classList.remove('active');
-        burgerNav.classList.remove('open');
-    }
-});
+var logoutBtnMobile = document.getElementById('logoutBtnMobile');
+if (logoutBtnMobile) {
+    logoutBtnMobile.addEventListener('click', function() {
+        logout();
+        loadAll();
+        closeFabMenu();
+    });
+}
 
-document.getElementById('favoritesMobile').addEventListener('click', function(e) {
-    e.preventDefault();
-    document.querySelectorAll('.group-btn').forEach(b => b.classList.remove('active'));
-    const favBtn = document.querySelector('.group-btn[data-group="favorites"]');
-    if (favBtn) favBtn.classList.add('active');
-    currentGroup = 'favorites';
-    loadAll();
-    burgerBtn.classList.remove('active');
-    burgerNav.classList.remove('open');
-});
+var favoritesMobile = document.getElementById('favoritesMobile');
+if (favoritesMobile) {
+    favoritesMobile.addEventListener('click', function(e) {
+        e.preventDefault();
+        document.querySelectorAll('.group-btn').forEach(function(b) { b.classList.remove('active'); });
+        var favBtn = document.querySelector('.group-btn[data-group="favorites"]');
+        if (favBtn) favBtn.classList.add('active');
+        currentGroup = 'favorites';
+        loadAll();
+        closeFabMenu();
+    });
+}
 
 // ==================== ОБНОВЛЕНИЕ УРОВНЯ ====================
 async function updateLevelDisplay() {
@@ -459,18 +484,16 @@ document.querySelectorAll('.group-btn').forEach(function(btn) {
 });
 
 // ==================== МОДЕЛИ ====================
-document.getElementById('modelStandardBtn').addEventListener('click', function() {
-    document.getElementById('modelStandardBtn').classList.add('active');
-    document.getElementById('modelPmBtn').classList.remove('active');
-    currentModel = 'standard';
-    loadAll();
-});
-document.getElementById('modelPmBtn').addEventListener('click', function() {
-    document.getElementById('modelPmBtn').classList.add('active');
-    document.getElementById('modelStandardBtn').classList.remove('active');
-    currentModel = 'pm';
-    loadAll();
-});
+currentModel = localStorage.getItem('model') === 'pm' ? 'pm' : 'standard';
+var modelToggle = document.getElementById('modelToggle');
+if (modelToggle) {
+    modelToggle.checked = currentModel === 'pm';
+    modelToggle.addEventListener('change', function() {
+        currentModel = modelToggle.checked ? 'pm' : 'standard';
+        localStorage.setItem('model', currentModel);
+        loadAll();
+    });
+}
 
 document.getElementById('refreshBtn').addEventListener('click', loadAll);
 

@@ -115,6 +115,18 @@ def get_weather_hourly(park_id: str, hours: int = 24):
     return [dict(r) for r in rows]
 
 
+def get_weather_hourly_range(park_id: str, since: str, until: str):
+    """Почасовые данные за период"""
+    conn = get_connection()
+    rows = conn.execute("""
+        SELECT * FROM weather_hourly
+        WHERE park_id = ? AND timestamp >= ? AND timestamp < ?
+        ORDER BY timestamp ASC
+    """, (park_id, since, until)).fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
+
 def count_weather_records(park_id: str) -> int:
     """Сколько записей погоды есть для парка"""
     conn = get_connection()

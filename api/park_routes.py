@@ -23,7 +23,220 @@ def get_reset_time_msk():
     reset_utc = reset_msk - timedelta(hours=3)
     return reset_utc
 
-# ===== ПОЛНЫЙ HTML-ШАБЛОН СТРАНИЦЫ ПАРКА =====
+# ===== HTML-ШАБЛОН СТРАНИЦЫ КАЛЕНДАРЯ =====
+CALENDAR_HTML_TEMPLATE = """<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes">
+    <title>{{ park_name }} — Календарь зелёных дней</title>
+    <link rel="stylesheet" href="/css/style.css">
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+    <script>
+    (function(){
+        var s = localStorage.getItem('theme');
+        if (s === 'light' || (!s && window.matchMedia('(prefers-color-scheme:light)').matches)) document.documentElement.classList.add('theme-light');
+    })();
+    </script>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { background: var(--bg-end); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; min-height: 100vh; }
+        .container { max-width: 800px; margin: 0 auto; padding: 20px; }
+        h1 { font-size: 1.5rem; margin-bottom: 4px; }
+        .subtitle { color: var(--text-muted); font-size: 0.9rem; margin-bottom: 20px; }
+        .nav { display: flex; align-items: center; justify-content: center; gap: 16px; margin-bottom: 20px; }
+        .nav button { background: rgba(74,144,226,0.15); border: 1px solid rgba(74,144,226,0.3); color: #74a8e2; padding: 8px 16px; border-radius: 20px; cursor: pointer; font-size: 1rem; }
+        .nav button:hover { background: rgba(74,144,226,0.25); }
+        .nav .month-label { font-size: 1.1rem; font-weight: 600; min-width: 120px; text-align: center; }
+        .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; max-width: 350px; margin: 0 auto; }
+        .day-cell { aspect-ratio: 1; border-radius: 4px; display: flex; align-items: center; justify-content: center; font-size: 0.7rem; cursor: pointer; position: relative; transition: transform 0.15s; }
+        .day-cell:hover { transform: scale(1.15); }
+        .day-cell.today { outline: 2px solid #f0c000; outline-offset: -2px; }
+        .day-cell.dry { background: #1a7f37; }
+        .day-cell.wet { background: #1f6feb; }
+        .day-cell.bog { background: #8b5e3c; }
+        .day-cell.no_data { background: #21262d; }
+        .day-header { color: #8b949e; font-size: 0.7rem; text-align: center; padding: 4px 0; }
+        .legend { display: flex; justify-content: center; gap: 12px; margin-top: 16px; flex-wrap: wrap; }
+        .legend-item { display: flex; align-items: center; gap: 4px; font-size: 0.75rem; color: #8b949e; }
+        .legend-swatch { width: 12px; height: 12px; border-radius: 3px; }
+        .tooltip { position: fixed; background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 10px 14px; font-size: 0.85rem; z-index: 100; box-shadow: 0 4px 20px rgba(0,0,0,0.4); max-width: 220px; display: none; }
+        .tooltip .date { font-weight: 600; margin-bottom: 4px; }
+        .tooltip .status { margin-top: 2px; }
+        .back-link { display: inline-block; margin-bottom: 16px; color: var(--accent); text-decoration: none; font-size: 0.9rem; }
+        .back-link:hover { text-decoration: underline; }
+        #loading { text-align: center; padding: 40px; color: var(--text-muted); }
+        @media (max-width: 400px) {
+            .calendar-grid { max-width: 280px; gap: 3px; }
+            .day-cell { font-size: 0.6rem; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container" style="position:relative;">
+        <button id="calendarThemeToggle" style="position:absolute; top:0; right:0; background:none; border:none; font-size:1.3rem; cursor:pointer; padding:4px 8px; line-height:1; color:var(--text);">🌙</button>
+        <a href="/park/{{ park_id }}" class="back-link">← {{ park_name }}</a>
+        <h1>📅 Календарь зелёных дней</h1>
+        <div class="subtitle">Состояние грунта на 23:00 МСК по дням</div>
+
+        <div class="nav">
+            <button id="prevMonth">←</button>
+            <span class="month-label" id="monthLabel"></span>
+            <button id="nextMonth">→</button>
+        </div>
+
+        <div id="loading">Загрузка...</div>
+
+        <div id="calendarWrap" style="display:none;">
+            <div class="calendar-grid" id="calendarGrid">
+                <div class="day-header">Пн</div>
+                <div class="day-header">Вт</div>
+                <div class="day-header">Ср</div>
+                <div class="day-header">Чт</div>
+                <div class="day-header">Пт</div>
+                <div class="day-header">Сб</div>
+                <div class="day-header">Вс</div>
+            </div>
+
+            <div class="legend">
+                <div class="legend-item"><div class="legend-swatch" style="background:#1a7f37;"></div> Сухо</div>
+                <div class="legend-item"><div class="legend-swatch" style="background:#1f6feb;"></div> Мокро</div>
+                <div class="legend-item"><div class="legend-swatch" style="background:#8b5e3c;"></div> Болото</div>
+                <div class="legend-item"><div class="legend-swatch" style="background:#21262d;"></div> Нет данных</div>
+            </div>
+        </div>
+
+        <div class="tooltip" id="tooltip"></div>
+    </div>
+
+    <script>
+    const parkId = "{{ park_id }}";
+    const today = new Date();
+    let currentYear = today.getFullYear();
+    let currentMonth = today.getMonth();
+    const monthNames = ["Январь","Февраль","Март","Апрель","Май","Июнь","Июль","Август","Сентябрь","Окторябрь","Ноябрь","Декабрь"];
+
+    function pad2(n) { return n.toString().padStart(2, '0'); }
+
+    function loadMonth(year, month) {
+        const monthStr = year + '-' + pad2(month + 1);
+        document.getElementById('monthLabel').textContent = monthNames[month] + ' ' + year;
+        document.getElementById('loading').style.display = 'block';
+        document.getElementById('calendarWrap').style.display = 'none';
+
+        fetch('/api/park/' + parkId + '/green-days?month=' + monthStr)
+            .then(r => r.json())
+            .then(data => {
+                renderCalendar(data, year, month);
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('calendarWrap').style.display = 'block';
+            })
+            .catch(err => {
+                document.getElementById('loading').textContent = 'Ошибка загрузки';
+            });
+    }
+
+    function renderCalendar(data, year, month) {
+        const grid = document.getElementById('calendarGrid');
+        const headers = grid.querySelectorAll('.day-header');
+        grid.innerHTML = '';
+        headers.forEach(h => grid.appendChild(h.cloneNode(true)));
+
+        const days = data.days || [];
+        const dayMap = {};
+        days.forEach(d => { dayMap[d.date] = d; });
+
+        const firstDay = new Date(year, month, 1);
+        let startDow = firstDay.getDay();
+        startDow = startDow === 0 ? 6 : startDow - 1;
+
+        for (let i = 0; i < startDow; i++) {
+            const empty = document.createElement('div');
+            empty.className = 'day-cell';
+            empty.style.visibility = 'hidden';
+            grid.appendChild(empty);
+        }
+
+        const daysInMonth = new Date(year, month + 1, 0).getDate();
+        const todayStr = today.getFullYear() + '-' + pad2(today.getMonth() + 1) + '-' + pad2(today.getDate());
+
+        for (let d = 1; d <= daysInMonth; d++) {
+            const key = year + '-' + pad2(month + 1) + '-' + pad2(d);
+            const dayData = dayMap[key];
+            const cell = document.createElement('div');
+            cell.className = 'day-cell';
+            if (key === todayStr) cell.classList.add('today');
+            if (!dayData || dayData.status === 'no_data') {
+                cell.classList.add('no_data');
+                cell.textContent = d;
+            } else {
+                cell.classList.add(dayData.status);
+                cell.textContent = d;
+            }
+            cell.dataset.key = key;
+            cell.addEventListener('click', function(e) { showTooltip(e, dayData, key); });
+            grid.appendChild(cell);
+        }
+    }
+
+    function showTooltip(event, dayData, key) {
+        const tip = document.getElementById('tooltip');
+        const dateStr = key.split('-').reverse().join('.');
+        let html = '<div class="date">' + dateStr + '</div>';
+        if (!dayData || dayData.status === 'no_data') {
+            html += '<div class="status">Нет данных</div>';
+        } else {
+            const labels = { dry: 'Сухо ✅', wet: 'Мокро 💧', bog: 'Болото 🟤' };
+            html += '<div class="status">' + (labels[dayData.status] || dayData.label) + '</div>';
+            if (dayData.W !== null && dayData.W !== undefined) {
+                html += '<div style="font-size:0.75rem; color:#8b949e; margin-top:2px;">W = ' + dayData.W.toFixed(3) + '</div>';
+            }
+        }
+        tip.innerHTML = html;
+        tip.style.display = 'block';
+        let x = event.clientX + 12;
+        let y = event.clientY + 8;
+        if (x + 230 > window.innerWidth) x = event.clientX - 230;
+        if (y + 100 > window.innerHeight) y = event.clientY - 100;
+        tip.style.left = x + 'px';
+        tip.style.top = y + 'px';
+    }
+
+    document.addEventListener('click', function(e) {
+        if (!e.target.closest('.day-cell')) {
+            document.getElementById('tooltip').style.display = 'none';
+        }
+    });
+
+    document.getElementById('prevMonth').addEventListener('click', function() {
+        currentMonth--;
+        if (currentMonth < 0) { currentMonth = 11; currentYear--; }
+        loadMonth(currentYear, currentMonth);
+    });
+
+    document.getElementById('nextMonth').addEventListener('click', function() {
+        currentMonth++;
+        if (currentMonth > 11) { currentMonth = 0; currentYear++; }
+        loadMonth(currentYear, currentMonth);
+    });
+
+    loadMonth(currentYear, currentMonth);
+
+    // theme toggle
+    var ctBtn = document.getElementById('calendarThemeToggle');
+    if (ctBtn) {
+        ctBtn.textContent = document.documentElement.classList.contains('theme-light') ? '☀️' : '🌙';
+        ctBtn.addEventListener('click', function() {
+            document.documentElement.classList.toggle('theme-light');
+            var isLight = document.documentElement.classList.contains('theme-light');
+            localStorage.setItem('theme', isLight ? 'light' : 'dark');
+            ctBtn.textContent = isLight ? '☀️' : '🌙';
+        });
+    }
+    </script>
+</body>
+</html>"""
+
 PARK_HTML_TEMPLATE = """
 <!DOCTYPE html>
 <html lang="ru">
@@ -46,11 +259,11 @@ PARK_HTML_TEMPLATE = """
     <meta property="og:locale" content="ru_RU">
     <style>
         .park-container { max-width: 800px; margin: 0 auto; padding: 20px; }
-        .back-link { margin-bottom: 20px; display: inline-block; color: #74a8e2; text-decoration: none; }
+        .back-link { margin-bottom: 20px; display: inline-block; color: var(--accent); text-decoration: none; }
         .back-link:hover { text-decoration: underline; }
-        .chart-box { margin: 20px 0; max-width: 100%; background: rgba(18,22,30,0.85); border: 1px solid rgba(74,144,226,0.2); border-radius: 14px; padding: 14px; }
+        .chart-box { margin: 20px 0; max-width: 100%; background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 14px; padding: 14px; }
         .chart-box canvas { max-height: 220px; width: 100% !important; }
-        .timer { font-size: 18px; color: #ccc; }
+        .timer { font-size: 18px; color: var(--text-muted); }
         .route-btn {
             display: inline-block;
             padding: 12px 24px;
@@ -114,11 +327,18 @@ PARK_HTML_TEMPLATE = """
             }
         }
     </style>
+    <script>
+    (function(){
+        var s = localStorage.getItem('theme');
+        if (s === 'light' || (!s && window.matchMedia('(prefers-color-scheme:light)').matches)) document.documentElement.classList.add('theme-light');
+    })();
+    </script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
 </head>
 <body>
-    <div class="park-container">
+    <div class="park-container" style="position:relative;">
+        <button id="parkThemeToggle" style="position:absolute; top:0; right:0; background:none; border:none; font-size:1.3rem; cursor:pointer; padding:4px 8px; line-height:1; color:var(--text);">🌙</button>
         <a href="/" class="back-link">← Назад к списку</a>
         <h1>{{ park_name }}</h1>
         <p>Координаты: {{ lat }}, {{ lon }}</p>
@@ -128,28 +348,32 @@ PARK_HTML_TEMPLATE = """
         <a href="https://yandex.ru/maps/?rtext=~{{ lat }},{{ lon }}&rtt=auto"
            target="_blank" class="route-btn">🗺️ Проложить маршрут (Яндекс)</a>
 
-        <div id="statusCard" style="background:rgba(18,22,30,0.85); border:1px solid rgba(74,144,226,0.25); border-radius:14px; padding:16px; margin:16px 0; text-align:center;">
-            <div style="font-size:0.8rem; color:#8899aa; margin-bottom:6px;">Состояние грунта по данным погоды</div>
+        <div id="statusCard" style="background:var(--card-bg); border:1px solid var(--card-border); border-radius:14px; padding:16px; margin:16px 0; text-align:center;">
+            <div style="font-size:0.8rem; color:var(--text-muted); margin-bottom:6px;">Состояние грунта по данным погоды</div>
             <div class="status-badge" id="soilStatus" style="font-size:26px; font-weight:700;">Загрузка...</div>
-            <div class="timer" id="dryTimer" style="font-size:15px; color:#94afcf; margin-top:4px;"></div>
+            <div class="timer" id="dryTimer" style="font-size:15px; color:var(--text-muted); margin-top:4px;"></div>
         </div>
         <div id="voteAvg"></div>
 
         <div class="forecast-box" id="forecastBox" style="display:none;">
             <h2 style="font-size:1.2rem; margin-bottom:10px;">🌤 Прогноз грунта</h2>
             <div id="forecastGrid"></div>
-            <div id="forecastBest" style="margin-top:10px; font-size:0.9rem; color:#a0b4cc; text-align:center;"></div>
-            <div style="margin-top:6px; font-size:0.75rem; color:#556677;">
-                <a href="/development" style="color:#556677;">Как это считается?</a>
+            <div id="forecastBest" style="margin-top:10px; font-size:0.9rem; color:var(--text-muted); text-align:center;"></div>
+            <div style="margin-top:6px; font-size:0.75rem; color:var(--text-muted);">
+                <a href="/development" style="color:var(--text-muted);">Как это считается?</a>
             </div>
         </div>
 
+        <div style="text-align:center; margin:16px 0;">
+            <a href="/park/{{ park_id }}/calendar" style="display:inline-block; padding:10px 20px; background:rgba(74,144,226,0.15); border:1px solid rgba(74,144,226,0.3); border-radius:28px; color:var(--accent); text-decoration:none; font-size:14px;">📅 Календарь зелёных дней</a>
+        </div>
+
         <div class="chart-box">
-            <h2 style="font-size:1rem; color:#eef5ff; margin-bottom:8px;">🌡 Температура за 7 дней</h2>
+            <h2 style="font-size:1rem; color:var(--text); margin-bottom:8px;">🌡 Температура за 7 дней</h2>
             <canvas id="tempChart" style="height:200px;"></canvas>
         </div>
         <div class="chart-box">
-            <h2 style="font-size:1rem; color:#eef5ff; margin-bottom:8px;">🌧 Осадки за 7 дней</h2>
+            <h2 style="font-size:1rem; color:var(--text); margin-bottom:8px;">🌧 Осадки за 7 дней</h2>
             <canvas id="rainChart" style="height:200px;"></canvas>
         </div>
 
@@ -157,36 +381,36 @@ PARK_HTML_TEMPLATE = """
             <h3>📸 Фотографии грунта</h3>
             <div id="photoUploadArea">
                 <div id="authMessage" style="display:none; color:#ff6b6b; padding:10px; background:rgba(255,0,0,0.1); border-radius:8px; margin-bottom:10px;">
-                    ⚠️ <a href="/login" style="color:#74a8e2;">Войдите</a>, чтобы загружать фото
+                    ⚠️ <a href="/login" style="color:var(--accent);">Войдите</a>, чтобы загружать фото
                 </div>
                 <form id="photoForm" enctype="multipart/form-data" style="display:none;">
                     <div style="margin-bottom:10px;">
                         <label style="display:block; margin-bottom:5px; font-weight:600;">Оцените состояние грунта:</label>
                         <div id="voteButtons" style="display:flex; gap:8px; flex-wrap:wrap; justify-content:center;">
-                            <button type="button" class="vote-btn" data-vote="1" style="padding:10px 14px; border:2px solid #555; border-radius:12px; background:transparent; color:white; font-size:14px; cursor:pointer; transition:all 0.2s; flex:1 0 60px;">
+                            <button type="button" class="vote-btn" data-vote="1" style="padding:10px 14px; border:2px solid var(--inline-border); border-radius:12px; background:transparent; color:var(--text); font-size:14px; cursor:pointer; transition:all 0.2s; flex:1 0 60px;">
                                 🌿 Болото
                             </button>
-                            <button type="button" class="vote-btn" data-vote="2" style="padding:10px 14px; border:2px solid #555; border-radius:12px; background:transparent; color:white; font-size:14px; cursor:pointer; transition:all 0.2s; flex:1 0 60px;">
+                            <button type="button" class="vote-btn" data-vote="2" style="padding:10px 14px; border:2px solid var(--inline-border); border-radius:12px; background:transparent; color:var(--text); font-size:14px; cursor:pointer; transition:all 0.2s; flex:1 0 60px;">
                                 💧 Мокро
                             </button>
-                            <button type="button" class="vote-btn" data-vote="3" style="padding:10px 14px; border:2px solid #555; border-radius:12px; background:transparent; color:white; font-size:14px; cursor:pointer; transition:all 0.2s; flex:1 0 60px;">
+                            <button type="button" class="vote-btn" data-vote="3" style="padding:10px 14px; border:2px solid var(--inline-border); border-radius:12px; background:transparent; color:var(--text); font-size:14px; cursor:pointer; transition:all 0.2s; flex:1 0 60px;">
                                 🌵 Альденте
                             </button>
-                            <button type="button" class="vote-btn" data-vote="4" style="padding:10px 14px; border:2px solid #555; border-radius:12px; background:transparent; color:white; font-size:14px; cursor:pointer; transition:all 0.2s; flex:1 0 60px;">
+                            <button type="button" class="vote-btn" data-vote="4" style="padding:10px 14px; border:2px solid var(--inline-border); border-radius:12px; background:transparent; color:var(--text); font-size:14px; cursor:pointer; transition:all 0.2s; flex:1 0 60px;">
                                 ✅ Сухо
                             </button>
-                            <button type="button" class="vote-btn" data-vote="5" style="padding:10px 14px; border:2px solid #555; border-radius:12px; background:transparent; color:white; font-size:14px; cursor:pointer; transition:all 0.2s; flex:1 0 60px;">
+                            <button type="button" class="vote-btn" data-vote="5" style="padding:10px 14px; border:2px solid var(--inline-border); border-radius:12px; background:transparent; color:var(--text); font-size:14px; cursor:pointer; transition:all 0.2s; flex:1 0 60px;">
                                 🪨 Бетон
                             </button>
                         </div>
                         <input type="hidden" id="selectedVote" value="">
                     </div>
                     <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
-                        <input type="file" id="photoFile" name="file" accept="image/*" style="flex:1; padding:8px; border:1px solid #555; border-radius:8px; background:#1a1e2b; color:white;">
+                        <input type="file" id="photoFile" name="file" accept="image/*" style="flex:1; padding:8px; border:1px solid var(--inline-input-border); border-radius:8px; background:var(--inline-input-bg); color:var(--text);">
                         <button type="submit" id="photoSubmitBtn" style="padding:12px 24px; background:#4caf50; color:white; border:none; border-radius:28px; font-weight:bold; cursor:pointer;">📤 Загрузить</button>
                     </div>
                     <div style="margin-top:8px;">
-                        <textarea id="photoComment" name="comment" placeholder="💬 Комментарий (необязательно)" style="width:100%; box-sizing:border-box; padding:8px; border:1px solid #555; border-radius:8px; background:#1a1e2b; color:white; font-family:inherit; font-size:13px; resize:vertical; min-height:40px; max-height:80px;"></textarea>
+                        <textarea id="photoComment" name="comment" placeholder="💬 Комментарий (необязательно)" style="width:100%; box-sizing:border-box; padding:8px; border:1px solid var(--inline-input-border); border-radius:8px; background:var(--inline-input-bg); color:var(--text); font-family:inherit; font-size:13px; resize:vertical; min-height:40px; max-height:80px;"></textarea>
                     </div>
                     <div id="uploadStatus" style="margin-top:8px; font-size:14px;"></div>
                 </form>
@@ -201,7 +425,7 @@ PARK_HTML_TEMPLATE = """
         <img id="lightboxImg" src="" style="max-width:95%; max-height:95%; object-fit:contain; border-radius:8px;">
     </div>
 
-    <script src="/js/park.js?v=2"></script>
+    <script src="/js/park.js?v=5"></script>
 </body>
 </html>
 """
@@ -681,20 +905,80 @@ async def upload_park_photo(park_id: str, request: Request, user=Depends(get_cur
     return {"ok": True, "filename": filename, "vote": vote, "comment": comment, "photo_id": photo_id}
 
 @router.get("/api/park/{park_id}/photos")
-async def get_park_photos(park_id: str):
+async def get_park_photos(park_id: str, limit: int = 10, offset: int = 0):
     park = get_park(park_id)
     if not park:
         return JSONResponse({"error": "Парк не найден"}, status_code=404)
     conn = get_connection()
     try:
+        total = conn.execute(
+            "SELECT COUNT(*) FROM park_photos WHERE park_id = ? AND status = 'approved'",
+            (park_id,)
+        ).fetchone()[0]
         rows = conn.execute("""
             SELECT p.id, p.filename, p.original_name, p.created_at, p.vote, p.comment, u.username
             FROM park_photos p
             LEFT JOIN users u ON p.user_id = u.id
             WHERE p.park_id = ? AND p.status = 'approved'
             ORDER BY p.created_at DESC
-            LIMIT 20
-        """, (park_id,)).fetchall()
-        return [dict(r) for r in rows]
+            LIMIT ? OFFSET ?
+        """, (park_id, limit, offset)).fetchall()
+        return {"photos": [dict(r) for r in rows], "total": total, "hasMore": offset + limit < total}
     finally:
         conn.close()
+
+
+@router.get("/api/park/{park_id}/green-days")
+async def get_green_days(park_id: str, month: str = None):
+    park = get_park(park_id)
+    if not park:
+        return JSONResponse({"error": "Парк не найден"}, status_code=404)
+
+    if not month:
+        now = datetime.now(MOSCOW_TZ)
+        month = now.strftime("%Y-%m")
+
+    from services.soil_calculator import calculate_green_days
+
+    year_s, month_s = month.split("-")
+    year, mon = int(year_s), int(month_s)
+    start_date = f"{month}-01"
+    import calendar as _cal
+    _, last_day = _cal.monthrange(year, mon)
+    end_date = f"{month}-{last_day}"
+
+    start_with_buffer = (
+        datetime(year, mon, 1, tzinfo=MOSCOW_TZ) - timedelta(days=14)
+    ).strftime("%Y-%m-%d")
+
+    conn = get_connection()
+    try:
+        rows = conn.execute("""
+            SELECT * FROM weather_hourly
+            WHERE park_id = ? AND timestamp >= ? AND timestamp < ?
+            ORDER BY timestamp ASC
+        """, (park_id, start_with_buffer, f"{end_date}T23:59:59")).fetchall()
+        all_data = [dict(r) for r in rows]
+    finally:
+        conn.close()
+
+    if not all_data:
+        return {"park_id": park_id, "month": month, "days": []}
+
+    days = calculate_green_days(park, all_data, month)
+    return {"park_id": park_id, "month": month, "days": days}
+
+
+@router.get("/park/{park_id}/calendar")
+async def park_calendar_page(park_id: str):
+    park = get_park(park_id)
+    if not park:
+        return HTMLResponse("<h1>Парк не найден</h1>", status_code=404)
+
+    now = datetime.now(MOSCOW_TZ)
+    current_month = now.strftime("%Y-%m")
+    park_name = park["name"]
+    park_id_esc = park_id
+
+    html = CALENDAR_HTML_TEMPLATE.replace("{{ park_name }}", park_name).replace("{{ park_id }}", park_id_esc).replace("{{ current_month }}", current_month)
+    return HTMLResponse(html)
