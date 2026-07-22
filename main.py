@@ -43,44 +43,45 @@ async def lifespan(app: FastAPI):
     print("  Где Держак? - init...")
     print("=" * 50)
     
-    # Инициализируем БД
-    from database.connection import init_db
-    init_db()
-    
-    # Переносим парки если нужно
-    from database.crud import seed_parks
-    seed_parks()
-    
-    # Применяем миграции
-    try:
-        from migrations.add_users_and_favorites import migrate as m1
-        m1()
-    except Exception as e:
-        print(f"Migration add_users skipped: {e}")
-    try:
-        from migrations.add_garage_tables import migrate as m2
-        m2()
-    except Exception as e:
-        print(f"Migration add_garage skipped: {e}")
-    
-    # Применяем калибровку парков
-    try:
-        from database.crud import apply_park_calibration
-        apply_park_calibration()
-    except Exception as e:
-        print(f"Calibration skipped: {e}")
+    import asyncio
+
+    # Инициализация БД и миграции в фоновом потоке (не блокируем event loop — бот должен стартовать сразу)
+    async def _run_init():
+        from database.connection import init_db
+        await asyncio.to_thread(init_db)
+        from database.crud import seed_parks
+        await asyncio.to_thread(seed_parks)
+        try:
+            from migrations.add_users_and_favorites import migrate as m1
+            await asyncio.to_thread(m1)
+        except Exception as e:
+            print(f"Migration add_users skipped: {e}")
+        try:
+            from migrations.add_garage_tables import migrate as m2
+            await asyncio.to_thread(m2)
+        except Exception as e:
+            print(f"Migration add_garage skipped: {e}")
+        try:
+            from database.crud import apply_park_calibration
+            await asyncio.to_thread(apply_park_calibration)
+        except Exception as e:
+            print(f"Calibration skipped: {e}")
+
+    init_task = asyncio.create_task(_run_init())
     
     # Запускаем планировщик обновлений в фоне
     import asyncio
-    from updater import run_updater
-    updater_task = asyncio.create_task(run_updater())
 
-    # Запускаем Telegram бота для модерации фото
+    # Запускаем Telegram бота ДО блокирующих операций, чтобы он успел закрыть старый коннект
+    telegram_task = None
     if _os.getenv("ENABLE_BOT", "true").lower() == "true":
         from telegram_bot import start_polling
         telegram_task = asyncio.create_task(start_polling())
-    else:
-        telegram_task = None
+        # Даём боту микросекунду, чтобы начать выполняться
+        await asyncio.sleep(0)
+
+    from updater import run_updater
+    updater_task = asyncio.create_task(run_updater())
     
     print("=" * 50)
     print("  Server ready")
@@ -91,12 +92,10 @@ async def lifespan(app: FastAPI):
     
     # Завершение
     updater_task.cancel()
-    
     try:
         await updater_task
     except asyncio.CancelledError:
         pass
-    print("Сервер остановлен")
 
     if telegram_task:
         telegram_task.cancel()
@@ -104,6 +103,14 @@ async def lifespan(app: FastAPI):
             await telegram_task
         except asyncio.CancelledError:
             pass
+
+    init_task.cancel()
+    try:
+        await init_task
+    except asyncio.CancelledError:
+        pass
+
+    print("Сервер остановлен")
 
 
 # Создаём приложение
