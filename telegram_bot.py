@@ -293,18 +293,25 @@ async def start_polling():
         logger.info("Closed previous Telegram polling connection")
     else:
         logger.warning(f"Telegram close result: {close_result}")
-    await asyncio.sleep(2)
-
-    await _api_call("sendMessage", {
-        "chat_id": ADMIN_CHAT_ID,
-        "text": f"\U0001f916 Бот модерации фото запущен {_ENV_TAG}"
-    })
 
     last_check = 0.0
+    notified = False
 
     try:
         while True:
             now = time.monotonic()
+
+            # Отправляем уведомление о старте при первой возможности (не блокируя polling)
+            if not notified:
+                notified = True
+                try:
+                    await _api_call("sendMessage", {
+                        "chat_id": ADMIN_CHAT_ID,
+                        "text": f"\U0001f916 Бот модерации фото запущен {_ENV_TAG}"
+                    })
+                except Exception:
+                    pass
+
             try:
                 if now - last_check > 30:
                     await check_pending_photos()
