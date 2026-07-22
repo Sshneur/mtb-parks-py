@@ -76,8 +76,11 @@ async def lifespan(app: FastAPI):
     updater_task = asyncio.create_task(run_updater())
 
     # Запускаем Telegram бота для модерации фото
-    from telegram_bot import start_polling
-    telegram_task = asyncio.create_task(start_polling())
+    if _os.getenv("ENABLE_BOT", "true").lower() == "true":
+        from telegram_bot import start_polling
+        telegram_task = asyncio.create_task(start_polling())
+    else:
+        telegram_task = None
     
     print("=" * 50)
     print("  Server ready")
@@ -95,11 +98,12 @@ async def lifespan(app: FastAPI):
         pass
     print("Сервер остановлен")
 
-    telegram_task.cancel()
-    try:
-        await telegram_task
-    except asyncio.CancelledError:
-        pass
+    if telegram_task:
+        telegram_task.cancel()
+        try:
+            await telegram_task
+        except asyncio.CancelledError:
+            pass
 
 
 # Создаём приложение
