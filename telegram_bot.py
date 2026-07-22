@@ -287,6 +287,14 @@ async def start_polling():
 
     logger.info("Starting Telegram bot polling...")
 
+    # Закрываем старый polling-коннект (другой сервер или упавший процесс)
+    close_result = await _api_call("close")
+    if close_result.get("ok"):
+        logger.info("Closed previous Telegram polling connection")
+    else:
+        logger.warning(f"Telegram close result: {close_result}")
+    await asyncio.sleep(2)
+
     await _api_call("sendMessage", {
         "chat_id": ADMIN_CHAT_ID,
         "text": f"\U0001f916 Бот модерации фото запущен {_ENV_TAG}"
