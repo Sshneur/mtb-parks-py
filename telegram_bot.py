@@ -341,6 +341,9 @@ async def start_polling():
                                 await handle_message(update["message"])
                         except Exception as e:
                             logger.error(f"Bot update handler error: {e}")
+                elif not result.get("ok") and result.get("error_code") == 409:
+                    logger.warning("409 Conflict — closing old connection and retrying")
+                    await _api_call("close")
             except Exception as e:
                 logger.error(f"Bot getUpdates error: {e}")
                 await asyncio.sleep(5)
