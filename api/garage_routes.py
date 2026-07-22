@@ -11,7 +11,7 @@ router = APIRouter()
 # Add new columns if missing (safe migration)
 try:
     c = get_connection()
-    for col in ['frame_material', 'tire_brand']:
+    for col in ['frame_material', 'tire_brand', 'shock_travel_mm']:
         c.execute(f"ALTER TABLE bikes ADD COLUMN {col} TEXT")
     c.commit()
     c.close()
@@ -21,7 +21,7 @@ except:
 class BikeFullCreate(BaseModel):
     name: str
     bike_type: str = 'mtb'
-    rider_weight_kg: float = 75
+    rider_weight_kg: Optional[float] = 75
     tire_type: str = 'mtb'
     tire_brand: Optional[str] = None
     frame_material: Optional[str] = None

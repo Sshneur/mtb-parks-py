@@ -193,7 +193,7 @@ def migrate():
     try:
         cursor = conn.cursor()
         cursor.executescript("""
-            ALTER TABLE bikes ADD COLUMN fork_travel_mm INTEGER;
+            ALTER TABLE bikes ADD COLUMN shock_travel_mm INTEGER;
         """)
     except Exception:
         pass

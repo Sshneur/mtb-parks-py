@@ -7,6 +7,7 @@ from datetime import datetime, timedelta, timezone
 from database.connection import get_connection
 from api.limiter import limiter
 from api.dependencies import get_current_user
+from typing import Optional
 import asyncio
 import os
 
@@ -193,12 +194,12 @@ async def get_user_stats(user=Depends(get_current_user)):
 
 class BikeCreate(BaseModel):
     name: str
-    rider_weight_kg: float = 75
+    rider_weight_kg: Optional[float] = 75
     tire_type: str = "mtb"
 
 class BikeUpdate(BaseModel):
     name: str = None
-    rider_weight_kg: float = None
+    rider_weight_kg: Optional[float] = None
     tire_type: str = None
 
 @router.get("/api/user/bikes")
