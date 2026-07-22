@@ -249,12 +249,12 @@ PARK_HTML_TEMPLATE = """
     <meta name="description" content="Состояние грунта на трассах {{ park_name }}: сухо, мокро, болото или бетон. Прогноз погоды, фото грунта, оценки райдеров.">
     <meta property="og:title" content="{{ park_name }} — Что с грунтом?">
     <meta property="og:description" content="Проверь состояние грунта в {{ park_name }}. Прогноз погоды, фото, оценки райдеров.">
-    <meta property="og:image" content="https://gripchek.ru/og-image.jpg">
-    <meta property="og:image:secure_url" content="https://gripchek.ru/og-image.jpg">
+    <meta property="og:image" content="https://gripcheck.ru/og-image.jpg">
+    <meta property="og:image:secure_url" content="https://gripcheck.ru/og-image.jpg">
     <meta property="og:image:type" content="image/jpeg">
     <meta property="og:image:width" content="1200">
     <meta property="og:image:height" content="630">
-    <meta property="og:url" content="https://gripchek.ru/park/{{ park_id }}">
+    <meta property="og:url" content="https://gripcheck.ru/park/{{ park_id }}">
     <meta property="og:type" content="website">
     <meta property="og:locale" content="ru_RU">
     <style>

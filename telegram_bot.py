@@ -16,7 +16,7 @@ _APP_ENV = os.getenv("APP_ENV", "development")
 _SERVER_ENV = "БОЕВОЙ" if _APP_ENV == "production" else "ТЕСТ"
 _ENV_TAG = "\U0001f6e1\ufe0f [БОЕВОЙ]" if _APP_ENV == "production" else "\U0001f527 [ТЕСТ]"
 
-BASE_URL = os.getenv("APP_URL", "https://gripchek.ru" if _APP_ENV == "production" else "http://localhost:8000")
+BASE_URL = os.getenv("APP_URL", "https://gripcheck.ru" if _APP_ENV == "production" else "http://localhost:8000")
 
 API_BASE = f"https://api.telegram.org/bot{BOT_TOKEN}"
 

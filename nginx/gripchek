@@ -1,6 +1,6 @@
 server {
     listen 80;
-    server_name gripchek.ru www.gripchek.ru;
+    server_name gripchek.ru www.gripchek.ru xn--80afdaebh7a3c.xn--p1ai www.xn--80afdaebh7a3c.xn--p1ai;
 
     client_max_body_size 10m;
 
