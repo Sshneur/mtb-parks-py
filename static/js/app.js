@@ -23,8 +23,22 @@ async function loadUser() {
             currentUser = await res.json();
             updateBurgerAuth();
             await updateLevelDisplay();
-        } else {
+            refreshToken();
+        } else if (res.status === 401) {
             logout();
+        }
+    } catch(e) {}
+}
+
+async function refreshToken() {
+    try {
+        const res = await fetch('/api/auth/refresh', { headers: { 'Authorization': 'Bearer ' + token } });
+        if (res.ok) {
+            const data = await res.json();
+            if (data.token && data.token !== token) {
+                token = data.token;
+                localStorage.setItem('token', token);
+            }
         }
     } catch(e) {}
 }

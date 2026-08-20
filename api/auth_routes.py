@@ -351,9 +351,25 @@ async def login(user: UserLogin, request: Request):
 
         token = jwt.encode(
             {"user_id": row["id"], "email": row["email"], "role": row["role"], "username": row["username"],
-             "exp": datetime.now(timezone.utc) + timedelta(days=7)},
+             "exp": datetime.now(timezone.utc) + timedelta(days=30)},
             SECRET_KEY, algorithm=ALGORITHM
         )
         return {"ok": True, "token": token, "role": row["role"]}
     finally:
         conn.close()
+
+@router.get("/api/auth/refresh")
+async def refresh_token(request: Request):
+    auth = request.headers.get("Authorization")
+    if not auth or not auth.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Требуется авторизация")
+    token = auth.split(" ")[1]
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+    except jwt.InvalidTokenError:
+        raise HTTPException(status_code=401, detail="Неверный токен")
+    exp = datetime.fromtimestamp(payload["exp"], tz=timezone.utc)
+    if datetime.now(timezone.utc) + timedelta(days=15) > exp:
+        payload["exp"] = datetime.now(timezone.utc) + timedelta(days=30)
+        token = jwt.encode(payload, SECRET_KEY, algorithm=ALGORITHM)
+    return {"ok": True, "token": token}

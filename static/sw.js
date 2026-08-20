@@ -1,5 +1,5 @@
-var CACHE_NAME = 'mtb-parks-v8';
-var API_CACHE = 'mtb-parks-api-v1';
+var CACHE_NAME = 'mtb-parks-__CACHE_VERSION__';
+var API_CACHE = 'mtb-parks-api-__CACHE_VERSION__';
 
 var SHELL_URLS = [
   '/', '/css/style.css', '/js/app.js', '/js/park.js',

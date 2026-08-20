@@ -1,7 +1,7 @@
 from fastapi import FastAPI, Request
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Response
 from dotenv import load_dotenv
 from contextlib import asynccontextmanager
 import uvicorn
@@ -454,6 +454,44 @@ async def development_page():
 @app.get("/profile", response_class=RedirectResponse)
 async def profile_page():
     return RedirectResponse(url="/garage")
+
+# ============================================================
+# SERVICE WORKER (с версией кеша = коммит git, чтобы не бампать вручную)
+# ============================================================
+import functools as _functools
+
+@_functools.lru_cache(maxsize=1)
+def _sw_version() -> str:
+    version = _os.getenv("APP_VERSION", "").strip()
+    if version:
+        return version
+    try:
+        import subprocess
+        commit = subprocess.run(
+            ["git", "rev-parse", "--short", "HEAD"],
+            capture_output=True, text=True, cwd=_os.path.dirname(__file__), timeout=3,
+        ).stdout.strip()
+        if commit:
+            return commit
+    except Exception:
+        pass
+    import hashlib
+    try:
+        with open(_os.path.join(_os.path.dirname(__file__), "static", "sw.js"), "rb") as f:
+            return hashlib.md5(f.read()).hexdigest()[:8]
+    except OSError:
+        return "dev"
+
+@app.get("/sw.js")
+async def service_worker():
+    sw_path = _os.path.join(_os.path.dirname(__file__), "static", "sw.js")
+    try:
+        with open(sw_path, "r", encoding="utf-8") as f:
+            content = f.read()
+    except OSError:
+        return Response("", media_type="application/javascript", status_code=404)
+    content = content.replace("__CACHE_VERSION__", _sw_version())
+    return Response(content, media_type="application/javascript")
 
 # ============================================================
 # РАЗДАЧА СТАТИКИ
