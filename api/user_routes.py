@@ -7,15 +7,12 @@ from datetime import datetime, timedelta, timezone
 from database.connection import get_connection
 from api.limiter import limiter
 from api.dependencies import get_current_user
+from config.security import JWT_SECRET as SECRET_KEY, ALGORITHM
 from typing import Optional
 import asyncio
-import os
 
 router = APIRouter()
 pwd_context = CryptContext(schemes=["sha256_crypt"], deprecated="auto")
-
-SECRET_KEY = os.getenv("JWT_SECRET", "supersecretkey123")
-ALGORITHM = "HS256"
 
 class UserRegister(BaseModel):
     email: EmailStr

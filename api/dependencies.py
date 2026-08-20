@@ -1,9 +1,6 @@
 from fastapi import Request, HTTPException
 from jose import jwt
-import os
-
-SECRET_KEY = os.getenv("JWT_SECRET", "supersecretkey123")
-ALGORITHM = "HS256"
+from config.security import JWT_SECRET as SECRET_KEY, ALGORITHM
 
 async def get_current_user(request: Request):
     """Извлекает пользователя из JWT токена в заголовке Authorization"""

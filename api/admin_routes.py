@@ -3,11 +3,9 @@ from fastapi.responses import HTMLResponse, JSONResponse
 from database.connection import get_connection
 from database.models import SOIL_COEFFICIENTS
 from jose import jwt
-import os
+from config.security import JWT_SECRET as SECRET_KEY, ALGORITHM
 
 router = APIRouter()
-SECRET_KEY = os.getenv("JWT_SECRET", "supersecretkey123")
-ALGORITHM = "HS256"
 
 def get_admin_user(request: Request):
     """Проверяет, что пользователь админ, и возвращает его данные"""
@@ -261,6 +259,15 @@ ADMIN_HTML = """
     <script>
         let token = localStorage.getItem('admin_token') || '';
 
+        function esc(s) {
+            return String(s)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+        }
+
         function switchTab(tab, btn) {
             document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
             document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
@@ -320,19 +327,19 @@ ADMIN_HTML = """
                 return;
             }
             let html = '';
-            html += '<div class="card"><b>Пользователи:</b> всего ' + data.users.total + ', новых за 7 дней: ' + data.users.new_7d + '</div>';
-            html += '<div class="card"><b>Запросы:</b> всего ' + data.requests.total + ', сегодня: ' + data.requests.today + '</div>';
+            html += '<div class="card"><b>Пользователи:</b> всего ' + esc(data.users.total) + ', новых за 7 дней: ' + esc(data.users.new_7d) + '</div>';
+            html += '<div class="card"><b>Запросы:</b> всего ' + esc(data.requests.total) + ', сегодня: ' + esc(data.requests.today) + '</div>';
 
             html += '<div class="card"><h3>Последние обновления погоды</h3><table><tr><th>Парк</th><th>Тип</th><th>Статус</th><th>Сообщение</th><th>Дата</th></tr>';
             for (const u of data.last_updates) {
-                html += '<tr><td>' + u.park_id + '</td><td>' + u.update_type + '</td><td>' + u.status + '</td><td>' + (u.message||'') + '</td><td>' + u.created_at + '</td></tr>';
+                html += '<tr><td>' + esc(u.park_id) + '</td><td>' + esc(u.update_type) + '</td><td>' + esc(u.status) + '</td><td>' + esc(u.message||'') + '</td><td>' + esc(u.created_at) + '</td></tr>';
             }
             html += '</table></div>';
 
             if (data.last_errors.length > 0) {
                 html += '<div class="card"><h3>Последние ошибки</h3><table><tr><th>Парк</th><th>Тип</th><th>Сообщение</th><th>Дата</th></tr>';
                 for (const e of data.last_errors) {
-                    html += '<tr><td>' + e.park_id + '</td><td>' + e.update_type + '</td><td>' + e.message + '</td><td>' + e.created_at + '</td></tr>';
+                    html += '<tr><td>' + esc(e.park_id) + '</td><td>' + esc(e.update_type) + '</td><td>' + esc(e.message) + '</td><td>' + esc(e.created_at) + '</td></tr>';
                 }
                 html += '</table></div>';
             }
@@ -349,14 +356,14 @@ ADMIN_HTML = """
                 for (const u of users) {
                     const isAdmin = u.role === 'admin';
                     html += `<tr>
-                        <td>${u.id}</td>
-                        <td>${u.email}</td>
-                        <td>${u.username || '—'}</td>
-                        <td>${u.role}</td>
-                        <td><strong>${u.photo_votes_count || 0}</strong></td>
+                        <td>${esc(u.id)}</td>
+                        <td>${esc(u.email)}</td>
+                        <td>${esc(u.username || '—')}</td>
+                        <td>${esc(u.role)}</td>
+                        <td><strong>${esc(u.photo_votes_count || 0)}</strong></td>
                         <td>`;
                     if (!isAdmin) {
-                        html += `<button class="promote-btn" onclick="promoteUser(${u.id})">⭐ Сделать админом</button>`;
+                        html += `<button class="promote-btn" onclick="promoteUser(${esc(u.id)})">⭐ Сделать админом</button>`;
                     } else {
                         html += `<span style="color:#4caf50;">✅ Админ</span>`;
                     }
@@ -390,18 +397,18 @@ ADMIN_HTML = """
             let html = '<div class="card"><h3>🏞️ Парки</h3><table><tr><th>ID</th><th>Название</th><th>Группа</th><th>Трасс</th><th>Грунт</th><th>Лес</th><th>Описание</th><th></th></tr>';
             for (const p of parks) {
                 html += `<tr>
-                    <td>${p.id}</td>
-                    <td><input type="text" id="name_${p.id}" value="${p.name}" style="width:120px;"></td>
-                    <td>${p.group_id}</td>
-                    <td><input type="number" id="trails_${p.id}" value="${p.trails_count || 0}" style="width:50px;"></td>
+                    <td>${esc(p.id)}</td>
+                    <td><input type="text" id="name_${esc(p.id)}" value="${esc(p.name)}" style="width:120px;"></td>
+                    <td>${esc(p.group_id)}</td>
+                    <td><input type="number" id="trails_${esc(p.id)}" value="${esc(p.trails_count || 0)}" style="width:50px;"></td>
                     <td>
-                        <select id="soil_${p.id}">
-                            ${p.soil_options.map(s => `<option value="${s}" ${s === p.soil_type ? 'selected' : ''}>${s}</option>`).join('')}
+                        <select id="soil_${esc(p.id)}">
+                            ${p.soil_options.map(s => `<option value="${esc(s)}" ${s === p.soil_type ? 'selected' : ''}>${esc(s)}</option>`).join('')}
                         </select>
                     </td>
-                    <td><input type="number" id="forest_${p.id}" value="${p.forest_coef}" step="0.05" min="0" max="1" style="width:60px;"></td>
-                    <td><input type="text" id="desc_${p.id}" value="${(p.description || '').replace(/"/g,'&quot;')}" style="width:160px;"></td>
-                    <td><button onclick="savePark('${p.id}')" style="background:#4caf50; color:white; padding:6px 12px; border:none; border-radius:6px;">💾</button></td>
+                    <td><input type="number" id="forest_${esc(p.id)}" value="${esc(p.forest_coef)}" step="0.05" min="0" max="1" style="width:60px;"></td>
+                    <td><input type="text" id="desc_${esc(p.id)}" value="${esc(p.description || '')}" style="width:160px;"></td>
+                    <td><button onclick="savePark('${esc(p.id)}')" style="background:#4caf50; color:white; padding:6px 12px; border:none; border-radius:6px;">💾</button></td>
                 </tr>`;
             }
             html += '</table></div>';
@@ -438,14 +445,14 @@ ADMIN_HTML = """
                 } else {
                     for (const p of photos) {
                         html += `<div class="photo-item">
-                            <img src="/photos/${p.park_id}/${p.filename}" style="width:100px; height:100px; object-fit:cover; border-radius:8px;">
+                            <img src="/photos/${esc(p.park_id)}/${esc(p.filename)}" style="width:100px; height:100px; object-fit:cover; border-radius:8px;">
                             <div>
-                                <b>Парк: ${p.park_id}</b><br>
-                                <small>${p.original_name} (${p.created_at})</small>
-                                ${p.comment ? `<br><span style="font-size:13px; color:#aaa;">💬 ${p.comment}</span>` : ''}
+                                <b>Парк: ${esc(p.park_id)}</b><br>
+                                <small>${esc(p.original_name)} (${esc(p.created_at)})</small>
+                                ${p.comment ? `<br><span style="font-size:13px; color:#aaa;">💬 ${esc(p.comment)}</span>` : ''}
                             </div>
-                            <button class="approve-btn" onclick="approvePhoto(${p.id})">✅ Одобрить</button>
-                            <button class="reject-btn" onclick="rejectPhoto(${p.id})">❌ Отклонить</button>
+                            <button class="approve-btn" onclick="approvePhoto(${esc(p.id)})">✅ Одобрить</button>
+                            <button class="reject-btn" onclick="rejectPhoto(${esc(p.id)})">❌ Отклонить</button>
                         </div>`;
                     }
                 }

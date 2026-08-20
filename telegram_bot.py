@@ -9,9 +9,9 @@ from database.connection import get_connection
 
 logger = logging.getLogger(__name__)
 
-BOT_TOKEN = os.getenv("TG_BOT_TOKEN", "8914335979:AAGR6RtUUehzFBD4WJX545j-ZGvEMLrSN3g")
-ADMIN_CHAT_ID = int(os.getenv("TG_ADMIN_ID", "178239778"))
-PROXY_URL = os.getenv("PROXY_URL", "socks5://proxyuser:Gkj[fzGjujlfv1@185.244.194.86:1080")
+BOT_TOKEN = os.getenv("TG_BOT_TOKEN")
+ADMIN_CHAT_ID = os.getenv("TG_ADMIN_ID")
+PROXY_URL = os.getenv("PROXY_URL")
 _APP_ENV = os.getenv("APP_ENV", "development")
 _SERVER_ENV = "БОЕВОЙ" if _APP_ENV == "production" else "ТЕСТ"
 _ENV_TAG = "\U0001f6e1\ufe0f [БОЕВОЙ]" if _APP_ENV == "production" else "\U0001f527 [ТЕСТ]"
@@ -283,7 +283,15 @@ async def handle_callback(callback):
 
 
 async def start_polling():
-    global _offset
+    global _offset, ADMIN_CHAT_ID
+
+    if not BOT_TOKEN or not ADMIN_CHAT_ID or not PROXY_URL:
+        logger.error(
+            "Бот не запущен: задайте TG_BOT_TOKEN, TG_ADMIN_ID и PROXY_URL в переменных окружения"
+        )
+        return
+
+    ADMIN_CHAT_ID = int(ADMIN_CHAT_ID)
 
     logger.info("Starting Telegram bot polling...")
 

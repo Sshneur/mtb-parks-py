@@ -1,10 +1,7 @@
 from fastapi import Request
 from database.connection import get_connection
 from jose import jwt
-import os
-
-SECRET_KEY = os.getenv("JWT_SECRET", "supersecretkey123")
-ALGORITHM = "HS256"
+from config.security import JWT_SECRET as SECRET_KEY, ALGORITHM
 
 async def log_request(request: Request, call_next):
     # Попытаемся извлечь user_id из токена
