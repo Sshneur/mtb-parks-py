@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import HTMLResponse, JSONResponse
 from pydantic import BaseModel, EmailStr, field_validator
-from jose import jwt
+import jwt
 from datetime import datetime, timedelta, timezone
 from database.connection import get_connection
 from api.limiter import limiter

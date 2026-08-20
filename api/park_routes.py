@@ -966,8 +966,13 @@ async def get_green_days(park_id: str, month: str = None):
 
     from services.soil_calculator import calculate_green_days
 
-    year_s, month_s = month.split("-")
-    year, mon = int(year_s), int(month_s)
+    try:
+        year_s, month_s = month.split("-")
+        year, mon = int(year_s), int(month_s)
+        if mon < 1 or mon > 12:
+            raise ValueError
+    except (ValueError, TypeError):
+        return JSONResponse({"error": "Некорректный формат месяца"}, status_code=400)
     start_date = f"{month}-01"
     import calendar as _cal
     _, last_day = _cal.monthrange(year, mon)

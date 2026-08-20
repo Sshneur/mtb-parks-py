@@ -5,6 +5,9 @@ from database.connection import get_connection
 from api.dependencies import get_current_user
 from pydantic import BaseModel
 from typing import Optional
+import logging
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -15,8 +18,8 @@ try:
         c.execute(f"ALTER TABLE bikes ADD COLUMN {col} TEXT")
     c.commit()
     c.close()
-except:
-    pass
+except Exception as e:
+    logger.error(f"Миграция колонок bikes пропущена: {e}")
 
 class BikeFullCreate(BaseModel):
     name: str

@@ -1,6 +1,6 @@
 from fastapi import Request
 from database.connection import get_connection
-from jose import jwt
+import jwt
 from config.security import JWT_SECRET as SECRET_KEY, ALGORITHM
 import asyncio
 import logging

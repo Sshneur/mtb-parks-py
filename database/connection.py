@@ -1,5 +1,8 @@
 import sqlite3
 import os
+import logging
+
+logger = logging.getLogger(__name__)
 
 DB_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data", "weather.db")
 
@@ -119,75 +122,28 @@ def init_db():
     """)
 
     # Добавляем новые колонки, если их ещё нет
-    try:
-        cursor.execute("ALTER TABLE weather_hourly ADD COLUMN relative_humidity REAL")
-    except sqlite3.OperationalError:
-        pass
+    def _add_column(sql):
+        try:
+            cursor.execute(sql)
+        except sqlite3.OperationalError:
+            pass
+        except Exception as e:
+            logger.warning(f"Миграция колонки пропущена: {e}")
 
-    try:
-        cursor.execute("ALTER TABLE weather_hourly ADD COLUMN surface_pressure REAL")
-    except sqlite3.OperationalError:
-        pass
-
-    try:
-        cursor.execute("ALTER TABLE users ADD COLUMN failed_attempts INTEGER DEFAULT 0")
-    except sqlite3.OperationalError:
-        pass
-
-    try:
-        cursor.execute("ALTER TABLE users ADD COLUMN locked_until TEXT")
-    except sqlite3.OperationalError:
-        pass
-
-    try:
-        cursor.execute("ALTER TABLE users ADD COLUMN username TEXT")
-    except sqlite3.OperationalError:
-        pass
-
-    try:
-        cursor.execute("ALTER TABLE park_photos ADD COLUMN vote INTEGER")
-    except sqlite3.OperationalError:
-        pass
-
-    try:
-        cursor.execute("ALTER TABLE users ADD COLUMN photo_votes_count INTEGER DEFAULT 0")
-    except sqlite3.OperationalError:
-        pass
-
-    try:
-        cursor.execute("ALTER TABLE weather_daily ADD COLUMN weather_code INTEGER")
-    except sqlite3.OperationalError:
-        pass
-
-    try:
-        cursor.execute("ALTER TABLE park_photos ADD COLUMN comment TEXT DEFAULT ''")
-    except sqlite3.OperationalError:
-        pass
-
-    try:
-        cursor.execute("ALTER TABLE parks ADD COLUMN description TEXT DEFAULT ''")
-    except sqlite3.OperationalError:
-        pass
-
-    try:
-        cursor.execute("ALTER TABLE parks ADD COLUMN trails_count INTEGER DEFAULT 0")
-    except sqlite3.OperationalError:
-        pass
-
-    try:
-        cursor.execute("ALTER TABLE parks ADD COLUMN dry_hours_default INTEGER DEFAULT 72")
-    except sqlite3.OperationalError:
-        pass
-
-    try:
-        cursor.execute("ALTER TABLE parks ADD COLUMN evaporation_rate REAL DEFAULT 0.001")
-    except sqlite3.OperationalError:
-        pass
-
-    try:
-        cursor.execute("ALTER TABLE users ADD COLUMN avatar TEXT")
-    except sqlite3.OperationalError:
-        pass
+    _add_column("ALTER TABLE weather_hourly ADD COLUMN relative_humidity REAL")
+    _add_column("ALTER TABLE weather_hourly ADD COLUMN surface_pressure REAL")
+    _add_column("ALTER TABLE users ADD COLUMN failed_attempts INTEGER DEFAULT 0")
+    _add_column("ALTER TABLE users ADD COLUMN locked_until TEXT")
+    _add_column("ALTER TABLE users ADD COLUMN username TEXT")
+    _add_column("ALTER TABLE park_photos ADD COLUMN vote INTEGER")
+    _add_column("ALTER TABLE users ADD COLUMN photo_votes_count INTEGER DEFAULT 0")
+    _add_column("ALTER TABLE weather_daily ADD COLUMN weather_code INTEGER")
+    _add_column("ALTER TABLE park_photos ADD COLUMN comment TEXT DEFAULT ''")
+    _add_column("ALTER TABLE parks ADD COLUMN description TEXT DEFAULT ''")
+    _add_column("ALTER TABLE parks ADD COLUMN trails_count INTEGER DEFAULT 0")
+    _add_column("ALTER TABLE parks ADD COLUMN dry_hours_default INTEGER DEFAULT 72")
+    _add_column("ALTER TABLE parks ADD COLUMN evaporation_rate REAL DEFAULT 0.001")
+    _add_column("ALTER TABLE users ADD COLUMN avatar TEXT")
 
     # Обновляем description и trails_count для существующих парков
     from database.models import PARKS as PARKS_DATA

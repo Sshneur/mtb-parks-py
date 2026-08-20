@@ -1,5 +1,5 @@
 from fastapi import Request, HTTPException
-from jose import jwt
+import jwt
 from database.connection import get_connection
 from config.security import JWT_SECRET as SECRET_KEY, ALGORITHM
 
@@ -11,7 +11,7 @@ async def get_current_user(request: Request):
     token = auth.split(" ")[1]
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-    except jwt.JWTError:
+    except jwt.InvalidTokenError:
         raise HTTPException(status_code=401, detail="Неверный токен")
     conn = get_connection()
     try:

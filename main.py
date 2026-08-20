@@ -45,27 +45,32 @@ async def lifespan(app: FastAPI):
     
     import asyncio
 
+    init_event = asyncio.Event()
+
     # Инициализация БД и миграции в фоновом потоке (не блокируем event loop — бот должен стартовать сразу)
     async def _run_init():
-        from database.connection import init_db
-        await asyncio.to_thread(init_db)
-        from database.crud import seed_parks
-        await asyncio.to_thread(seed_parks)
         try:
-            from migrations.add_users_and_favorites import migrate as m1
-            await asyncio.to_thread(m1)
-        except Exception as e:
-            print(f"Migration add_users skipped: {e}")
-        try:
-            from migrations.add_garage_tables import migrate as m2
-            await asyncio.to_thread(m2)
-        except Exception as e:
-            print(f"Migration add_garage skipped: {e}")
-        try:
-            from database.crud import apply_park_calibration
-            await asyncio.to_thread(apply_park_calibration)
-        except Exception as e:
-            print(f"Calibration skipped: {e}")
+            from database.connection import init_db
+            await asyncio.to_thread(init_db)
+            from database.crud import seed_parks
+            await asyncio.to_thread(seed_parks)
+            try:
+                from migrations.add_users_and_favorites import migrate as m1
+                await asyncio.to_thread(m1)
+            except Exception as e:
+                print(f"Migration add_users skipped: {e}")
+            try:
+                from migrations.add_garage_tables import migrate as m2
+                await asyncio.to_thread(m2)
+            except Exception as e:
+                print(f"Migration add_garage skipped: {e}")
+            try:
+                from database.crud import apply_park_calibration
+                await asyncio.to_thread(apply_park_calibration)
+            except Exception as e:
+                print(f"Calibration skipped: {e}")
+        finally:
+            init_event.set()
 
     init_task = asyncio.create_task(_run_init())
     
@@ -87,7 +92,9 @@ async def lifespan(app: FastAPI):
     print("  Server ready")
     print("  http://localhost:8000")
     print("=" * 50)
-    
+
+    await init_event.wait()
+
     yield  # Сервер работает
     
     # Завершение

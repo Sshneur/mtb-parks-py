@@ -33,7 +33,10 @@ self.addEventListener('activate', function(event) {
 self.addEventListener('fetch', function(event) {
   var url = new URL(event.request.url);
   if (url.pathname.startsWith('/api/')) {
-    if (event.request.method === 'GET') {
+    var personal = url.pathname.startsWith('/api/user/') ||
+                   url.pathname.startsWith('/api/vote/my') ||
+                   url.pathname.startsWith('/api/admin/');
+    if (event.request.method === 'GET' && !personal) {
       event.respondWith(networkFirst(event.request));
     }
     return;
