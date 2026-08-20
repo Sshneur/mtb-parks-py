@@ -129,11 +129,20 @@ async def rate_limit_handler(request: Request, exc: RateLimitExceeded):
     return JSONResponse(status_code=429, content={"detail": "Слишком много запросов. Подождите."})
 
 # CORS
+ALLOWED_ORIGINS = [
+    o.strip()
+    for o in _os.getenv(
+        "ALLOWED_ORIGINS",
+        "https://gripcheck.ru,https://xn--80afdaebh7a3c.xn--p1ai,http://localhost:8000",
+    ).split(",")
+    if o.strip()
+]
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_origins=ALLOWED_ORIGINS,
+    allow_credentials=False,
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type"],
 )
 
 # Middleware для логирования всех запросов (из middleware.py)

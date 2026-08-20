@@ -8,11 +8,15 @@ from database.connection import get_connection
 from api.limiter import limiter
 from api.dependencies import get_current_user
 from config.security import JWT_SECRET as SECRET_KEY, ALGORITHM
+from api.auth_routes import hash_password, verify_password
 from typing import Optional
 import asyncio
+import os
+import logging
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
-pwd_context = CryptContext(schemes=["sha256_crypt"], deprecated="auto")
 
 class UserRegister(BaseModel):
     email: EmailStr
@@ -45,7 +49,7 @@ async def register(user: UserRegister):
         username_exists = conn.execute("SELECT id FROM users WHERE username = ?", (user.username,)).fetchone()
         if username_exists:
             raise HTTPException(status_code=400, detail="Этот ник уже занят")
-        hashed = pwd_context.hash(user.password)
+        hashed = hash_password(user.password)
         conn.execute(
             "INSERT INTO users (email, password_hash, username) VALUES (?, ?, ?)",
             (user.email, hashed, user.username)
@@ -70,7 +74,8 @@ async def login(user: UserLogin, request: Request):
             locked_until = datetime.fromisoformat(row["locked_until"])
             if datetime.now(timezone.utc) < locked_until:
                 raise HTTPException(status_code=403, detail="Аккаунт временно заблокирован. Попробуйте позже.")
-        if not pwd_context.verify(user.password, row["password_hash"]):
+        verified, _ = verify_password(user.password, row["password_hash"])
+        if not verified:
             new_attempts = row["failed_attempts"] + 1
             if new_attempts >= 5:
                 lock_time = datetime.now(timezone.utc) + timedelta(minutes=15)
@@ -292,30 +297,47 @@ async def get_profile(user=Depends(get_current_user)):
 
 @router.post("/api/user/avatar")
 async def upload_avatar(request: Request, user=Depends(get_current_user)):
-    import base64, uuid
+    import uuid
+    from api.upload_utils import parse_file, check_upload_limit, ALLOWED_EXT
+
     body = await request.json()
     file_data = body.get("file", "")
-    if not file_data or "," not in file_data:
-        return JSONResponse({"error": "Файл не найден"}, status_code=400)
-    header, encoded = file_data.split(",", 1)
-    file_bytes = base64.b64decode(encoded)
-    filename = f"avatar_{user['user_id']}_{uuid.uuid4().hex[:6]}.jpg"
+    file_bytes, ext, error = parse_file(file_data)
+    if error:
+        status = 413 if "слишком большой" in error else 400
+        return JSONResponse({"error": error}, status_code=status)
+    if not check_upload_limit(user["user_id"]):
+        return JSONResponse({"error": "Лимит: не более 10 загрузок в час"}, status_code=429)
+    filename = f"avatar_{user['user_id']}_{uuid.uuid4().hex[:6]}.{ext}"
     base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     filepath = os.path.join(base_dir, "data", "photos", "avatars", filename)
     os.makedirs(os.path.dirname(filepath), exist_ok=True)
-    with open(filepath, "wb") as f:
-        f.write(file_bytes)
+    try:
+        with open(filepath, "wb") as f:
+            f.write(file_bytes)
+    except Exception as e:
+        logger.error(f"Ошибка записи аватара {filename}: {e}")
+        return JSONResponse({"error": "Внутренняя ошибка"}, status_code=500)
     conn = get_connection()
     try:
         conn.execute("UPDATE users SET avatar = ? WHERE id = ?", (f"/photos/avatars/{filename}", user["user_id"]))
         conn.commit()
+    except Exception as e:
+        logger.error(f"Ошибка сохранения аватара {filename} в БД: {e}")
+        try:
+            os.remove(filepath)
+        except OSError:
+            pass
+        return JSONResponse({"error": "Внутренняя ошибка"}, status_code=500)
     finally:
         conn.close()
     return {"ok": True, "url": f"/photos/avatars/{filename}"}
 
 @router.post("/api/user/bikes/{bike_id}/photo")
 async def upload_bike_photo(bike_id: int, request: Request, user=Depends(get_current_user)):
-    import base64, uuid
+    import uuid
+    from api.upload_utils import parse_file, check_upload_limit
+
     conn = get_connection()
     try:
         bike = conn.execute("SELECT id FROM bikes WHERE id = ? AND user_id = ?", (bike_id, user["user_id"])).fetchone()
@@ -323,18 +345,32 @@ async def upload_bike_photo(bike_id: int, request: Request, user=Depends(get_cur
             raise HTTPException(status_code=404, detail="Байк не найден")
         body = await request.json()
         file_data = body.get("file", "")
-        if not file_data or "," not in file_data:
-            return JSONResponse({"error": "Файл не найден"}, status_code=400)
-        header, encoded = file_data.split(",", 1)
-        file_bytes = base64.b64decode(encoded)
-        filename = f"bike_{bike_id}_{uuid.uuid4().hex[:6]}.jpg"
+        file_bytes, ext, error = parse_file(file_data)
+        if error:
+            status = 413 if "слишком большой" in error else 400
+            return JSONResponse({"error": error}, status_code=status)
+        if not check_upload_limit(user["user_id"]):
+            return JSONResponse({"error": "Лимит: не более 10 загрузок в час"}, status_code=429)
+        filename = f"bike_{bike_id}_{uuid.uuid4().hex[:6]}.{ext}"
         base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         filepath = os.path.join(base_dir, "data", "photos", "bikes", filename)
         os.makedirs(os.path.dirname(filepath), exist_ok=True)
-        with open(filepath, "wb") as f:
-            f.write(file_bytes)
-        conn.execute("UPDATE bikes SET photo = ? WHERE id = ?", (f"/photos/bikes/{filename}", bike_id))
-        conn.commit()
+        try:
+            with open(filepath, "wb") as f:
+                f.write(file_bytes)
+        except Exception as e:
+            logger.error(f"Ошибка записи фото байка {filename}: {e}")
+            return JSONResponse({"error": "Внутренняя ошибка"}, status_code=500)
+        try:
+            conn.execute("UPDATE bikes SET photo = ? WHERE id = ?", (f"/photos/bikes/{filename}", bike_id))
+            conn.commit()
+        except Exception as e:
+            logger.error(f"Ошибка сохранения фото байка {filename} в БД: {e}")
+            try:
+                os.remove(filepath)
+            except OSError:
+                pass
+            return JSONResponse({"error": "Внутренняя ошибка"}, status_code=500)
         return {"ok": True, "url": f"/photos/bikes/{filename}"}
     finally:
         conn.close()

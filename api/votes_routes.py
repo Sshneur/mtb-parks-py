@@ -44,7 +44,7 @@ async def vote(park_id: str, req: VoteRequest, user=Depends(get_current_user)):
         return {"ok": True, "new_avg": round(row["avg"], 2) if row["avg"] else None, "vote_count": row["cnt"] or 0}
     except Exception as e:
         logger.error(f"Ошибка голосования: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Внутренняя ошибка")
     finally:
         conn.close()
 
@@ -107,7 +107,7 @@ async def get_votes(group_id: Optional[str] = None):
         return result
     except Exception as e:
         logger.error(f"Ошибка в /api/votes: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Внутренняя ошибка")
     finally:
         conn.close()
 

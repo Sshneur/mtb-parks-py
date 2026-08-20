@@ -4,6 +4,10 @@ from database.connection import get_connection
 from database.models import SOIL_COEFFICIENTS
 from jose import jwt
 from config.security import JWT_SECRET as SECRET_KEY, ALGORITHM
+import os
+import logging
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -15,11 +19,18 @@ def get_admin_user(request: Request):
     token = auth.split(" ")[1]
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        if payload.get("role") != "admin":
-            raise HTTPException(status_code=403, detail="Доступ запрещён")
-        return payload
     except jwt.JWTError:
         raise HTTPException(status_code=401, detail="Неверный токен")
+    conn = get_connection()
+    try:
+        row = conn.execute(
+            "SELECT role FROM users WHERE id = ?", (payload.get("user_id"),)
+        ).fetchone()
+    finally:
+        conn.close()
+    if not row or row["role"] != "admin":
+        raise HTTPException(status_code=403, detail="Доступ запрещён")
+    return payload
 
 @router.get("/api/admin/metrics")
 async def get_metrics(user=Depends(get_admin_user)):
@@ -109,11 +120,22 @@ async def approve_photo(photo_id: int, user=Depends(get_admin_user)):
 
 @router.post("/api/admin/photos/{photo_id}/reject")
 async def reject_photo(photo_id: int, user=Depends(get_admin_user)):
-    """Отклоняет фото"""
+    """Отклоняет фото и удаляет файл с диска"""
     conn = get_connection()
     try:
+        photo = conn.execute(
+            "SELECT park_id, filename FROM park_photos WHERE id = ?", (photo_id,)
+        ).fetchone()
+        if not photo:
+            raise HTTPException(status_code=404, detail="Фото не найдено")
         conn.execute("UPDATE park_photos SET status = 'rejected' WHERE id = ?", (photo_id,))
         conn.commit()
+        base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        filepath = os.path.join(base_dir, "data", "photos", photo["park_id"], photo["filename"])
+        try:
+            os.remove(filepath)
+        except OSError as e:
+            logger.error(f"Не удалось удалить файл {filepath}: {e}")
         return {"ok": True}
     finally:
         conn.close()

@@ -4,6 +4,9 @@ from database.crud import get_parks_by_group
 from services.penman_monteith import calc_pm_evaporation
 from services.soil_calculator import get_soil_status
 from api.utils import parse_time, to_msk, weather_code
+import logging
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -220,6 +223,5 @@ async def get_weather_pm(group_id: str):
 
         return results
     except Exception as e:
-        import traceback
-        traceback.print_exc()
-        return {"error": str(e), "traceback": traceback.format_exc()}
+        logger.error(f"Ошибка в /api/pm/forecast: {e}", exc_info=True)
+        return {"error": "Внутренняя ошибка"}

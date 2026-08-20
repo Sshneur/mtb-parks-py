@@ -1,21 +1,75 @@
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import HTMLResponse, JSONResponse
-from pydantic import BaseModel, EmailStr
-from passlib.context import CryptContext
+from pydantic import BaseModel, EmailStr, field_validator
 from jose import jwt
 from datetime import datetime, timedelta, timezone
 from database.connection import get_connection
 from api.limiter import limiter
 from config.security import JWT_SECRET as SECRET_KEY, ALGORITHM
 import asyncio
+import bcrypt
+from passlib.hash import sha256_crypt
+import logging
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
-pwd_context = CryptContext(schemes=["sha256_crypt"], deprecated="auto")
+
+
+def hash_password(password: str) -> str:
+    return bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
+
+
+def verify_password(password: str, password_hash: str):
+    try:
+        if bcrypt.checkpw(password.encode(), password_hash.encode()):
+            return True, False
+    except ValueError:
+        pass
+    try:
+        if sha256_crypt.verify(password, password_hash):
+            return True, True
+    except Exception as e:
+        logger.error(f"Ошибка проверки старого хеша: {e}")
+    return False, False
+
+
+_login_failures: dict[str, list[float]] = {}
+
+
+def _ip_key(request: Request) -> str:
+    forwarded = request.headers.get("X-Forwarded-For")
+    if forwarded:
+        return forwarded.split(",")[0].strip()
+    return request.client.host if request.client else "unknown"
+
+
+def _ip_blocked(ip: str) -> bool:
+    now = datetime.now(timezone.utc).timestamp()
+    failures = [t for t in _login_failures.get(ip, []) if now - t < 900]
+    _login_failures[ip] = failures
+    return len(failures) >= 10
+
+
+def _record_failure(ip: str):
+    _login_failures.setdefault(ip, []).append(datetime.now(timezone.utc).timestamp())
+
+
+def _clear_failures(ip: str):
+    _login_failures.pop(ip, None)
+
 
 class UserRegister(BaseModel):
     email: EmailStr
     password: str
     username: str
+
+    @field_validator("password")
+    @classmethod
+    def password_min_length(cls, v: str) -> str:
+        if len(v) < 8:
+            raise ValueError("Пароль должен быть не короче 8 символов")
+        return v
 
 class UserLogin(BaseModel):
     email: EmailStr
@@ -234,7 +288,8 @@ async def login_page():
     return HTMLResponse(content=LOGIN_HTML)
 
 @router.post("/api/auth/register")
-async def register(user: UserRegister):
+@limiter.limit("10/hour")
+async def register(user: UserRegister, request: Request):
     conn = get_connection()
     try:
         exists = conn.execute("SELECT id FROM users WHERE email = ?", (user.email,)).fetchone()
@@ -244,7 +299,7 @@ async def register(user: UserRegister):
         if username_exists:
             raise HTTPException(status_code=400, detail="Этот ник уже занят")
 
-        hashed = pwd_context.hash(user.password)
+        hashed = hash_password(user.password)
         conn.execute("INSERT INTO users (email, password_hash, username) VALUES (?, ?, ?)",
                      (user.email, hashed, user.username))
         conn.commit()
@@ -255,42 +310,44 @@ async def register(user: UserRegister):
 @router.post("/api/auth/login")
 @limiter.limit("5/minute")
 async def login(user: UserLogin, request: Request):
+    ip = _ip_key(request)
+    if _ip_blocked(ip):
+        raise HTTPException(status_code=429, detail="Слишком много попыток входа. Попробуйте позже.")
     conn = get_connection()
     try:
         row = conn.execute(
-            "SELECT id, email, password_hash, role, failed_attempts, locked_until, username FROM users WHERE email = ?",
+            "SELECT id, email, password_hash, role, failed_attempts, username FROM users WHERE email = ?",
             (user.email,)
         ).fetchone()
         if not row:
+            _record_failure(ip)
             raise HTTPException(status_code=401, detail="Неверный email или пароль")
 
-        if row["locked_until"]:
-            locked_until = datetime.fromisoformat(row["locked_until"])
-            if datetime.now(timezone.utc) < locked_until:
-                raise HTTPException(status_code=403, detail="Аккаунт временно заблокирован. Попробуйте позже.")
-
-        if not pwd_context.verify(user.password, row["password_hash"]):
+        verified, needs_rehash = verify_password(user.password, row["password_hash"])
+        if not verified:
             new_attempts = row["failed_attempts"] + 1
-            if new_attempts >= 5:
-                lock_time = datetime.now(timezone.utc) + timedelta(minutes=15)
-                conn.execute(
-                    "UPDATE users SET failed_attempts = ?, locked_until = ? WHERE id = ?",
-                    (new_attempts, lock_time.isoformat(), row["id"])
-                )
-            else:
-                conn.execute(
-                    "UPDATE users SET failed_attempts = ? WHERE id = ?",
-                    (new_attempts, row["id"])
-                )
+            conn.execute(
+                "UPDATE users SET failed_attempts = ? WHERE id = ?",
+                (new_attempts, row["id"])
+            )
             conn.commit()
+            _record_failure(ip)
             await asyncio.sleep(1)
+            if new_attempts >= 5:
+                raise HTTPException(status_code=429, detail="Слишком много попыток входа. Попробуйте позже.")
             raise HTTPException(status_code=401, detail="Неверный email или пароль")
 
+        if needs_rehash:
+            conn.execute(
+                "UPDATE users SET password_hash = ? WHERE id = ?",
+                (hash_password(user.password), row["id"])
+            )
         conn.execute(
-            "UPDATE users SET failed_attempts = 0, locked_until = NULL WHERE id = ?",
+            "UPDATE users SET failed_attempts = 0 WHERE id = ?",
             (row["id"],)
         )
         conn.commit()
+        _clear_failures(ip)
 
         token = jwt.encode(
             {"user_id": row["id"], "email": row["email"], "role": row["role"], "username": row["username"],

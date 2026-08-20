@@ -7,6 +7,7 @@ from services.soil_calculator import get_soil_status, calculate_soil_moisture_fr
 from api.dependencies import get_current_user
 from api.utils import parse_time, to_msk, weather_code, MOSCOW_TZ
 import os as _os, uuid
+import html as _html
 import logging
 
 logger = logging.getLogger(__name__)
@@ -525,12 +526,12 @@ async def park_page(park_id: str):
     park = get_park(park_id)
     if not park:
         return HTMLResponse("<h1>Парк не найден</h1>", status_code=404)
-    html = PARK_HTML_TEMPLATE.replace("{{ park_name }}", park.get("name", ""))
-    html = html.replace("{{ park_id }}", park_id)
-    html = html.replace("{{ lat }}", str(park.get("lat", "")))
-    html = html.replace("{{ lon }}", str(park.get("lon", "")))
-    html = html.replace("{{ description }}", park.get("description") or "Описание пока не добавлено")
-    html = html.replace("{{ trails_count }}", str(park.get("trails_count") or "—"))
+    html = PARK_HTML_TEMPLATE.replace("{{ park_name }}", _html.escape(park.get("name", "")))
+    html = html.replace("{{ park_id }}", _html.escape(park_id, quote=True))
+    html = html.replace("{{ lat }}", _html.escape(str(park.get("lat", ""))))
+    html = html.replace("{{ lon }}", _html.escape(str(park.get("lon", ""))))
+    html = html.replace("{{ description }}", _html.escape(park.get("description") or "Описание пока не добавлено"))
+    html = html.replace("{{ trails_count }}", _html.escape(str(park.get("trails_count") or "—")))
     return html
 
 @router.get("/api/park/{park_id}/weather")
@@ -844,8 +845,8 @@ async def get_park_votes_history(park_id: str):
             "rain_reset": rain_reset
         }
     except Exception as e:
-        logger.error(f"Ошибка в votes-history для {park_id}: {e}")
-        return JSONResponse({"error": str(e)}, status_code=500)
+        logger.error(f"Ошибка в votes-history для {park_id}: {e}", exc_info=True)
+        return JSONResponse({"error": "Внутренняя ошибка"}, status_code=500)
     finally:
         conn.close()
 
@@ -860,8 +861,6 @@ async def upload_park_photo(park_id: str, request: Request, user=Depends(get_cur
     vote = body.get("vote")
     comment = body.get("comment", "").strip()
     logger.info(f"Upload JSON: file_data_len={len(file_data)}, vote={vote!r}, name={original_name!r}")
-    if not file_data or "," not in file_data:
-        return JSONResponse({"error": "Файл не найден"}, status_code=400)
     if not vote:
         return JSONResponse({"error": "Оценка не указана"}, status_code=400)
     try:
@@ -870,17 +869,21 @@ async def upload_park_photo(park_id: str, request: Request, user=Depends(get_cur
             raise ValueError
     except ValueError:
         return JSONResponse({"error": "Оценка должна быть числом от 1 до 5"}, status_code=400)
-    import base64
-    header, encoded = file_data.split(",", 1)
-    file_bytes = base64.b64decode(encoded)
-    ext = original_name.split('.')[-1] if '.' in original_name else 'jpg'
-    filename = f"{datetime.now().strftime('%Y%m%d_%H%M%S')}_{uuid.uuid4().hex[:6]}.{ext}"
-    base_dir = _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__)))
-    filepath = _os.path.join(base_dir, "data", "photos", park_id, filename)
-    _os.makedirs(_os.path.dirname(filepath), exist_ok=True)
-    with open(filepath, "wb") as f:
-        f.write(file_bytes)
+
+    from api.upload_utils import parse_file, check_upload_limit, ALLOWED_EXT
+
+    file_bytes, _, error = parse_file(file_data)
+    if error:
+        status = 413 if "слишком большой" in error else 400
+        return JSONResponse({"error": error}, status_code=status)
+    ext = original_name.split('.')[-1].lower() if '.' in original_name else 'jpg'
+    if f".{ext}" not in ALLOWED_EXT:
+        return JSONResponse({"error": "Недопустимый тип файла"}, status_code=400)
+
     user_id = user["user_id"]
+    if not check_upload_limit(user_id):
+        return JSONResponse({"error": "Лимит: не более 10 загрузок в час"}, status_code=429)
+
     conn = get_connection()
     try:
         recent = conn.execute(
@@ -889,6 +892,22 @@ async def upload_park_photo(park_id: str, request: Request, user=Depends(get_cur
         ).fetchone()[0]
         if recent >= 10:
             return JSONResponse({"error": "Лимит: не более 10 фото в час"}, status_code=429)
+    finally:
+        conn.close()
+
+    filename = f"{datetime.now().strftime('%Y%m%d_%H%M%S')}_{uuid.uuid4().hex[:6]}.{ext}"
+    base_dir = _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__)))
+    filepath = _os.path.join(base_dir, "data", "photos", park_id, filename)
+    _os.makedirs(_os.path.dirname(filepath), exist_ok=True)
+    try:
+        with open(filepath, "wb") as f:
+            f.write(file_bytes)
+    except Exception as e:
+        logger.error(f"Ошибка записи файла {filename}: {e}")
+        return JSONResponse({"error": "Внутренняя ошибка"}, status_code=500)
+
+    conn = get_connection()
+    try:
         conn.execute(
             "INSERT INTO park_photos (park_id, user_id, filename, original_name, vote, comment, status) VALUES (?, ?, ?, ?, ?, ?, 'pending')",
             (park_id, user_id, filename, original_name, vote, comment)
@@ -900,6 +919,13 @@ async def upload_park_photo(park_id: str, request: Request, user=Depends(get_cur
         conn.commit()
         photo_id = conn.execute("SELECT last_insert_rowid()").fetchone()[0]
         print(f"Фото {filename} сохранено, id={photo_id}, vote={vote}, comment={comment!r}, user_id={user_id}")
+    except Exception as e:
+        logger.error(f"Ошибка сохранения фото {filename} в БД: {e}")
+        try:
+            _os.remove(filepath)
+        except OSError:
+            pass
+        return JSONResponse({"error": "Внутренняя ошибка"}, status_code=500)
     finally:
         conn.close()
     return {"ok": True, "filename": filename, "vote": vote, "comment": comment, "photo_id": photo_id}
@@ -977,8 +1003,8 @@ async def park_calendar_page(park_id: str):
 
     now = datetime.now(MOSCOW_TZ)
     current_month = now.strftime("%Y-%m")
-    park_name = park["name"]
-    park_id_esc = park_id
+    park_name = _html.escape(park["name"])
+    park_id_esc = park_id.replace("\\", "\\\\").replace('"', '\\"')
 
     html = CALENDAR_HTML_TEMPLATE.replace("{{ park_name }}", park_name).replace("{{ park_id }}", park_id_esc).replace("{{ current_month }}", current_month)
     return HTMLResponse(html)
