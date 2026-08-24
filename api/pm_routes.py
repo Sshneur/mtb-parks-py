@@ -1,7 +1,7 @@
 from fastapi import APIRouter
 from datetime import datetime, timedelta, timezone
 from database.crud import get_parks_by_group
-from services.penman_monteith import calc_pm_evaporation
+from services.penman_monteith import calc_pm_evaporation, wind_to_2m
 from services.soil_calculator import get_soil_status
 from api.utils import parse_time, to_msk, weather_code
 import logging
@@ -103,7 +103,7 @@ async def get_weather_pm(group_id: str):
                 for hour in all_data:
                     timestamp = parse_time(hour["timestamp"])
                     temp = hour.get("temperature") or 15
-                    wind = hour.get("wind_speed") or 0
+                    wind = wind_to_2m(hour.get("wind_speed") or 0)
                     rad = hour.get("radiation") or 0
                     rain = hour.get("rain") or 0
                     rel_hum = hour.get("relative_humidity")
@@ -141,7 +141,7 @@ async def get_weather_pm(group_id: str):
                         # дневной час: радиация > 10 Вт/м² или время между 6 и 20 UTC
                         if rad > 10 or (6 <= hour_utc <= 20):
                             temp = hour.get("temperature") or 15
-                            wind = hour.get("wind_speed") or 0
+                            wind = wind_to_2m(hour.get("wind_speed") or 0)
                             rel_hum = hour.get("relative_humidity") or 70.0
                             press = hour.get("surface_pressure") or 1013.0
                             evap = calc_pm_evaporation(

@@ -1,5 +1,10 @@
 import math
 
+def wind_to_2m(u10: float) -> float:
+    if not u10 or u10 <= 0:
+        return 0.0
+    return u10 * 4.87 / math.log(67.8 * 10 - 5.42)
+
 def calc_pm_evaporation(
     temp_c: float,          # температура воздуха, °C
     wind_speed: float,      # скорость ветра на высоте 2 м, м/с
@@ -45,7 +50,7 @@ def calc_pm_evaporation(
     g_a = 1.0 / ra
 
     # --- 6. Уравнение Пенмана‑Монтейта (часовое) ---
-    numerator = (delta * R_n) + (RHO_A * CP * vpd * g_a)
+    numerator = (delta * R_n) + (RHO_A * CP * vpd * 1000.0 * g_a)
     denominator = LAMBDA * (delta + gamma * (1 + g_a * r_s))
 
     if denominator == 0:

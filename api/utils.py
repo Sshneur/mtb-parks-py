@@ -30,9 +30,9 @@ def weather_code(temp: float, rain: float) -> int:
         return 61
     elif rain and rain > 0:
         return 80
-    elif temp and temp > 25:
+    elif temp is not None and temp > 25:
         return 1
-    elif temp and temp > 15:
+    elif temp is not None and temp > 15:
         return 2
     else:
         return 3

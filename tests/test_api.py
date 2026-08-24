@@ -95,3 +95,6 @@ def test_utils_parse_time():
     assert weather_code(30, 0) == 1
     assert weather_code(10, 5) == 63
     assert weather_code(10, 0) == 3
+    assert weather_code(0, 0) == 3
+    assert weather_code(None, 0) == 3
+    assert weather_code(20, 0.7) == 61
