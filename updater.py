@@ -176,11 +176,19 @@ def _recalculate_moisture(park: dict):
           f"status={status}")
 
 
+_last_daily_history_date = None
+
+
 async def daily_history_update():
-    """Раз в 3 часа запрашивает фактические данные за вчерашний день"""
-    parks = get_all_parks()
+    """Раз в 3 часа запрашивает фактические данные за вчерашний день (загрузка не чаще раза в сутки)"""
+    global _last_daily_history_date
     yesterday = (datetime.now(timezone.utc) - timedelta(days=1)).strftime("%Y-%m-%d")
-    
+    if _last_daily_history_date == yesterday:
+        return
+
+    parks = get_all_parks()
+    successes = 0
+
     for park in parks:
         try:
             history = await get_history(park["lat"], park["lon"], days=1)
@@ -212,11 +220,15 @@ async def daily_history_update():
                 
                 print(f"📅 {park['name']}: обновлено {count} часов за {yesterday}")
                 log_update(park["id"], "history_daily", "success", f"Обновлено {count} часов за {yesterday}")
+                successes += 1
         except Exception as e:
             print(f"❌ Ошибка при обновлении факта для {park['name']}: {e}")
             log_update(park["id"], "history_daily", "failed", str(e))
-        
+
         _recalculate_moisture(park)
+
+    if successes > 0:
+        _last_daily_history_date = yesterday
 
 
 async def load_initial_daily_history():

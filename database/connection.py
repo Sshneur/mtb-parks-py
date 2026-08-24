@@ -54,6 +54,9 @@ def init_db():
         CREATE INDEX IF NOT EXISTS idx_weather_park_time
         ON weather_hourly(park_id, timestamp DESC);
 
+        CREATE INDEX IF NOT EXISTS idx_weather_park_rain
+        ON weather_hourly(park_id, rain, timestamp);
+
         CREATE INDEX IF NOT EXISTS idx_weather_source
         ON weather_hourly(source);
 

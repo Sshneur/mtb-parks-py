@@ -2,23 +2,14 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 from database.connection import get_connection
 from api.dependencies import get_current_user
+from api.utils import get_reset_time_msk, get_park_vote_stats
 from typing import Optional
-from datetime import datetime, timedelta, timezone
+from datetime import timedelta
 import logging
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
-
-# ===== ФУНКЦИЯ ДЛЯ ОПРЕДЕЛЕНИЯ ВРЕМЕНИ СБРОСА (4:00 МСК) =====
-def get_reset_time_msk():
-    now_msk = datetime.now(timezone.utc) + timedelta(hours=3)
-    if now_msk.hour >= 4:
-        reset_msk = now_msk.replace(hour=4, minute=0, second=0, microsecond=0)
-    else:
-        reset_msk = (now_msk - timedelta(days=1)).replace(hour=4, minute=0, second=0, microsecond=0)
-    reset_utc = reset_msk - timedelta(hours=3)
-    return reset_utc
 
 class VoteRequest(BaseModel):
     vote: int = Field(..., ge=1, le=5)
@@ -58,51 +49,10 @@ async def get_votes(group_id: Optional[str] = None):
             parks = conn.execute("SELECT id FROM parks").fetchall()
 
         reset_time_utc = get_reset_time_msk()
-        reset_time_str = reset_time_utc.strftime("%Y-%m-%d %H:%M:%S")
-        rain_period_start = (reset_time_utc - timedelta(hours=24)).strftime("%Y-%m-%d %H:%M:%S")
 
         result = {}
         for p in parks:
-            park_id = p["id"]
-
-            # Проверяем дождь в период перед сбросом
-            rain_rows = conn.execute("""
-                SELECT COUNT(*) as cnt FROM weather_hourly
-                WHERE park_id = ? AND rain > 0
-                  AND datetime(timestamp) >= datetime(?) AND datetime(timestamp) < datetime(?)
-            """, (park_id, rain_period_start, reset_time_str)).fetchone()
-
-            rain_reset = False
-            avg = None
-            count = 0
-
-            if rain_rows and rain_rows["cnt"] > 0:
-                rain_reset = True
-                row = conn.execute("""
-                    SELECT AVG(vote) as avg, COUNT(*) as cnt
-                    FROM park_photos
-                    WHERE park_id = ? AND status = 'approved' AND datetime(created_at) > datetime(?)
-                """, (park_id, reset_time_str)).fetchone()
-                if row and row["cnt"] > 0:
-                    avg = round(row["avg"], 2)
-                    count = row["cnt"]
-                else:
-                    avg = None
-                    count = 0
-            else:
-                row = conn.execute("""
-                    SELECT AVG(vote) as avg, COUNT(*) as cnt
-                    FROM park_photos
-                    WHERE park_id = ? AND status = 'approved'
-                """, (park_id,)).fetchone()
-                avg = round(row["avg"], 2) if row["avg"] is not None else None
-                count = row["cnt"] or 0
-
-            result[park_id] = {
-                "avg": avg,
-                "count": count,
-                "rain_reset": rain_reset
-            }
+            result[p["id"]] = get_park_vote_stats(conn, p["id"], reset_time_utc)
 
         return result
     except Exception as e:
