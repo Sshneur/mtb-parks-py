@@ -7,6 +7,7 @@ from database.connection import get_connection
 from api.limiter import limiter
 from config.security import JWT_SECRET as SECRET_KEY, ALGORITHM
 import asyncio
+import os
 import bcrypt
 from passlib.hash import sha256_crypt
 import logging
@@ -36,11 +37,14 @@ def verify_password(password: str, password_hash: str):
 
 _login_failures: dict[str, list[float]] = {}
 
-
+# IP из X-Forwarded-For используется только при TRUSTED_PROXY=true (прод за
+# nginx, который ПЕРЕЗАПИСЫВАЕТ заголовок $remote_addr); иначе — реальный peer,
+# чтобы клиент не мог спуфить первый XFF и обходить блокировку.
 def _ip_key(request: Request) -> str:
-    forwarded = request.headers.get("X-Forwarded-For")
-    if forwarded:
-        return forwarded.split(",")[0].strip()
+    if os.getenv("TRUSTED_PROXY", "false").lower() == "true":
+        forwarded = request.headers.get("X-Forwarded-For")
+        if forwarded:
+            return forwarded.split(",")[0].strip()
     return request.client.host if request.client else "unknown"
 
 
@@ -294,10 +298,10 @@ async def register(user: UserRegister, request: Request):
     try:
         exists = conn.execute("SELECT id FROM users WHERE email = ?", (user.email,)).fetchone()
         if exists:
-            raise HTTPException(status_code=400, detail="Email уже зарегистрирован")
+            raise HTTPException(status_code=400, detail="Email или ник уже заняты")
         username_exists = conn.execute("SELECT id FROM users WHERE username = ?", (user.username,)).fetchone()
         if username_exists:
-            raise HTTPException(status_code=400, detail="Этот ник уже занят")
+            raise HTTPException(status_code=400, detail="Email или ник уже заняты")
 
         hashed = hash_password(user.password)
         conn.execute("INSERT INTO users (email, password_hash, username) VALUES (?, ?, ?)",
@@ -333,8 +337,6 @@ async def login(user: UserLogin, request: Request):
             conn.commit()
             _record_failure(ip)
             await asyncio.sleep(1)
-            if new_attempts >= 5:
-                raise HTTPException(status_code=429, detail="Слишком много попыток входа. Попробуйте позже.")
             raise HTTPException(status_code=401, detail="Неверный email или пароль")
 
         if needs_rehash:

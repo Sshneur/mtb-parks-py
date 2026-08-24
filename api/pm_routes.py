@@ -37,7 +37,7 @@ async def get_weather_pm(group_id: str):
                 now_utc = datetime.now(timezone.utc)
                 all_rows = conn.execute("""
                     SELECT * FROM weather_hourly
-                    WHERE park_id = ? AND timestamp <= ?
+                    WHERE park_id = ? AND timestamp <= ? AND timestamp >= datetime('now', '-14 days')
                     ORDER BY timestamp ASC
                 """, (park_id, now_utc.isoformat())).fetchall()
 

@@ -7,6 +7,13 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+LOG_SKIP_PREFIXES = (
+    "/css", "/js", "/lib", "/photos", "/icons", "/favicon",
+    "/manifest.json", "/sw.js", "/og-image",
+)
+
+_write_counter = {"n": 0}
+
 
 def _write_log(user_id, path, ip):
     conn = get_connection()
@@ -16,6 +23,10 @@ def _write_log(user_id, path, ip):
             (user_id, path, ip)
         )
         conn.commit()
+        _write_counter["n"] += 1
+        if _write_counter["n"] % 500 == 0:
+            conn.execute("DELETE FROM request_log WHERE created_at < datetime('now', '-30 days')")
+            conn.commit()
     except Exception as e:
         logger.error(f"Не удалось записать лог запроса: {e}")
     finally:
@@ -34,10 +45,12 @@ async def log_request(request: Request, call_next):
             logger.error(f"Ошибка декодирования токена в middleware: {e}")
 
     response = await call_next(request)
-    await asyncio.to_thread(
-        _write_log,
-        user_id,
-        request.url.path,
-        request.client.host if request.client else None,
-    )
+    path = request.url.path
+    if not path.startswith(LOG_SKIP_PREFIXES):
+        asyncio.create_task(asyncio.to_thread(
+            _write_log,
+            user_id,
+            path,
+            request.client.host if request.client else None,
+        ))
     return response

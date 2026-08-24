@@ -1,6 +1,14 @@
 from services.penman_monteith import calc_pm_evaporation, wind_to_2m
 
 
+def test_et0_fao_hourly_range():
+    et0 = calc_pm_evaporation(
+        temp_c=20, wind_speed=2, radiation=500,
+        relative_humidity=50, pressure_pa=1013 * 100
+    )
+    assert 0.35 <= et0 <= 0.55
+
+
 def test_et0_grows_with_vpd():
     et0_dry_air = calc_pm_evaporation(
         temp_c=20, wind_speed=3, radiation=200,
@@ -22,7 +30,7 @@ def test_aero_term_significant():
         temp_c=20, wind_speed=3, radiation=0,
         relative_humidity=50, pressure_pa=1013 * 100
     )
-    assert et0_rad0 > 0.05
+    assert et0_rad0 > 0.01
     assert et0_rad200 > et0_rad0 * 2
 
 

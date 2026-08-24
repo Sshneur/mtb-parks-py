@@ -294,11 +294,19 @@ async def run_updater():
     # Загружаем архивные дневные данные за последние 7 дней
     print("📊 Загрузка архивных дневных данных за 7 дней...")
     await load_initial_daily_history()
-    
+
     # Первичная загрузка дневного прогноза
     for park in parks:
         await update_daily_forecast(park)
-    
+
+    # Прогноз лучшего времени старта (кеш для /soil-forecast, без живых запросов в хендлере)
+    from api.park_routes import build_soil_forecast
+    for park in get_all_parks():
+        try:
+            await build_soil_forecast(park)
+        except Exception as e:
+            print(f"  ⚠️ soil-forecast {park['name']}: {e}")
+
     print(f"✅ Инициализация завершена. Обновление каждые 30 минут (прогноз), каждые 12 часов (daily), каждые 3 часа (история).")
     
     last_history_update = datetime.now(timezone.utc) - timedelta(hours=3)
@@ -321,9 +329,16 @@ async def run_updater():
             last_daily_update = now
         
         await asyncio.sleep(1800)  # 30 минут
-        
+
         parks = get_all_parks()
         for park in parks:
             await update_forecast(park)
-        
+
+        from api.park_routes import build_soil_forecast
+        for park in parks:
+            try:
+                await build_soil_forecast(park)
+            except Exception as e:
+                print(f"  ⚠️ soil-forecast {park['name']}: {e}")
+
         print(f"🔄 Цикл обновления завершён. Следующий через 30 минут.")

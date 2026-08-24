@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 from database.connection import get_connection
 from api.dependencies import get_current_user
-from api.utils import get_reset_time_msk, get_park_vote_stats
+from api.utils import get_reset_time_msk
 from typing import Optional
 from datetime import timedelta
 import logging
@@ -47,12 +47,51 @@ async def get_votes(group_id: Optional[str] = None):
             parks = conn.execute("SELECT id FROM parks WHERE group_id = ?", (group_id,)).fetchall()
         else:
             parks = conn.execute("SELECT id FROM parks").fetchall()
+        if not parks:
+            return {}
 
+        park_ids = [p["id"] for p in parks]
+        placeholders = ",".join("?" for _ in park_ids)
         reset_time_utc = get_reset_time_msk()
+        reset_time_str = reset_time_utc.strftime("%Y-%m-%d %H:%M:%S")
+        rain_period_start = (reset_time_utc - timedelta(hours=24)).strftime("%Y-%m-%d %H:%M:%S")
+
+        all_avg = {}
+        for row in conn.execute(
+            f"SELECT park_id, AVG(vote) as avg, COUNT(*) as cnt FROM park_photos WHERE park_id IN ({placeholders}) AND status = 'approved' GROUP BY park_id",
+            park_ids
+        ):
+            all_avg[row["park_id"]] = row
+
+        recent_avg = {}
+        for row in conn.execute(
+            f"SELECT park_id, AVG(vote) as avg, COUNT(*) as cnt FROM park_photos WHERE park_id IN ({placeholders}) AND status = 'approved' AND datetime(created_at) > datetime(?) GROUP BY park_id",
+            park_ids + [reset_time_str]
+        ):
+            recent_avg[row["park_id"]] = row
+
+        rain_counts = {}
+        for row in conn.execute(
+            f"SELECT park_id, COUNT(*) as cnt FROM weather_hourly WHERE park_id IN ({placeholders}) AND rain > 0 AND datetime(timestamp) >= datetime(?) AND datetime(timestamp) < datetime(?) GROUP BY park_id",
+            park_ids + [rain_period_start, reset_time_str]
+        ):
+            rain_counts[row["park_id"]] = row["cnt"]
 
         result = {}
-        for p in parks:
-            result[p["id"]] = get_park_vote_stats(conn, p["id"], reset_time_utc)
+        for pid in park_ids:
+            rain_reset = rain_counts.get(pid, 0) > 0
+            avg = None
+            count = 0
+            if rain_reset:
+                row = recent_avg.get(pid)
+                if row and row["cnt"] > 0:
+                    avg = round(row["avg"], 2)
+                    count = row["cnt"]
+            else:
+                row = all_avg.get(pid)
+                avg = round(row["avg"], 2) if row and row["avg"] is not None else None
+                count = (row["cnt"] or 0) if row else 0
+            result[pid] = {"avg": avg, "count": count, "rain_reset": rain_reset}
 
         return result
     except Exception as e:

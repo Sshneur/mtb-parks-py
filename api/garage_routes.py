@@ -648,6 +648,15 @@ h1 { font-size:1.5rem; margin-bottom:20px; display:flex; align-items:center; gap
 })();
 
     var TOKEN = localStorage.getItem('token');
+
+        function escapeHtml(s) {
+            return String(s == null ? '' : s)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+        }
     if (!TOKEN) {
         document.getElementById('authRequired').style.display = 'block';
     } else {
@@ -664,11 +673,11 @@ h1 { font-size:1.5rem; margin-bottom:20px; display:flex; align-items:center; gap
                     document.getElementById('profileName').textContent = p.username || 'Пользователь';
                     document.getElementById('profileEmail').textContent = p.email;
                     var aw = document.getElementById('profileAvatar');
-                    if (p.avatar) { aw.innerHTML = '<img src="' + p.avatar + '" class="avatar-img">'; }
-                    else { aw.innerHTML = '<div class="avatar-placeholder">' + (p.username ? p.username[0].toUpperCase() : '?') + '</div>'; }
+                    if (p.avatar) { aw.innerHTML = '<img src="' + escapeHtml(p.avatar) + '" class="avatar-img">'; }
+                    else { aw.innerHTML = '<div class="avatar-placeholder">' + escapeHtml(p.username ? p.username[0].toUpperCase() : '?') + '</div>'; }
                     var favList = document.getElementById('favList');
                     if (p.favorites && p.favorites.length) {
-                        favList.innerHTML = p.favorites.map(function(f){ return '<span style="display:inline-block;padding:3px 10px;margin:2px;background:rgba(74,144,226,0.12);border-radius:6px;font-size:0.8rem;"><a href="/park/' + f.id + '" style="color:var(--text);text-decoration:none;">' + (f.name || f.id) + '</a></span>'; }).join('');
+                        favList.innerHTML = p.favorites.map(function(f){ return '<span style="display:inline-block;padding:3px 10px;margin:2px;background:rgba(74,144,226,0.12);border-radius:6px;font-size:0.8rem;"><a href="/park/' + escapeHtml(f.id) + '" style="color:var(--text);text-decoration:none;">' + escapeHtml(f.name || f.id) + '</a></span>'; }).join('');
                     } else {
                         favList.innerHTML = '<div style="font-size:0.8rem;color:var(--text-muted);">Нет избранных парков</div>';
                     }
@@ -774,12 +783,12 @@ h1 { font-size:1.5rem; margin-bottom:20px; display:flex; align-items:center; gap
         // Байк
         var tireStr = bike.tire_type ? bike.tire_type.replace('mtb','MTB').replace('_plus','+').replace('gravel','Гравел').replace('road','Шоссе') : '';
         if (bike.tire_brand) tireStr = bike.tire_brand + ' ' + tireStr;
-        html += '<div class="dash-card"><h2>🚲 ' + bike.name + '</h2>';
+        html += '<div class="dash-card"><h2>🚲 ' + escapeHtml(bike.name) + '</h2>';
         html += '<div class="dash-row"><span class="lbl">Тип</span><span class="val"><span class="badge badge-' + (bike.bike_type || 'mtb') + '">' + (bike.bike_type || 'MTB') + '</span></span></div>';
         html += '<div class="dash-row"><span class="lbl">Райдер</span><span class="val">' + bike.rider_weight_kg + ' кг</span></div>';
         html += '<div class="dash-row"><span class="lbl">Колёса</span><span class="val">' + ws + '</span></div>';
-        if (tireStr) html += '<div class="dash-row"><span class="lbl">Резина</span><span class="val">' + tireStr + '</span></div>';
-        if (bike.frame_material) html += '<div class="dash-row"><span class="lbl">Рама</span><span class="val">' + bike.frame_material.charAt(0).toUpperCase() + bike.frame_material.slice(1) + '</span></div>';
+        if (tireStr) html += '<div class="dash-row"><span class="lbl">Резина</span><span class="val">' + escapeHtml(tireStr) + '</span></div>';
+        if (bike.frame_material) html += '<div class="dash-row"><span class="lbl">Рама</span><span class="val">' + escapeHtml(bike.frame_material.charAt(0).toUpperCase() + bike.frame_material.slice(1)) + '</span></div>';
         html += '</div>';
 
         // Колёса
@@ -792,7 +801,7 @@ h1 { font-size:1.5rem; margin-bottom:20px; display:flex; align-items:center; gap
         // Амортизатор
         if (bike.suspension_type === 'front_rear' && bike.shock_brand) {
             html += '<div class="dash-card"><h2>🔧 Амортизатор</h2>';
-            html += '<div class="dash-row"><span class="lbl">Модель</span><span class="val">' + bike.shock_brand + (bike.shock_model ? ' ' + bike.shock_model : '') + (bike.shock_travel_mm ? ' · ' + bike.shock_travel_mm + ' мм' : '') + '</span></div>';
+            html += '<div class="dash-row"><span class="lbl">Модель</span><span class="val">' + escapeHtml(bike.shock_brand + (bike.shock_model ? ' ' + bike.shock_model : '')) + (bike.shock_travel_mm ? ' · ' + bike.shock_travel_mm + ' мм' : '') + '</span></div>';
             html += '<div class="dash-row"><span class="lbl">Давление</span><span class="val">' + fmtPSI(bike.shock_pressure_psi) + '</span></div>';
             html += '<div class="dash-row"><span class="lbl">Сэг</span><span class="val">' + (bike.shock_sag_mm || '—') + '%</span></div>';
             if (bike.shock_damper) {
@@ -817,8 +826,8 @@ h1 { font-size:1.5rem; margin-bottom:20px; display:flex; align-items:center; gap
         // Компоненты
         if (bike.groupset || bike.brakes || bike.handlebar_width_mm || bike.stem_length_mm || bike.dropper_travel_mm) {
             html += '<div class="dash-card"><h2>⚙️ Компоненты</h2>';
-            if (bike.groupset) html += '<div class="dash-row"><span class="lbl">Групсет</span><span class="val">' + bike.groupset + '</span></div>';
-            if (bike.brakes) html += '<div class="dash-row"><span class="lbl">Тормоза</span><span class="val">' + bike.brakes + '</span></div>';
+            if (bike.groupset) html += '<div class="dash-row"><span class="lbl">Групсет</span><span class="val">' + escapeHtml(bike.groupset) + '</span></div>';
+            if (bike.brakes) html += '<div class="dash-row"><span class="lbl">Тормоза</span><span class="val">' + escapeHtml(bike.brakes) + '</span></div>';
             if (bike.handlebar_width_mm) html += '<div class="dash-row"><span class="lbl">Руль</span><span class="val">' + bike.handlebar_width_mm + ' мм</span></div>';
             if (bike.stem_length_mm) html += '<div class="dash-row"><span class="lbl">Вынос</span><span class="val">' + bike.stem_length_mm + ' мм</span></div>';
             if (bike.dropper_travel_mm) html += '<div class="dash-row"><span class="lbl">Дроппер</span><span class="val">' + bike.dropper_travel_mm + ' мм</span></div>';
@@ -829,7 +838,7 @@ h1 { font-size:1.5rem; margin-bottom:20px; display:flex; align-items:center; gap
         if (bike.fork_brand) {
             var hasOther = (bike.suspension_type === 'front_rear' && bike.shock_brand) || (bike.groupset || bike.brakes || bike.handlebar_width_mm || bike.stem_length_mm || bike.dropper_travel_mm);
             html += '<div class="dash-card' + (hasOther ? ' full' : '') + '"><h2>📌 Вилка</h2>';
-            html += '<div class="dash-row"><span class="lbl">Модель</span><span class="val">' + bike.fork_brand + (bike.fork_model ? ' ' + bike.fork_model : '') + (bike.fork_travel_mm ? ' · ' + bike.fork_travel_mm + ' мм' : '') + '</span></div>';
+            html += '<div class="dash-row"><span class="lbl">Модель</span><span class="val">' + escapeHtml(bike.fork_brand + (bike.fork_model ? ' ' + bike.fork_model : '')) + (bike.fork_travel_mm ? ' · ' + bike.fork_travel_mm + ' мм' : '') + '</span></div>';
             html += '<div class="dash-row"><span class="lbl">Давление</span><span class="val">' + fmtPSI(bike.fork_pressure_psi) + '</span></div>';
             html += '<div class="dash-row"><span class="lbl">Сэг</span><span class="val">' + (bike.fork_sag_mm || '—') + '%</span></div>';
             if (bike.fork_damper) {

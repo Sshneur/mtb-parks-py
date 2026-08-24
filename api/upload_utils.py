@@ -3,6 +3,7 @@ import time
 from collections import defaultdict
 
 MAX_BASE64_SIZE = 5 * 1024 * 1024
+MAX_DECODED_SIZE = 5 * 1024 * 1024
 ALLOWED_MIME = {"image/jpeg", "image/png", "image/webp", "image/gif"}
 ALLOWED_EXT = {".jpg", ".jpeg", ".png", ".webp", ".gif"}
 MIME_EXT = {
@@ -28,9 +29,16 @@ def parse_file(file_data: str):
         file_bytes = base64.b64decode(encoded, validate=False)
     except Exception:
         return None, "", "Некорректные данные файла"
+    if len(file_bytes) > MAX_DECODED_SIZE:
+        return None, "", "Файл слишком большой (максимум 5 МБ)"
     if mime not in ALLOWED_MIME or not _magic_ok(file_bytes, mime):
         return None, "", "Недопустимый тип файла"
     return file_bytes, MIME_EXT.get(mime, "jpg"), None
+
+
+def body_too_large(request) -> bool:
+    content_length = request.headers.get("content-length")
+    return bool(content_length and content_length.isdigit() and int(content_length) > MAX_BASE64_SIZE + 64 * 1024)
 
 
 def check_upload_limit(user_id: int, limit: int = 10, window: int = 3600) -> bool:

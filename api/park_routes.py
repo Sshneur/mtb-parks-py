@@ -567,12 +567,17 @@ async def get_soil_forecast(park_id: str):
     if mem_cached:
         return mem_cached
 
-    from services.forecast_cache import get_cached_forecast, set_cached_forecast
-    cached = get_cached_forecast(park_id)
+    from services.forecast_cache import get_cached_forecast
+    cached = get_cached_forecast(park_id, max_age=None)
     if cached:
         set_mem_cached(f"soil_forecast_{park_id}", cached, ttl=600)
         return cached
 
+    return {"park_id": park_id, "forecast": []}
+
+
+async def build_soil_forecast(park: dict) -> dict:
+    park_id = park["id"]
     from services.open_meteo import get_forecast as fetch_forecast
     data = await fetch_forecast(park["lat"], park["lon"])
     if not data or "hourly" not in data:
@@ -661,6 +666,26 @@ async def get_soil_forecast(park_id: str):
                 break
 
     # Now build response
+    conn = get_connection()
+    try:
+        lr = conn.execute(
+            "SELECT MAX(timestamp) as ts FROM weather_hourly WHERE park_id = ? AND rain > 0 AND timestamp <= ?",
+            (park_id, datetime.now(timezone.utc).isoformat())
+        ).fetchone()
+    finally:
+        conn.close()
+    hours_since_rain = None
+    if lr and lr["ts"]:
+        hours_since_rain = (datetime.now(timezone.utc) - parse_time(lr["ts"])).total_seconds() / 3600
+
+    _SOIL_LABELS = {
+        "Болото": ("болото", "🟤"),
+        "Мокро": ("мокро", "💧"),
+        "Альденте": ("альденте", "🌵"),
+        "Бетон": ("бетон", "🪨"),
+        "Сухо": ("сухо", "🟢"),
+    }
+
     days_names = ["пн", "вт", "ср", "чт", "пт", "сб", "вс"]
     day_results = {}
     for d in range(3):
@@ -676,14 +701,8 @@ async def get_soil_forecast(park_id: str):
         # Soil from last hour's W → dry_hours (consistent with get_soil_status)
         evap_rate = park.get("evaporation_rate", 0.001)
         dry_hours = last_W / evap_rate if evap_rate > 0 else last_W / 0.001
-        if dry_hours >= 72:
-            soil, emoji = "болото", "🟤"
-        elif dry_hours > 24:
-            soil, emoji = "мокро", "💧"
-        elif dry_hours > 0:
-            soil, emoji = "альденте", "🌵"
-        else:
-            soil, emoji = "сухо", "🟢"
+        status_full = get_soil_status(0, dry_hours, hours_since_rain, park.get("soil_type") == "asphalt")
+        soil, emoji = _SOIL_LABELS.get(status_full.split(" ")[0], ("сухо", "🟢"))
 
         confidence = max(0.3, 0.9 - d * 0.2)
         pdata = {
@@ -716,6 +735,7 @@ async def get_soil_forecast(park_id: str):
         result.append(day_entry)
 
     response = {"park_id": park_id, "forecast": result}
+    from services.forecast_cache import set_cached_forecast
     set_cached_forecast(park_id, response)
     set_mem_cached(f"soil_forecast_{park_id}", response, ttl=600)
     return response
@@ -854,7 +874,10 @@ async def upload_park_photo(park_id: str, request: Request, user=Depends(get_cur
     except ValueError:
         return JSONResponse({"error": "Оценка должна быть числом от 1 до 5"}, status_code=400)
 
-    from api.upload_utils import parse_file, check_upload_limit, ALLOWED_EXT
+    from api.upload_utils import parse_file, check_upload_limit, ALLOWED_EXT, body_too_large
+
+    if body_too_large(request):
+        return JSONResponse({"error": "Файл слишком большой (максимум 5 МБ)"}, status_code=413)
 
     file_bytes, _, error = parse_file(file_data)
     if error:

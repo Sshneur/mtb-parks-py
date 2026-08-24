@@ -379,8 +379,25 @@
                 var username = p.username || 'Аноним';
                 var voteText = p.vote ? voteLabels[p.vote] || p.vote : '—';
 
-                var commentText = p.comment ? '<div class="photo-comment">💬 ' + p.comment + '</div>' : '';
-                info.innerHTML = '<div><strong>' + username + '</strong></div><div class="photo-date">' + date + '</div><div class="photo-vote">' + voteText + '</div>' + commentText;
+                var nameDiv = document.createElement('div');
+                var strong = document.createElement('strong');
+                strong.textContent = username;
+                nameDiv.appendChild(strong);
+                var dateDiv = document.createElement('div');
+                dateDiv.className = 'photo-date';
+                dateDiv.textContent = date;
+                var voteDiv = document.createElement('div');
+                voteDiv.className = 'photo-vote';
+                voteDiv.textContent = voteText;
+                info.appendChild(nameDiv);
+                info.appendChild(dateDiv);
+                info.appendChild(voteDiv);
+                if (p.comment) {
+                    var commentDiv = document.createElement('div');
+                    commentDiv.className = 'photo-comment';
+                    commentDiv.textContent = '💬 ' + p.comment;
+                    info.appendChild(commentDiv);
+                }
 
                 card.appendChild(img);
                 card.appendChild(info);

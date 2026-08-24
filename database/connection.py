@@ -57,6 +57,21 @@ def init_db():
         CREATE INDEX IF NOT EXISTS idx_weather_park_rain
         ON weather_hourly(park_id, rain, timestamp);
 
+        CREATE INDEX IF NOT EXISTS idx_weather_park_source_time
+        ON weather_hourly(park_id, source, timestamp);
+
+        CREATE INDEX IF NOT EXISTS idx_park_photos_park_status
+        ON park_photos(park_id, status);
+
+        CREATE INDEX IF NOT EXISTS idx_park_photos_user
+        ON park_photos(user_id);
+
+        CREATE INDEX IF NOT EXISTS idx_bikes_user
+        ON bikes(user_id);
+
+        CREATE INDEX IF NOT EXISTS idx_users_username
+        ON users(username);
+
         CREATE INDEX IF NOT EXISTS idx_weather_source
         ON weather_hourly(source);
 

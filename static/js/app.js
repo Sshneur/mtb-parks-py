@@ -327,14 +327,23 @@ function loadAll() {
 }
 
 // ==================== РЕНДЕРИНГ ====================
+function escapeHtml(s) {
+  return String(s == null ? '' : s)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 function renderAll(parkDataArray) {
   var dashboard = document.getElementById('dashboard');
   var html = '';
   for (var i = 0; i < parkDataArray.length; i++) {
     var park = parkDataArray[i];
     var isFav = allFavorites.includes(park.parkId);
-    html += '<div class="card" data-park-id="' + park.parkId + '">';
-    html += '<div class="park-title"><a href="/park/' + park.parkId + '" style="color:inherit; text-decoration:none;">' + park.name + '</a> <span class="coords">' + park.lat.toFixed(4) + ', ' + park.lon.toFixed(4) + '</span>';
+    html += '<div class="card" data-park-id="' + escapeHtml(park.parkId) + '">';
+    html += '<div class="park-title"><a href="/park/' + escapeHtml(park.parkId) + '" style="color:inherit; text-decoration:none;">' + escapeHtml(park.name) + '</a> <span class="coords">' + park.lat.toFixed(4) + ', ' + park.lon.toFixed(4) + '</span>';
     if (currentUser) {
         html += '<span class="fav-icon' + (isFav ? ' active' : '') + '" data-park-id="' + park.parkId + '">' + (isFav ? '♥' : '♡') + '</span>';
     }

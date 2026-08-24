@@ -4,8 +4,8 @@ from database.connection import get_connection
 
 CACHE_TTL = timedelta(hours=1)
 
-def get_cached_forecast(park_id: str):
-    """Return cached forecast dict if fresh enough, else None."""
+def get_cached_forecast(park_id: str, max_age=CACHE_TTL):
+    """Return cached forecast dict if fresh enough, else None. max_age=None — любой возраст."""
     conn = get_connection()
     try:
         row = conn.execute(
@@ -15,7 +15,7 @@ def get_cached_forecast(park_id: str):
         if not row:
             return None
         fetched = datetime.fromisoformat(row["fetched_at"])
-        if datetime.now(timezone.utc) - fetched > CACHE_TTL:
+        if max_age is not None and datetime.now(timezone.utc) - fetched > max_age:
             return None
         return json.loads(row["forecast_data"])
     finally:

@@ -56,7 +56,6 @@ def calc_pm_evaporation(
     if denominator == 0:
         return 0.0
 
-    et0_kg_per_m2s = numerator / denominator
-    et0_mm_per_hour = et0_kg_per_m2s * 3600.0 / 1000.0
+    et0_mm_per_hour = numerator / denominator
 
     return max(0.0, et0_mm_per_hour)
