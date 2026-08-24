@@ -98,3 +98,12 @@ def test_utils_parse_time():
     assert weather_code(0, 0) == 3
     assert weather_code(None, 0) == 3
     assert weather_code(20, 0.7) == 61
+
+
+def test_soil_status_concrete_requires_dry():
+    from services.soil_calculator import get_soil_status
+    assert get_soil_status(0, 0, 200) == "Бетон 🪨"
+    assert get_soil_status(0, 7.3, 200) == "Альденте 🌵"
+    assert get_soil_status(0, 100, 200) == "Болото 🟤"
+    assert get_soil_status(0, 30, 200) == "Мокро 💧"
+    assert get_soil_status(0, 0, 100) == "Сухо ✅"

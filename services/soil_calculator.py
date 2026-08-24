@@ -4,14 +4,14 @@ from api.utils import MOSCOW_TZ
 
 
 def get_soil_status(rain_total: float, dry_hours: float, hours_since_rain: float = None, is_asphalt: bool = False) -> str:
-    if hours_since_rain is not None and hours_since_rain >= 144:
-        return "Бетон 🪨"
     if dry_hours >= 72:
         return "Болото 🟤"
     if dry_hours > 24:
         return "Мокро 💧"
     if dry_hours > 0:
         return "Альденте 🌵"
+    if hours_since_rain is not None and hours_since_rain >= 144:
+        return "Бетон 🪨"
     if is_asphalt and dry_hours <= 0:
         return "Сухо ✅"
     return "Сухо ✅"
