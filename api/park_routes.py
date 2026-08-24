@@ -775,8 +775,8 @@ async def get_park_list():
                         dry_hours = W / evap if evap > 0 else 0
                         last_rain = conn.execute("""
                             SELECT MAX(timestamp) as ts FROM weather_hourly
-                            WHERE park_id = ? AND rain > 0
-                        """, (park["id"],)).fetchone()
+                            WHERE park_id = ? AND rain > 0 AND timestamp <= ?
+                        """, (park["id"], now_utc.isoformat())).fetchone()
                         hours_since_rain = None
                         if last_rain and last_rain["ts"]:
                             hours_since_rain = (now_utc - parse_time(last_rain["ts"])).total_seconds() / 3600
