@@ -1,8 +1,9 @@
 from fastapi import APIRouter
 from datetime import datetime, timedelta, timezone
 from database.crud import get_parks_by_group
+from database.connection import get_connection
 from services.soil_calculator import calculate_soil_moisture_from_db, get_soil_status
-from api.utils import parse_time, to_msk, weather_code, MOSCOW_TZ
+from api.utils import parse_time, to_msk, weather_code, MOSCOW_TZ, build_forecast, build_daily_from_db
 from api.cache import get_cached, set_cached
 
 router = APIRouter()
@@ -28,180 +29,133 @@ async def get_weather(group_id: str):
     parks = get_parks_by_group(group_id)
     if not parks:
         return {"error": "Группа не найдена"}
-    
+
     results = []
-    for park in parks:
-        park_id = park["id"]
-        
-        from database.connection import get_connection
-        conn = get_connection()
-        
-        # Все данные для расчёта влажности (только уже прошедшие)
-        now_utc = datetime.now(timezone.utc)
-        all_rows = conn.execute("""
-            SELECT * FROM weather_hourly 
-            WHERE park_id = ? AND timestamp <= ?
-            ORDER BY timestamp ASC
-        """, (park_id, now_utc.isoformat())).fetchall()
-        
-        # Почасовой прогноз (начиная с текущего часа)
-        hour_start = now_utc.replace(minute=0, second=0, microsecond=0)
-        hour_start_str = hour_start.strftime("%Y-%m-%dT%H:%M")
-        
-        forecast_rows = conn.execute("""
-            SELECT * FROM weather_hourly 
-            WHERE park_id = ? AND source = 'forecast' AND timestamp >= ?
-            ORDER BY timestamp ASC
-        """, (park_id, hour_start_str)).fetchall()
-        
-        # Берём актуальные history-данные для текущего часа (если есть)
-        current_hour_rows = conn.execute("""
-            SELECT * FROM weather_hourly
-            WHERE park_id = ? AND source = 'history' AND timestamp >= ?
-            ORDER BY timestamp ASC LIMIT 1
-        """, (park_id, hour_start_str)).fetchall()
-        
-        conn.close()
-        
-        all_data = [dict(r) for r in all_rows]
-        forecast_data = [dict(r) for r in forecast_rows]
-        
-        # Если есть history за текущий час — подменяем первый прогноз реальными данными
-        if current_hour_rows:
-            current_real = dict(current_hour_rows[0])
-            current_real["source"] = "forecast"  # чтобы не сломать логику
-            if forecast_data:
-                forecast_data[0] = current_real
-            else:
-                forecast_data = [current_real]
-        
-        if all_data:
-            moisture = calculate_soil_moisture_from_db(park, all_data)
-            is_asphalt = park.get("soil_type") == "asphalt"
-            status = get_soil_status(
-                moisture["total_rain"],
-                moisture["dry_hours"],
-                moisture["hours_since_rain"],
-                is_asphalt
-            )
-            
-            # dryTarget в миллисекундах
-            if moisture["dry_hours"] > 0:
-                dry_target_utc = now_utc + timedelta(hours=moisture["dry_hours"])
-                dry_target_str = dry_target_utc.timestamp() * 1000
-            else:
-                dry_target_str = None
-            
-            # Почасовой прогноз из БД
-            forecast = _build_forecast(
-                forecast_data if forecast_data else all_data[-6:],
-                hour_start,
-                daily_data=None
-            )
-            
-            # Дневной прогноз – получаем отдельно через get_forecast_daily
-            try:
-                from services.open_meteo import get_forecast_daily
-                daily_data = await get_forecast_daily(park["lat"], park["lon"])
-                if daily_data and "daily" in daily_data:
-                    forecast["daily"] = daily_data["daily"]
-            except Exception as e:
-                print(f"Не удалось получить daily для {park['name']}: {e}")
-            
-            history = {
-                "hourly": {
-                    "time": [to_msk(h["timestamp"]) for h in all_data],
-                    "rain": [h.get("rain") or 0 for h in all_data]
+    conn = get_connection()
+    try:
+        for park in parks:
+            park_id = park["id"]
+
+            # Все данные для расчёта влажности (только уже прошедшие)
+            now_utc = datetime.now(timezone.utc)
+            all_rows = conn.execute("""
+                SELECT * FROM weather_hourly
+                WHERE park_id = ? AND timestamp <= ?
+                ORDER BY timestamp ASC
+            """, (park_id, now_utc.isoformat())).fetchall()
+
+            # Почасовой прогноз (начиная с текущего часа)
+            hour_start = now_utc.replace(minute=0, second=0, microsecond=0)
+            hour_start_str = hour_start.strftime("%Y-%m-%dT%H:%M")
+
+            forecast_rows = conn.execute("""
+                SELECT * FROM weather_hourly
+                WHERE park_id = ? AND source = 'forecast' AND timestamp >= ?
+                ORDER BY timestamp ASC
+            """, (park_id, hour_start_str)).fetchall()
+
+            # Берём актуальные history-данные для текущего часа (если есть)
+            current_hour_rows = conn.execute("""
+                SELECT * FROM weather_hourly
+                WHERE park_id = ? AND source = 'history' AND timestamp >= ?
+                ORDER BY timestamp ASC LIMIT 1
+            """, (park_id, hour_start_str)).fetchall()
+
+            all_data = [dict(r) for r in all_rows]
+            forecast_data = [dict(r) for r in forecast_rows]
+
+            # Если есть history за текущий час — подменяем первый прогноз реальными данными
+            if current_hour_rows:
+                current_real = dict(current_hour_rows[0])
+                current_real["source"] = "forecast"  # чтобы не сломать логику
+                if forecast_data:
+                    forecast_data[0] = current_real
+                else:
+                    forecast_data = [current_real]
+
+            if all_data:
+                moisture = calculate_soil_moisture_from_db(park, all_data)
+                is_asphalt = park.get("soil_type") == "asphalt"
+                status = get_soil_status(
+                    moisture["total_rain"],
+                    moisture["dry_hours"],
+                    moisture["hours_since_rain"],
+                    is_asphalt
+                )
+
+                # dryTarget в миллисекундах
+                if moisture["dry_hours"] > 0:
+                    dry_target_utc = now_utc + timedelta(hours=moisture["dry_hours"])
+                    dry_target_str = dry_target_utc.timestamp() * 1000
+                else:
+                    dry_target_str = None
+
+                # Почасовой прогноз из БД, дневной из weather_daily
+                forecast = build_forecast(
+                    forecast_data if forecast_data else all_data[-6:],
+                    hour_start,
+                    daily_data={"daily": build_daily_from_db(conn, park_id)}
+                )
+
+                history = {
+                    "hourly": {
+                        "time": [to_msk(h["timestamp"]) for h in all_data],
+                        "rain": [h.get("rain") or 0 for h in all_data]
+                    }
                 }
-            }
-            
-            results.append({
-                "park": {
-                    "id": park["id"],
-                    "name": park["name"],
-                    "lat": park["lat"],
-                    "lon": park["lon"],
-                    "dryHours": moisture["dry_hours"],
-                    "startDate": park.get("start_date"),
-                    "soil": park["soil_type"],
-                    "forest": True,
-                    "forest_coef": park["forest_coef"],
-                    "rain_6d": moisture["total_rain"],
-                    "rain_forecast": 0,
-                    "rain_total": sum(h.get("rain", 0) or 0 for h in all_data if parse_time(h["timestamp"]) >= (datetime.now(timezone.utc) - timedelta(days=7))),
-                    "current_moisture": moisture["current_moisture"],
-                    "soilStatus": status,
-                    "dryTarget": dry_target_str
-                },
-                "forecast": forecast,
-                "history": history,
-                "provider": "openmeteo",
-                "error": None
-            })
-        else:
-            results.append({
-                "park": {
-                    "id": park["id"],
-                    "name": park["name"],
-                    "lat": park["lat"],
-                    "lon": park["lon"],
-                    "dryHours": 0,
-                    "startDate": None,
-                    "soil": park["soil_type"],
-                    "forest": True,
-                    "forest_coef": park["forest_coef"],
-                    "rain_6d": 0,
-                    "rain_forecast": 0,
-                    "rain_total": 0,
-                    "current_moisture": 0,
-                    "soilStatus": "Нет данных ⏳",
-                    "dryTarget": None
-                },
-                "forecast": None,
-                "history": None,
-                "provider": "openmeteo",
-                "error": "Парк ожидает инициализации"
-            })
-    
+
+                results.append({
+                    "park": {
+                        "id": park["id"],
+                        "name": park["name"],
+                        "lat": park["lat"],
+                        "lon": park["lon"],
+                        "dryHours": moisture["dry_hours"],
+                        "startDate": park.get("start_date"),
+                        "soil": park["soil_type"],
+                        "forest": True,
+                        "forest_coef": park["forest_coef"],
+                        "rain_6d": moisture["total_rain"],
+                        "rain_forecast": 0,
+                        "rain_total": sum(h.get("rain", 0) or 0 for h in all_data if parse_time(h["timestamp"]) >= (datetime.now(timezone.utc) - timedelta(days=7))),
+                        "current_moisture": moisture["current_moisture"],
+                        "soilStatus": status,
+                        "dryTarget": dry_target_str
+                    },
+                    "forecast": forecast,
+                    "history": history,
+                    "provider": "openmeteo",
+                    "error": None
+                })
+            else:
+                results.append({
+                    "park": {
+                        "id": park["id"],
+                        "name": park["name"],
+                        "lat": park["lat"],
+                        "lon": park["lon"],
+                        "dryHours": 0,
+                        "startDate": None,
+                        "soil": park["soil_type"],
+                        "forest": True,
+                        "forest_coef": park["forest_coef"],
+                        "rain_6d": 0,
+                        "rain_forecast": 0,
+                        "rain_total": 0,
+                        "current_moisture": 0,
+                        "soilStatus": "Нет данных ⏳",
+                        "dryTarget": None
+                    },
+                    "forecast": None,
+                    "history": None,
+                    "provider": "openmeteo",
+                    "error": "Парк ожидает инициализации"
+                })
+    finally:
+        conn.close()
+
     set_cached(f"weather_{group_id}", results)
     return results
-
-
-def _build_forecast(forecast_data: list, hour_start: datetime, daily_data: dict = None) -> dict:
-    """Строит forecast: почасовой из БД, дневной из daily_data"""
-    
-    future_hours = []
-    for h in forecast_data:
-        t = parse_time(h["timestamp"])
-        if t >= hour_start:
-            future_hours.append(h)
-        if len(future_hours) >= 6:
-            break
-    
-    if len(future_hours) < 6:
-        future_hours = forecast_data[-6:] if forecast_data else []
-    
-    hourly_forecast = {
-        "time": [to_msk(h["timestamp"]) for h in future_hours],
-        "temperature_2m": [h.get("temperature") or 15 for h in future_hours],
-        "rain": [h.get("rain") or 0 for h in future_hours],
-        "weather_code": [
-            weather_code(h.get("temperature"), h.get("rain"))
-            for h in future_hours
-        ]
-    }
-    
-    if daily_data and "daily" in daily_data:
-        daily_forecast = daily_data["daily"]
-    else:
-        daily_forecast = {
-            "time": [],
-            "temperature_2m_max": [],
-            "rain_sum": [],
-            "weather_code": []
-        }
-    
-    return {"hourly": hourly_forecast, "daily": daily_forecast}
 
 
 def _get_group_name(group_id: str) -> str:
