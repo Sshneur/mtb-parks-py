@@ -552,8 +552,10 @@ setInterval(loadAll, 10 * 60 * 1000);
         doubleClickZoom: false,
         boxZoom: false,
         keyboard: false,
-        dragging: true
+        dragging: true,
+        minZoom: 8
     });
+    map.setView([55.65, 37.49], 10);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         maxZoom: 18
     }).addTo(map);
@@ -565,7 +567,6 @@ setInterval(loadAll, 10 * 60 * 1000);
 
     fetch('/api/park/list').then(function(r) { return r.json(); }).then(function(data) {
         if (!data || !data.length) return;
-        var bounds = [];
         data.forEach(function(p) {
             var color = '#666';
             for (var key in statusColors) {
@@ -581,11 +582,7 @@ setInterval(loadAll, 10 * 60 * 1000);
             marker.on('click', function() {
                 if (window.umami) umami.track('mini_map_marker_click', { park_id: p.parkId });
             });
-            bounds.push([p.lat, p.lon]);
         });
-        if (bounds.length > 0) {
-            map.fitBounds(bounds, { padding: [15, 15], maxZoom: 11 });
-        }
         if (window.umami) umami.track('mini_map_loaded', { park_count: data.length });
     }).catch(function(e) {
         console.error('Mini map error:', e);
