@@ -5,11 +5,56 @@ from database.models import SOIL_COEFFICIENTS
 import jwt
 from config.security import JWT_SECRET as SECRET_KEY, ALGORITHM
 import os
+import time
 import logging
+import httpx
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
+
+# ===== Umami API (статистика для админ-панели) =====
+UMAMI_BASE = os.environ.get("UMAMI_BASE", "http://127.0.0.1:3000")
+UMAMI_USERNAME = os.environ.get("UMAMI_USERNAME", "admin")
+UMAMI_PASSWORD = os.environ.get("UMAMI_PASSWORD", "umami")
+UMAMI_WEBSITE_ID = os.environ.get(
+    "UMAMI_WEBSITE_ID", "b88aec0e-21c1-445a-9ce2-566959574f4f"
+)
+UMAMI_DAYS = int(os.environ.get("UMAMI_DAYS", "30"))
+UMAMI_TIMEZONE = os.environ.get("UMAMI_TIMEZONE", "Europe/Moscow")
+
+_umami_token = {"value": None, "fetched": 0.0}
+
+
+def _umami_login() -> str:
+    now = time.time()
+    if _umami_token["value"] and now - _umami_token["fetched"] < 82800:
+        return _umami_token["value"]
+    resp = httpx.post(
+        f"{UMAMI_BASE}/api/auth/login",
+        json={"username": UMAMI_USERNAME, "password": UMAMI_PASSWORD},
+        timeout=10,
+    )
+    resp.raise_for_status()
+    token = resp.json().get("token")
+    if not token:
+        raise RuntimeError("Umami: пустой токен авторизации")
+    _umami_token["value"] = token
+    _umami_token["fetched"] = now
+    return token
+
+
+def _umami_get(path: str, params: dict):
+    token = _umami_login()
+    headers = {"Authorization": f"Bearer {token}"}
+    resp = httpx.get(f"{UMAMI_BASE}{path}", params=params, headers=headers, timeout=15)
+    if resp.status_code == 401:
+        _umami_token["value"] = None
+        token = _umami_login()
+        headers = {"Authorization": f"Bearer {token}"}
+        resp = httpx.get(f"{UMAMI_BASE}{path}", params=params, headers=headers, timeout=15)
+    resp.raise_for_status()
+    return resp.json()
 
 def get_admin_user(request: Request):
     """Проверяет, что пользователь админ, и возвращает его данные"""
@@ -224,6 +269,52 @@ async def refresh_data(user=Depends(get_admin_user)):
         logger.error(f"Ошибка в refresh_data: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Внутренняя ошибка сервера")
 
+@router.get("/api/admin/umami/stats")
+async def umami_stats(user=Depends(get_admin_user)):
+    """Статистика Umami для вкладки «Статистика» в админ-панели"""
+    try:
+        now = int(time.time() * 1000)
+        start = now - UMAMI_DAYS * 86400 * 1000
+        w = UMAMI_WEBSITE_ID
+
+        totals = _umami_get(f"/api/websites/{w}/stats", {"startAt": start, "endAt": now})
+        timeline = _umami_get(
+            f"/api/websites/{w}/pageviews",
+            {"startAt": start, "endAt": now, "unit": "day", "timezone": UMAMI_TIMEZONE},
+        )
+        top_pages = _umami_get(
+            f"/api/websites/{w}/metrics",
+            {"startAt": start, "endAt": now, "type": "path"},
+        )
+        top_events = _umami_get(
+            f"/api/websites/{w}/metrics",
+            {"startAt": start, "endAt": now, "type": "event"},
+        )
+        countries = _umami_get(
+            f"/api/websites/{w}/metrics",
+            {"startAt": start, "endAt": now, "type": "country"},
+        )
+        devices = _umami_get(
+            f"/api/websites/{w}/metrics",
+            {"startAt": start, "endAt": now, "type": "device"},
+        )
+
+        return {
+            "ok": True,
+            "website_id": w,
+            "days": UMAMI_DAYS,
+            "totals": totals,
+            "timeline": timeline,
+            "top_pages": top_pages[:10],
+            "top_events": top_events[:10],
+            "countries": countries[:5],
+            "devices": devices[:5],
+        }
+    except Exception as e:
+        logger.error(f"Ошибка Umami в umami_stats: {e}", exc_info=True)
+        return JSONResponse(status_code=502, content={"ok": False, "error": str(e)})
+
+
 @router.get("/admin", response_class=HTMLResponse)
 async def admin_panel():
     """Отдаёт HTML админ-панели"""
@@ -304,12 +395,14 @@ ADMIN_HTML = """
             <button class="tab-btn" onclick="switchTab('users', this)">👥 Пользователи</button>
             <button class="tab-btn" onclick="switchTab('parks', this)">🏞️ Парки</button>
             <button class="tab-btn" onclick="switchTab('photos', this)">🖼️ Модерация</button>
+            <button class="tab-btn" onclick="switchTab('stats', this)">📈 Статистика</button>
         </div>
 
         <div id="tab-metrics" class="tab-content active"><div id="metrics"></div></div>
         <div id="tab-users" class="tab-content"><div id="users-table"></div></div>
         <div id="tab-parks" class="tab-content"><div id="parks-table"></div></div>
         <div id="tab-photos" class="tab-content"><div id="photos-moderation"></div></div>
+        <div id="tab-stats" class="tab-content"><div id="stats"></div></div>
     </div>
 
     <script>
@@ -367,6 +460,7 @@ ADMIN_HTML = """
             loadUsers();
             loadParks();
             loadPendingPhotos();
+            loadStats();
         }
 
         // Авто-логин при загрузке
@@ -535,6 +629,67 @@ ADMIN_HTML = """
                 headers: {'Authorization': 'Bearer ' + token}
             });
             loadPendingPhotos();
+        }
+
+        function fmtTime(sec) {
+            sec = Math.max(0, Math.round(sec || 0));
+            const m = Math.floor(sec / 60), s = sec % 60;
+            return m > 0 ? m + 'м ' + s + 'с' : s + 'с';
+        }
+
+        function metricsTable(items, name) {
+            if (!items || !items.length) return '<p style="color:#888;">Нет данных</p>';
+            let h = '<table><tr><th>' + esc(name) + '</th><th>Кол-во</th></tr>';
+            for (const it of items) h += '<tr><td>' + esc(it.x) + '</td><td>' + esc(it.y) + '</td></tr>';
+            h += '</table>';
+            return h;
+        }
+
+        async function loadStats() {
+            const wrap = document.getElementById('stats');
+            wrap.innerHTML = '<div class="card">Загрузка статистики…</div>';
+            const res = await fetch('/api/admin/umami/stats', {headers: {'Authorization': 'Bearer ' + token}});
+            if (res.status === 401 || res.status === 403) {
+                alert('Доступ запрещён');
+                logout();
+                return;
+            }
+            const data = await res.json();
+            if (!data.ok) {
+                wrap.innerHTML = '<div class="card error">⚠️ Umami недоступен: ' + esc(data.error || 'неизвестная ошибка') + '.<br><span style="color:#888;font-size:13px;">Проверь, что контейнеры подняты (docker compose ps) и пароль в .env совпадает с Umami.</span></div>';
+                return;
+            }
+            const t = data.totals;
+            const avgTime = Math.round((t.totaltime || 0) / (t.visitors || 1));
+            const bounces = t.visits ? Math.round((t.bounces || 0) * 100 / t.visits) : 0;
+
+            let html = '<div class="card" style="display:flex;gap:10px;flex-wrap:wrap;">';
+            const cards = [
+                ['👁 Просмотры', t.pageviews],
+                ['🧍 Посетители', t.visitors],
+                ['🔁 Визиты', t.visits],
+                ['🚪 Отказы', bounces + '%'],
+                ['⏱ На посетителя', fmtTime(avgTime)],
+            ];
+            for (const [label, val] of cards) {
+                html += '<div style="flex:1;min-width:110px;background:rgba(74,144,226,0.12);border-radius:10px;padding:12px;text-align:center;">' +
+                    '<div style="font-size:12px;color:#b8d6ff;">' + esc(label) + '</div>' +
+                    '<div style="font-size:26px;font-weight:700;margin-top:4px;">' + esc(String(val)) + '</div></div>';
+            }
+            html += '</div>';
+
+            html += '<div class="card"><h3>📅 За последние ' + esc(data.days) + ' дней</h3>' +
+                '<table><tr><th>Просмотры</th><th>Визиты</th></tr>' +
+                '<tr><td>' + esc(t.pageviews) + '</td><td>' + esc(t.visits) + '</td></tr></table></div>';
+
+            html += '<div class="card"><h3>📍 Топ страниц</h3>' + metricsTable(data.top_pages, 'Страница') + '</div>';
+            html += '<div class="card"><h3>🎯 Топ событий</h3>' + metricsTable(data.top_events, 'Событие') + '</div>';
+            html += '<div class="card" style="display:flex;gap:30px;flex-wrap:wrap;">' +
+                '<div style="flex:1;min-width:200px;"><h3>🌍 Страны</h3>' + metricsTable(data.countries, 'Страна') + '</div>' +
+                '<div style="flex:1;min-width:200px;"><h3>📱 Устройства</h3>' + metricsTable(data.devices, 'Устройство') + '</div>' +
+                '</div>';
+
+            wrap.innerHTML = html;
         }
 
         // === НОВАЯ ФУНКЦИЯ ДЛЯ ОБНОВЛЕНИЯ ===
