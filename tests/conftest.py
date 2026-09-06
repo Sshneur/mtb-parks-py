@@ -5,20 +5,14 @@ import pytest
 
 import database.connection as db_conn
 
-# Переключаем БД ДО импорта main: main на верхнем уровне вызывает init_db/seed_parks,
-# и это должно попадать в изолированную тестовую БД, а не в data/weather.db.
-TEST_DB_DIR = tempfile.mkdtemp(prefix="gripcheck_tests_")
-TEST_DB_PATH = os.path.join(TEST_DB_DIR, "test.db")
-db_conn.DB_PATH = TEST_DB_PATH
+# Свежая изолированная БД для всего тест-ранна, чтобы init_db/seed_parks в
+# верхнем уровне main.py не трогали data/weather.db.
+_TEST_DIR = tempfile.mkdtemp(prefix="gripcheck_tests_")
+db_conn.DB_PATH = os.path.join(_TEST_DIR, "test.db")
 
 
 def _fresh_db():
-    """Пересоздаёт схему тестовой БД перед каждым тестом."""
-    for suffix in ("", "-wal", "-shm"):
-        try:
-            os.remove(TEST_DB_PATH + suffix)
-        except OSError:
-            pass
+    """Инициализирует схему тестовой БД (зеркалит порядок из main.lifespan)."""
     db_conn.init_db()
     from database.crud import seed_parks
     seed_parks()
@@ -32,9 +26,16 @@ def _fresh_db():
 
 @pytest.fixture(autouse=True)
 def client():
-    """Свежая БД + TestClient для каждого теста. Lifespan не запускаем,
-    чтобы updater/телеграм-бот не ходили в сеть."""
+    """Свежая БД + TestClient для каждого теста. Новый файл БД на тест —
+    на Windows открытые sqlite-соединения мешают удалению старого файла.
+    Lifespan не запускаем, чтобы updater/телеграм-бот не ходили в сеть."""
+    db_conn.DB_PATH = os.path.join(_TEST_DIR, f"test_{id(object())}.db")
     _fresh_db()
+    from api.limiter import limiter
+    try:
+        limiter.reset()
+    except Exception:
+        pass
     from fastapi.testclient import TestClient
     from main import app
     return TestClient(app)
