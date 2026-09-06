@@ -2,6 +2,7 @@ from datetime import datetime, timezone
 
 from api.utils import parse_time, to_msk, weather_code
 from services.soil_calculator import get_soil_status
+from services.penman_monteith import wind_to_2m
 
 
 def test_utils_parse_time():
@@ -24,3 +25,9 @@ def test_soil_status_concrete_requires_dry():
     assert get_soil_status(0, 100, 200) == "Болото 🟤"
     assert get_soil_status(0, 30, 200) == "Мокро 💧"
     assert get_soil_status(0, 0, 100) == "Сухо ✅"
+
+
+def test_wind_to_2m():
+    assert wind_to_2m(0) == 0.0
+    assert wind_to_2m(None) == 0.0
+    assert 7.0 < wind_to_2m(10) < 8.0

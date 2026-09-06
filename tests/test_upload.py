@@ -55,7 +55,7 @@ def test_parse_rejects_empty():
 
 def test_upload_photo_endpoint(client):
     email = f"up_{int(time.time())}@t.ru"
-    client.post("/api/auth/register", json={"email": email, "password": "password123", "username": "u"})
+    client.post("/api/auth/register", json={"email": email, "password": "password123", "username": "up_rider"})
     login = client.post("/api/auth/login", json={"email": email, "password": "password123"})
     token = login.json()["token"]
     headers = {"Authorization": f"Bearer {token}"}

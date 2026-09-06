@@ -1,6 +1,6 @@
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import HTMLResponse, JSONResponse
-from pydantic import BaseModel, EmailStr, field_validator
+from pydantic import BaseModel, EmailStr, Field, field_validator
 import jwt
 import sqlite3
 from datetime import datetime, timedelta, timezone
@@ -67,7 +67,7 @@ def _clear_failures(ip: str):
 class UserRegister(BaseModel):
     email: EmailStr
     password: str
-    username: str
+    username: str = Field(..., min_length=3, max_length=30, pattern=r'^[a-zA-Z0-9_-]+$')
 
     @field_validator("password")
     @classmethod
@@ -86,6 +86,13 @@ class UserRegister(BaseModel):
 class UserLogin(BaseModel):
     email: EmailStr
     password: str
+
+    @field_validator("password")
+    @classmethod
+    def login_password_min_length(cls, v: str) -> str:
+        if len(v) < 1:
+            raise ValueError("Пароль не может быть пустым")
+        return v
 
     @field_validator("password")
     @classmethod

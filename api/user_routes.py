@@ -1,6 +1,6 @@
 from fastapi import APIRouter, HTTPException, Request, Depends
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from database.connection import get_connection
 from api.dependencies import get_current_user
 from typing import Optional
@@ -117,7 +117,7 @@ async def get_user_stats(user=Depends(get_current_user)):
 # ===== БАЙКИ (ГАРАЖ) =====
 
 class BikeCreate(BaseModel):
-    name: str
+    name: str = Field(..., max_length=100)
     rider_weight_kg: Optional[float] = 75
     tire_type: str = "mtb"
 

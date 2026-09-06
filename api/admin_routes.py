@@ -2,6 +2,8 @@ from fastapi import APIRouter, Request, HTTPException, Depends
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from database.connection import get_connection
 from database.models import SOIL_COEFFICIENTS
+from pydantic import BaseModel, Field
+from typing import Optional
 import jwt
 from config.security import JWT_SECRET as SECRET_KEY, ALGORITHM
 import os
@@ -226,8 +228,18 @@ async def get_all_parks_admin(user=Depends(get_admin_user)):
     finally:
         conn.close()
 
+class ParkUpdate(BaseModel):
+    name: Optional[str] = Field(None, max_length=100)
+    description: Optional[str] = Field(None, max_length=500)
+    trails_count: Optional[int] = Field(None, ge=0, le=100)
+    soil_type: Optional[str] = None
+    forest_coef: Optional[float] = Field(None, ge=0.0, le=1.0)
+    dry_hours_default: Optional[int] = Field(None, ge=1, le=168)
+    is_active: Optional[int] = Field(None, ge=0, le=1)
+
+
 @router.put("/api/admin/parks/{park_id}")
-async def update_park(park_id: str, data: dict, user=Depends(get_admin_user)):
+async def update_park(park_id: str, data: ParkUpdate, user=Depends(get_admin_user)):
     """Обновляет настройки парка"""
     allowed = {"name", "description", "trails_count", "soil_type", "forest_coef", "dry_hours_default", "is_active"}
     conn = get_connection()
@@ -237,7 +249,7 @@ async def update_park(park_id: str, data: dict, user=Depends(get_admin_user)):
             raise HTTPException(status_code=404, detail="Парк не найден")
         updates = []
         values = []
-        for key, val in data.items():
+        for key, val in data.model_dump(exclude_none=True).items():
             if key in allowed:
                 if key == "soil_type" and val not in SOIL_COEFFICIENTS:
                     raise HTTPException(status_code=400, detail=f"Недопустимый тип грунта: {val}")

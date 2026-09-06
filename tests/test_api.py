@@ -63,7 +63,7 @@ def test_development_page(client):
 def test_contacts_page(client):
     r = client.get("/contacts")
     assert r.status_code == 200
-    assert "Контакт" in r.text or "email" in r.text or "@" in r.text
+    assert "Контакты" in r.text
 
 
 def test_admin_page(client):

@@ -3,7 +3,7 @@ from fastapi.responses import HTMLResponse
 from fastapi.encoders import jsonable_encoder
 from database.connection import get_connection
 from api.dependencies import get_current_user
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import Optional
 import logging
 
@@ -22,7 +22,7 @@ except Exception as e:
     logger.error(f"Миграция колонок bikes пропущена: {e}")
 
 class BikeFullCreate(BaseModel):
-    name: str
+    name: str = Field(..., max_length=100)
     bike_type: str = 'mtb'
     rider_weight_kg: Optional[float] = 75
     tire_type: str = 'mtb'

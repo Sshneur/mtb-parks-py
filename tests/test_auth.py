@@ -13,16 +13,16 @@ def test_register_success(client):
 
 def test_register_duplicate_email_409(client):
     email = f"dup_{int(time.time())}@t.ru"
-    first = client.post("/api/auth/register", json={"email": email, "password": "password123", "username": "r1"})
+    first = client.post("/api/auth/register", json={"email": email, "password": "password123", "username": "rider_a"})
     assert first.status_code == 200
-    second = client.post("/api/auth/register", json={"email": email, "password": "password123", "username": "r2"})
+    second = client.post("/api/auth/register", json={"email": email, "password": "password123", "username": "rider_b"})
     assert second.status_code == 409
     assert "заняты" in second.json()["detail"]
 
 
 def test_login_success_returns_token(client):
     email = f"log_{int(time.time())}@t.ru"
-    client.post("/api/auth/register", json={"email": email, "password": "password123", "username": "rider"})
+    client.post("/api/auth/register", json={"email": email, "password": "password123", "username": "rider_x"})
     r = client.post("/api/auth/login", json={"email": email, "password": "password123"})
     assert r.status_code == 200
     data = r.json()
@@ -32,14 +32,40 @@ def test_login_success_returns_token(client):
 
 def test_login_wrong_password_401(client):
     email = f"bad_{int(time.time())}@t.ru"
-    client.post("/api/auth/register", json={"email": email, "password": "password123", "username": "r"})
+    client.post("/api/auth/register", json={"email": email, "password": "password123", "username": "rider_y"})
     r = client.post("/api/auth/login", json={"email": email, "password": "wrongpass"})
     assert r.status_code == 401
 
 
+def test_register_short_password(client):
+    r = client.post("/api/auth/register", json={
+        "email": f"short_{int(time.time())}@t.ru", "password": "1234567", "username": "rider_z",
+    })
+    assert r.status_code == 422
+
+
+def test_register_long_password(client):
+    r = client.post("/api/auth/register", json={
+        "email": f"long_{int(time.time())}@t.ru", "password": "x" * 129, "username": "rider_w",
+    })
+    assert r.status_code == 422
+
+
+def test_register_invalid_username(client):
+    r = client.post("/api/auth/register", json={
+        "email": f"uname_{int(time.time())}@t.ru", "password": "password123", "username": "a",
+    })
+    assert r.status_code == 422
+
+
+def test_login_empty_password(client):
+    r = client.post("/api/auth/login", json={"email": "empty@t.ru", "password": ""})
+    assert r.status_code == 422
+
+
 def test_refresh_issues_token(client):
     email = f"ref_{int(time.time())}@t.ru"
-    client.post("/api/auth/register", json={"email": email, "password": "password123", "username": "rider"})
+    client.post("/api/auth/register", json={"email": email, "password": "password123", "username": "ref_man"})
     login = client.post("/api/auth/login", json={"email": email, "password": "password123"})
     token = login.json()["token"]
     r = client.get("/api/auth/refresh", headers={"Authorization": f"Bearer {token}"})
