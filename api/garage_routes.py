@@ -982,7 +982,7 @@ h1 { font-size:1.5rem; margin-bottom:20px; display:flex; align-items:center; gap
         bikes.forEach(function(b){
             var typeBadge = 'badge-' + (b.bike_type || 'mtb');
             html += '<div class="bike-card" onclick="selectBike(' + b.id + ')">';
-            html += '<h3>🚲 ' + (b.name || 'Байк #' + b.id) + '</h3>';
+            html += '<h3>🚲 ' + escapeHtml(b.name || 'Байк #' + b.id) + '</h3>';
             html += '<div class="meta">' + (b.rider_weight_kg || '?') + ' кг · ' + (b.wheel_size || '29') + '"</div>';
             html += '<div class="tags"><span class="' + typeBadge + '">' + (b.bike_type || 'MTB') + '</span>';
             if (b.suspension_type) html += '<span>' + ({'front_rear':'2 подвески','front_only':'Вилка','rigid':'Жёсткая'}[b.suspension_type] || b.suspension_type) + '</span>';

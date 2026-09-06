@@ -293,7 +293,7 @@ LOGIN_HTML = """
                 localStorage.setItem('token', data.token);
                 if (window.umami) umami.track('login');
                 const n = new URLSearchParams(location.search).get('next');
-                window.location.href = (n && n.startsWith('/')) ? n : '/';
+                window.location.href = (n && n.startsWith('/') && !n.startsWith('//')) ? n : '/';
             } else {
                 if (window.umami) umami.track('login_failure', { error: data.detail || 'unknown' });
                 document.getElementById('error').textContent = data.detail || 'Ошибка входа';
@@ -319,10 +319,10 @@ async def register(user: UserRegister, request: Request):
     try:
         exists = conn.execute("SELECT id FROM users WHERE email = ?", (user.email,)).fetchone()
         if exists:
-            raise HTTPException(status_code=400, detail="Email или ник уже заняты")
+            raise HTTPException(status_code=409, detail="Email или ник уже заняты")
         username_exists = conn.execute("SELECT id FROM users WHERE username = ?", (user.username,)).fetchone()
         if username_exists:
-            raise HTTPException(status_code=400, detail="Email или ник уже заняты")
+            raise HTTPException(status_code=409, detail="Email или ник уже заняты")
 
         hashed = hash_password(user.password)
         try:

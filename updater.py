@@ -29,11 +29,12 @@ async def initialize_park(park: dict):
             
             count = 0
             for i, t in enumerate(times):
+                rain_val = rains[i] if i < len(rains) and rains[i] and rains[i] > 0 else 0
                 inserted = insert_weather_hourly(
                     park_id=park_id,
                     timestamp=t,
                     temperature=temps[i] if i < len(temps) else None,
-                    rain=rains[i] if i < len(rains) else 0,
+                    rain=rain_val,
                     wind_speed=winds[i] if i < len(winds) else None,
                     radiation=rads[i] if i < len(rads) else None,
                     source="history",
@@ -77,11 +78,12 @@ async def update_forecast(park: dict):
             
             count = 0
             for i, t in enumerate(times):
+                rain_val = rains[i] if i < len(rains) and rains[i] and rains[i] > 0 else 0
                 inserted = insert_weather_hourly(
                     park_id=park_id,
                     timestamp=t,
                     temperature=temps[i] if i < len(temps) else None,
-                    rain=rains[i] if i < len(rains) else 0,
+                    rain=rain_val,
                     wind_speed=winds[i] if i < len(winds) else None,
                     radiation=rads[i] if i < len(rads) else None,
                     source="forecast",
@@ -206,11 +208,12 @@ async def daily_history_update():
                 
                 count = 0
                 for i, t in enumerate(times):
+                    rain_val = rains[i] if i < len(rains) and rains[i] and rains[i] > 0 else 0
                     inserted = insert_weather_hourly(
                         park_id=park["id"],
                         timestamp=t,
                         temperature=temps[i] if i < len(temps) else None,
-                        rain=rains[i] if i < len(rains) else 0,
+                        rain=rain_val,
                         wind_speed=winds[i] if i < len(winds) else None,
                         radiation=rads[i] if i < len(rads) else None,
                         source="history",

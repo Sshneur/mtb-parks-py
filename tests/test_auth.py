@@ -16,7 +16,7 @@ def test_register_duplicate_email_409(client):
     first = client.post("/api/auth/register", json={"email": email, "password": "password123", "username": "r1"})
     assert first.status_code == 200
     second = client.post("/api/auth/register", json={"email": email, "password": "password123", "username": "r2"})
-    assert second.status_code == 400
+    assert second.status_code == 409
     assert "заняты" in second.json()["detail"]
 
 
