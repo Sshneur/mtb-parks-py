@@ -3,6 +3,17 @@ from database.models import SOIL_COEFFICIENTS
 from api.utils import MOSCOW_TZ
 
 
+def _get(hour: dict, key: str, default: float) -> float:
+    """Значение из часа, но 0 — это валидное число (в отличие от None)."""
+    val = hour.get(key)
+    if val is None:
+        return default
+    try:
+        return float(val)
+    except (TypeError, ValueError):
+        return default
+
+
 def get_soil_status(rain_total: float, dry_hours: float, hours_since_rain: float = None, is_asphalt: bool = False) -> str:
     if dry_hours >= 72:
         return "Болото 🟤"
@@ -44,10 +55,10 @@ def calculate_soil_moisture_from_db(park: dict, hourly_data: list) -> dict:
         if timestamp.tzinfo is None:
             timestamp = timestamp.replace(tzinfo=timezone.utc)
 
-        temp = hour.get("temperature") or 15
-        wind = hour.get("wind_speed") or 0
-        rad = hour.get("radiation") or 0
-        rain = hour.get("rain") or 0
+        temp = _get(hour, "temperature", 15)
+        wind = _get(hour, "wind_speed", 0)
+        rad = _get(hour, "radiation", 0)
+        rain = _get(hour, "rain", 0)
 
         if rain > 0:
             W = min(W_max, W + rain / 10)
@@ -63,10 +74,10 @@ def calculate_soil_moisture_from_db(park: dict, hourly_data: list) -> dict:
     # Текущая скорость испарения (по последнему часу без дождя)
     last_temp, last_wind, last_rad = 15, 0, 0
     for h in reversed(hourly_data):
-        if (h.get("rain") or 0) == 0:
-            last_temp = h.get("temperature") or 15
-            last_wind = h.get("wind_speed") or 0
-            last_rad = h.get("radiation") or 0
+        if _get(h, "rain", 0) == 0:
+            last_temp = _get(h, "temperature", 15)
+            last_wind = _get(h, "wind_speed", 0)
+            last_rad = _get(h, "radiation", 0)
             break
 
     f_T = 0.05 * max(last_temp, 0)
@@ -118,10 +129,10 @@ def calculate_green_days(park: dict, hourly_data: list, month_str: str) -> list:
         tz_msk = timestamp.astimezone(MOSCOW_TZ)
         day_key = tz_msk.strftime("%Y-%m-%d")
 
-        temp = hour.get("temperature") or 15
-        wind = hour.get("wind_speed") or 0
-        rad = hour.get("radiation") or 0
-        rain = hour.get("rain") or 0
+        temp = _get(hour, "temperature", 15)
+        wind = _get(hour, "wind_speed", 0)
+        rad = _get(hour, "radiation", 0)
+        rain = _get(hour, "rain", 0)
 
         if rain > 0:
             W = min(W_max, W + rain / 10)

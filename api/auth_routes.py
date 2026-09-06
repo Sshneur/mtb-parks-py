@@ -2,6 +2,7 @@ from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import HTMLResponse, JSONResponse
 from pydantic import BaseModel, EmailStr, field_validator
 import jwt
+import sqlite3
 from datetime import datetime, timedelta, timezone
 from database.connection import get_connection
 from api.limiter import limiter
@@ -75,9 +76,23 @@ class UserRegister(BaseModel):
             raise ValueError("Пароль должен быть не короче 8 символов")
         return v
 
+    @field_validator("password")
+    @classmethod
+    def password_max_length(cls, v: str) -> str:
+        if len(v) > 128:
+            raise ValueError("Пароль не должен превышать 128 символов")
+        return v
+
 class UserLogin(BaseModel):
     email: EmailStr
     password: str
+
+    @field_validator("password")
+    @classmethod
+    def login_password_max_length(cls, v: str) -> str:
+        if len(v) > 128:
+            raise ValueError("Пароль не должен превышать 128 символов")
+        return v
 
 # HTML-шаблон страницы регистрации
 REGISTER_HTML = """
@@ -304,9 +319,12 @@ async def register(user: UserRegister, request: Request):
             raise HTTPException(status_code=400, detail="Email или ник уже заняты")
 
         hashed = hash_password(user.password)
-        conn.execute("INSERT INTO users (email, password_hash, username) VALUES (?, ?, ?)",
-                     (user.email, hashed, user.username))
-        conn.commit()
+        try:
+            conn.execute("INSERT INTO users (email, password_hash, username) VALUES (?, ?, ?)",
+                         (user.email, hashed, user.username))
+            conn.commit()
+        except sqlite3.IntegrityError:
+            raise HTTPException(status_code=409, detail="Email или ник уже заняты")
         return {"ok": True, "message": "Регистрация успешна"}
     finally:
         conn.close()

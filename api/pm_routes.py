@@ -11,6 +11,23 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
+# Калибровочный коэффициент испарения: ET0 из FAO-56 считается как эталон
+# (для короткой травы), а реальный MTB-грунт (супесь/чернозём/глина) сохнет
+# быстрее. Без коэффициента после ревью №4 (убрали *3600/1000 → ET0 стал
+# 0.405 мм/ч вместо ~1.46) dry_hours выросли в разы — грунт «не сох».
+PM_SCALE = 2.0
+
+
+def _pm_get(hour: dict, key: str, default: float) -> float:
+    """Значение из часа: 0 — валидное число (не путать с None)."""
+    val = hour.get(key)
+    if val is None:
+        return default
+    try:
+        return float(val)
+    except (TypeError, ValueError):
+        return default
+
 SURFACE_PARAMS = {
     "asphalt": {"z0m": 0.001, "d": 0, "r_s": 0},
     "sand": {"z0m": 0.005, "d": 0, "r_s": 70},
@@ -65,10 +82,10 @@ async def get_weather_pm(group_id: str):
 
                     for hour in all_data:
                         timestamp = parse_time(hour["timestamp"])
-                        temp = hour.get("temperature") or 15
-                        wind = wind_to_2m(hour.get("wind_speed") or 0)
-                        rad = hour.get("radiation") or 0
-                        rain = hour.get("rain") or 0
+                        temp = _pm_get(hour, "temperature", 15)
+                        wind = wind_to_2m(_pm_get(hour, "wind_speed", 0))
+                        rad = _pm_get(hour, "radiation", 0)
+                        rain = _pm_get(hour, "rain", 0)
                         rel_hum = hour.get("relative_humidity")
                         press = hour.get("surface_pressure")
 
@@ -91,7 +108,7 @@ async def get_weather_pm(group_id: str):
                                 d=surf["d"],
                                 r_s=surf["r_s"]
                             )
-                            evap *= forest_coef
+                            evap *= forest_coef * PM_SCALE
                             W = max(0.0, W - evap / 10)
 
                     # ========== НОВОЕ: среднее испарение только за дневные часы последних 24 часов ==========
@@ -100,19 +117,19 @@ async def get_weather_pm(group_id: str):
                         timestamp = parse_time(hour["timestamp"])
                         if (now_utc - timestamp).total_seconds() <= 86400:
                             hour_utc = timestamp.hour
-                            rad = hour.get("radiation") or 0
+                            rad = _pm_get(hour, "radiation", 0)
                             # дневной час: радиация > 10 Вт/м² или время между 6 и 20 UTC
                             if rad > 10 or (6 <= hour_utc <= 20):
-                                temp = hour.get("temperature") or 15
-                                wind = wind_to_2m(hour.get("wind_speed") or 0)
-                                rel_hum = hour.get("relative_humidity") or 70.0
-                                press = hour.get("surface_pressure") or 1013.0
+                                temp = _pm_get(hour, "temperature", 15)
+                                wind = wind_to_2m(_pm_get(hour, "wind_speed", 0))
+                                rel_hum = _pm_get(hour, "relative_humidity", 70.0)
+                                press = _pm_get(hour, "surface_pressure", 1013.0)
                                 evap = calc_pm_evaporation(
                                     temp_c=temp, wind_speed=wind, radiation=rad,
                                     relative_humidity=rel_hum, pressure_pa=press * 100,
                                     z0m=surf["z0m"], d=surf["d"], r_s=surf["r_s"]
                                 )
-                                evap *= forest_coef
+                                evap *= forest_coef * PM_SCALE
                                 recent_evaps.append(evap)
 
                     if recent_evaps:

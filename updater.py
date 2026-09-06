@@ -128,7 +128,7 @@ async def update_daily_forecast(park: dict):
                     """, (
                         park_id, t,
                         temps[i] if i < len(temps) else None,
-                        rains[i] if i < len(rains) else 0,
+                        max(0.0, rains[i] if i < len(rains) else 0),
                         codes[i] if i < len(codes) else None
                     ))
                 conn.commit()
@@ -147,12 +147,14 @@ def _recalculate_moisture(park: dict):
     now_utc = datetime.now(timezone.utc)
     
     conn = get_connection()
-    rows = conn.execute("""
-        SELECT * FROM weather_hourly 
-        WHERE park_id = ? AND timestamp <= ?
-        ORDER BY timestamp ASC
-    """, (park_id, now_utc.isoformat())).fetchall()
-    conn.close()
+    try:
+        rows = conn.execute("""
+            SELECT * FROM weather_hourly 
+            WHERE park_id = ? AND timestamp <= ?
+            ORDER BY timestamp ASC
+        """, (park_id, now_utc.isoformat())).fetchall()
+    finally:
+        conn.close()
     
     hourly_data = [dict(r) for r in rows]
     
@@ -266,7 +268,7 @@ async def load_initial_daily_history():
                         """, (
                             park["id"], t,
                             temps[i] if i < len(temps) else None,
-                            rains[i] if i < len(rains) else 0,
+                            max(0.0, rains[i] if i < len(rains) else 0),
                             codes[i] if i < len(codes) else None
                         ))
                     conn.commit()
