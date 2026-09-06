@@ -85,13 +85,22 @@ def update_park_moisture(park_id: str, moisture: float, evaporation_rate: float 
 
 def insert_weather_hourly(park_id: str, timestamp, temperature, rain, wind_speed, radiation, source: str,
                           relative_humidity=None, surface_pressure=None):
-    """Вставляет почасовые данные. Заменяет существующую запись, если timestamp совпадает."""
+    """Вставляет почасовые данные. Если запись уже есть — история (source='history')
+    имеет приоритет над прогнозом: прогноз не затирает реальные факты."""
     conn = get_connection()
     try:
         conn.execute("""
-            INSERT OR REPLACE INTO weather_hourly 
+            INSERT INTO weather_hourly
             (park_id, timestamp, temperature, rain, wind_speed, radiation, relative_humidity, surface_pressure, source)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(park_id, timestamp) DO UPDATE SET
+                temperature = CASE WHEN excluded.source = 'history' THEN excluded.temperature ELSE weather_hourly.temperature END,
+                rain = CASE WHEN excluded.source = 'history' THEN excluded.rain ELSE weather_hourly.rain END,
+                wind_speed = CASE WHEN excluded.source = 'history' THEN excluded.wind_speed ELSE weather_hourly.wind_speed END,
+                radiation = CASE WHEN excluded.source = 'history' THEN excluded.radiation ELSE weather_hourly.radiation END,
+                relative_humidity = CASE WHEN excluded.source = 'history' THEN excluded.relative_humidity ELSE weather_hourly.relative_humidity END,
+                surface_pressure = CASE WHEN excluded.source = 'history' THEN excluded.surface_pressure ELSE weather_hourly.surface_pressure END,
+                source = CASE WHEN excluded.source = 'history' THEN 'history' ELSE weather_hourly.source END
         """, (park_id, timestamp, temperature, max(0.0, rain or 0), wind_speed, radiation, relative_humidity, surface_pressure, source))
         conn.commit()
         return True
