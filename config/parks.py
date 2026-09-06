@@ -38,6 +38,3 @@ SOIL_COEFFICIENTS = {
     "podzol":       {"k_t": 0.065, "k_w": 0.045, "k_r": 0.0008, "k_s": 0.035, "W0": 1.0},
     "chernozem":   {"k_t": 0.07, "k_w": 0.05, "k_r": 0.001, "k_s": 0.05, "W0": 1.0}
 }
-
-FOREST_COEFFICIENT = 0.3
-RAIN_HISTORY_HOURS = 144

@@ -6,7 +6,7 @@ from database.crud import (
     insert_weather_hourly, update_park_moisture, log_update
 )
 from services.soil_calculator import calculate_soil_moisture_from_db, get_soil_status
-from services.open_meteo import get_history, get_forecast, get_forecast_daily, fetch_with_retry
+from services.open_meteo import get_history, get_forecast, get_forecast_daily, fetch_with_retry, parse_openmeteo_response
 
 
 async def initialize_park(park: dict):
@@ -18,28 +18,21 @@ async def initialize_park(park: dict):
         history = await get_history(park["lat"], park["lon"], days=30)
         
         if history and history.get("hourly"):
-            hourly = history["hourly"]
-            times = hourly.get("time", [])
-            temps = hourly.get("temperature_2m", [])
-            rains = hourly.get("rain", [])
-            winds = hourly.get("wind_speed_10m", [])
-            rads = hourly.get("shortwave_radiation", [])
-            rel_hums = hourly.get("relativehumidity_2m", [])
-            pressures = hourly.get("surface_pressure", [])
+            rows = parse_openmeteo_response(history)
             
             count = 0
-            for i, t in enumerate(times):
-                rain_val = rains[i] if i < len(rains) and rains[i] and rains[i] > 0 else 0
+            for row in rows:
+                rain_val = row["rain"] if row["rain"] and row["rain"] > 0 else 0
                 inserted = insert_weather_hourly(
                     park_id=park_id,
-                    timestamp=t,
-                    temperature=temps[i] if i < len(temps) else None,
+                    timestamp=row["timestamp"],
+                    temperature=row["temperature"],
                     rain=rain_val,
-                    wind_speed=winds[i] if i < len(winds) else None,
-                    radiation=rads[i] if i < len(rads) else None,
+                    wind_speed=row["wind_speed"],
+                    radiation=row["radiation"],
                     source="history",
-                    relative_humidity=rel_hums[i] if i < len(rel_hums) else None,
-                    surface_pressure=pressures[i] if i < len(pressures) else None
+                    relative_humidity=row["relative_humidity"],
+                    surface_pressure=row["surface_pressure"]
                 )
                 if inserted:
                     count += 1
@@ -67,28 +60,21 @@ async def update_forecast(park: dict):
         forecast = await get_forecast(park["lat"], park["lon"])
         
         if forecast and forecast.get("hourly"):
-            hourly = forecast["hourly"]
-            times = hourly.get("time", [])
-            temps = hourly.get("temperature_2m", [])
-            rains = hourly.get("rain", [])
-            winds = hourly.get("wind_speed_10m", [])
-            rads = hourly.get("shortwave_radiation", [])
-            rel_hums = hourly.get("relativehumidity_2m", [])
-            pressures = hourly.get("surface_pressure", [])
+            rows = parse_openmeteo_response(forecast)
             
             count = 0
-            for i, t in enumerate(times):
-                rain_val = rains[i] if i < len(rains) and rains[i] and rains[i] > 0 else 0
+            for row in rows:
+                rain_val = row["rain"] if row["rain"] and row["rain"] > 0 else 0
                 inserted = insert_weather_hourly(
                     park_id=park_id,
-                    timestamp=t,
-                    temperature=temps[i] if i < len(temps) else None,
+                    timestamp=row["timestamp"],
+                    temperature=row["temperature"],
                     rain=rain_val,
-                    wind_speed=winds[i] if i < len(winds) else None,
-                    radiation=rads[i] if i < len(rads) else None,
+                    wind_speed=row["wind_speed"],
+                    radiation=row["radiation"],
                     source="forecast",
-                    relative_humidity=rel_hums[i] if i < len(rel_hums) else None,
-                    surface_pressure=pressures[i] if i < len(pressures) else None
+                    relative_humidity=row["relative_humidity"],
+                    surface_pressure=row["surface_pressure"]
                 )
                 if inserted:
                     count += 1
@@ -197,28 +183,21 @@ async def daily_history_update():
         try:
             history = await get_history(park["lat"], park["lon"], days=1)
             if history and history.get("hourly"):
-                hourly = history["hourly"]
-                times = hourly.get("time", [])
-                temps = hourly.get("temperature_2m", [])
-                rains = hourly.get("rain", [])
-                winds = hourly.get("wind_speed_10m", [])
-                rads = hourly.get("shortwave_radiation", [])
-                rel_hums = hourly.get("relativehumidity_2m", [])
-                pressures = hourly.get("surface_pressure", [])
+                rows = parse_openmeteo_response(history)
                 
                 count = 0
-                for i, t in enumerate(times):
-                    rain_val = rains[i] if i < len(rains) and rains[i] and rains[i] > 0 else 0
+                for row in rows:
+                    rain_val = row["rain"] if row["rain"] and row["rain"] > 0 else 0
                     inserted = insert_weather_hourly(
                         park_id=park["id"],
-                        timestamp=t,
-                        temperature=temps[i] if i < len(temps) else None,
+                        timestamp=row["timestamp"],
+                        temperature=row["temperature"],
                         rain=rain_val,
-                        wind_speed=winds[i] if i < len(winds) else None,
-                        radiation=rads[i] if i < len(rads) else None,
+                        wind_speed=row["wind_speed"],
+                        radiation=row["radiation"],
                         source="history",
-                        relative_humidity=rel_hums[i] if i < len(rel_hums) else None,
-                        surface_pressure=pressures[i] if i < len(pressures) else None
+                        relative_humidity=row["relative_humidity"],
+                        surface_pressure=row["surface_pressure"]
                     )
                     if inserted:
                         count += 1

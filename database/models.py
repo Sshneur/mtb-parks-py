@@ -1,1 +1,1 @@
-from config.parks import PARKS, SOIL_COEFFICIENTS, FOREST_COEFFICIENT, RAIN_HISTORY_HOURS
+from config.parks import PARKS, SOIL_COEFFICIENTS

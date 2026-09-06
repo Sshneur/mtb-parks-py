@@ -150,6 +150,16 @@ def init_db():
 
         CREATE INDEX IF NOT EXISTS idx_weather_source
         ON weather_hourly(source);
+
+        CREATE TABLE IF NOT EXISTS request_log (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            method TEXT,
+            path TEXT,
+            status_code INTEGER,
+            duration_ms REAL,
+            ip TEXT,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        );
     """)
 
     # Добавляем новые колонки, если их ещё нет

@@ -24,6 +24,30 @@ def get_from_cache(key: str) -> Optional[dict]:
 def set_to_cache(key: str, data: dict, ttl: int):
     _cache[key] = {"data": data, "timestamp": time.time(), "ttl": ttl}
 
+
+def parse_openmeteo_response(data: dict) -> list[dict]:
+    """Извлекает почасовые данные из ответа Open-Meteo"""
+    hourly = data.get("hourly", {})
+    times = hourly.get("time", [])
+    temps = hourly.get("temperature_2m", [])
+    rains = hourly.get("rain", [])
+    winds = hourly.get("wind_speed_10m", [])
+    rads = hourly.get("shortwave_radiation", [])
+    hums = hourly.get("relativehumidity_2m", [])
+    press = hourly.get("surface_pressure", [])
+    result = []
+    for i, t in enumerate(times):
+        result.append({
+            "timestamp": t,
+            "temperature": temps[i] if i < len(temps) else None,
+            "rain": rains[i] if i < len(rains) else 0,
+            "wind_speed": winds[i] if i < len(winds) else None,
+            "radiation": rads[i] if i < len(rads) else None,
+            "relative_humidity": hums[i] if i < len(hums) else None,
+            "surface_pressure": press[i] if i < len(press) else None,
+        })
+    return result
+
 async def fetch_with_retry(url: str, retries: int = 3) -> Optional[dict]:
     for i in range(retries):
         try:
