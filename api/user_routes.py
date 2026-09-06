@@ -28,6 +28,11 @@ async def get_me(user=Depends(get_current_user)):
             "username": row["username"],
             "role": row["role"]
         }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Ошибка в get_me: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Внутренняя ошибка сервера")
     finally:
         conn.close()
 
@@ -40,6 +45,9 @@ async def get_favorites(user=Depends(get_current_user)):
             (user["user_id"],)
         ).fetchall()
         return [{"id": r["park_id"]} for r in rows]
+    except Exception as e:
+        logger.error(f"Ошибка в get_favorites: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Внутренняя ошибка сервера")
     finally:
         conn.close()
 
@@ -56,6 +64,11 @@ async def add_favorite(park_id: str, user=Depends(get_current_user)):
         )
         conn.commit()
         return {"ok": True, "message": "Парк добавлен в избранное"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Ошибка в add_favorite: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Внутренняя ошибка сервера")
     finally:
         conn.close()
 
@@ -69,6 +82,9 @@ async def remove_favorite(park_id: str, user=Depends(get_current_user)):
         )
         conn.commit()
         return {"ok": True, "message": "Парк удалён из избранного"}
+    except Exception as e:
+        logger.error(f"Ошибка в remove_favorite: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Внутренняя ошибка сервера")
     finally:
         conn.close()
 
@@ -90,6 +106,11 @@ async def get_user_stats(user=Depends(get_current_user)):
             "level": level,
             "role": row["role"]
         }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Ошибка в get_user_stats: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Внутренняя ошибка сервера")
     finally:
         conn.close()
 
@@ -114,6 +135,9 @@ async def get_bikes(user=Depends(get_current_user)):
             (user["user_id"],)
         ).fetchall()
         return [dict(r) for r in rows]
+    except Exception as e:
+        logger.error(f"Ошибка в get_bikes: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Внутренняя ошибка сервера")
     finally:
         conn.close()
 
@@ -127,6 +151,9 @@ async def create_bike(bike: BikeCreate, user=Depends(get_current_user)):
         )
         conn.commit()
         return {"id": cur.lastrowid, "ok": True}
+    except Exception as e:
+        logger.error(f"Ошибка в create_bike: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Внутренняя ошибка сервера")
     finally:
         conn.close()
 
@@ -150,6 +177,11 @@ async def update_bike(bike_id: int, bike: BikeUpdate, user=Depends(get_current_u
             conn.execute(f"UPDATE bikes SET {set_clause} WHERE id = ? AND user_id = ?", vals)
             conn.commit()
         return {"ok": True}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Ошибка в update_bike: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Внутренняя ошибка сервера")
     finally:
         conn.close()
 
@@ -163,6 +195,9 @@ async def delete_bike(bike_id: int, user=Depends(get_current_user)):
         )
         conn.commit()
         return {"ok": True}
+    except Exception as e:
+        logger.error(f"Ошибка в delete_bike: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Внутренняя ошибка сервера")
     finally:
         conn.close()
 
@@ -193,6 +228,11 @@ async def get_profile(user=Depends(get_current_user)):
             "bikes": [dict(b) for b in bikes],
             "favorites": [{"id": f["park_id"], "name": f["name"]} for f in favs]
         }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Ошибка в get_profile: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Внутренняя ошибка сервера")
     finally:
         conn.close()
 

@@ -554,6 +554,9 @@ async def get_park_weather(park_id: str, days: int = Query(7, ge=1, le=30)):
                     d["rain_total"] = row["rain_sum"] or 0.0
                     break
         return {"park_id": park_id, "weather": result_days}
+    except Exception as e:
+        logger.error(f"Ошибка в get_park_weather: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Внутренняя ошибка сервера")
     finally:
         conn.close()
 
@@ -563,15 +566,19 @@ async def get_soil_forecast(park_id: str):
     if not park:
         return JSONResponse({"error": "Парк не найден"}, status_code=404)
 
-    mem_cached = get_mem_cached(f"soil_forecast_{park_id}")
-    if mem_cached:
-        return mem_cached
+    try:
+        mem_cached = get_mem_cached(f"soil_forecast_{park_id}")
+        if mem_cached:
+            return mem_cached
 
-    from services.forecast_cache import get_cached_forecast
-    cached = get_cached_forecast(park_id, max_age=None)
-    if cached:
-        set_mem_cached(f"soil_forecast_{park_id}", cached, ttl=600)
-        return cached
+        from services.forecast_cache import get_cached_forecast
+        cached = get_cached_forecast(park_id, max_age=None)
+        if cached:
+            set_mem_cached(f"soil_forecast_{park_id}", cached, ttl=600)
+            return cached
+    except Exception as e:
+        logger.error(f"Ошибка в get_soil_forecast: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Внутренняя ошибка сервера")
 
     return {"park_id": park_id, "forecast": []}
 
@@ -771,6 +778,9 @@ async def get_park_status(park_id: str):
             "moisture": moisture["current_moisture"],
             "dryTarget": dry_target
         }
+    except Exception as e:
+        logger.error(f"Ошибка в get_park_status: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Внутренняя ошибка сервера")
     finally:
         conn.close()
 
@@ -957,6 +967,9 @@ async def get_park_photos(park_id: str, limit: int = 10, offset: int = 0):
             LIMIT ? OFFSET ?
         """, (park_id, limit, offset)).fetchall()
         return {"photos": [dict(r) for r in rows], "total": total, "hasMore": offset + limit < total}
+    except Exception as e:
+        logger.error(f"Ошибка в get_park_photos: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Внутренняя ошибка сервера")
     finally:
         conn.close()
 
@@ -997,6 +1010,9 @@ async def get_green_days(park_id: str, month: str = None):
             ORDER BY timestamp ASC
         """, (park_id, start_with_buffer, f"{end_date}T23:59:59")).fetchall()
         all_data = [dict(r) for r in rows]
+    except Exception as e:
+        logger.error(f"Ошибка в get_green_days: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Внутренняя ошибка сервера")
     finally:
         conn.close()
 

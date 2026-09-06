@@ -61,6 +61,9 @@ async def get_metrics(user=Depends(get_admin_user)):
             "last_updates": [dict(u) for u in updates],
             "last_errors": [dict(e) for e in errors]
         }
+    except Exception as e:
+        logger.error(f"Ошибка в get_metrics: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Внутренняя ошибка сервера")
     finally:
         conn.close()
 
@@ -73,6 +76,9 @@ async def get_users(user=Depends(get_admin_user)):
             "SELECT id, email, username, role, created_at, photo_votes_count FROM users ORDER BY photo_votes_count DESC"
         ).fetchall()
         return [dict(r) for r in rows]
+    except Exception as e:
+        logger.error(f"Ошибка в get_users: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Внутренняя ошибка сервера")
     finally:
         conn.close()
 
@@ -89,6 +95,11 @@ async def promote_user(user_id: int, admin_user=Depends(get_admin_user)):
         conn.execute("UPDATE users SET role = 'admin' WHERE id = ?", (user_id,))
         conn.commit()
         return {"ok": True, "message": f"Пользователь {user_id} теперь админ"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Ошибка в promote_user: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Внутренняя ошибка сервера")
     finally:
         conn.close()
 
@@ -104,6 +115,9 @@ async def get_pending_photos(user=Depends(get_admin_user)):
             ORDER BY created_at DESC
         """).fetchall()
         return [dict(r) for r in rows]
+    except Exception as e:
+        logger.error(f"Ошибка в get_pending_photos: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Внутренняя ошибка сервера")
     finally:
         conn.close()
 
@@ -115,6 +129,9 @@ async def approve_photo(photo_id: int, user=Depends(get_admin_user)):
         conn.execute("UPDATE park_photos SET status = 'approved' WHERE id = ?", (photo_id,))
         conn.commit()
         return {"ok": True}
+    except Exception as e:
+        logger.error(f"Ошибка в approve_photo: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Внутренняя ошибка сервера")
     finally:
         conn.close()
 
@@ -137,6 +154,11 @@ async def reject_photo(photo_id: int, user=Depends(get_admin_user)):
         except OSError as e:
             logger.error(f"Не удалось удалить файл {filepath}: {e}")
         return {"ok": True}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Ошибка в reject_photo: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Внутренняя ошибка сервера")
     finally:
         conn.close()
 
@@ -153,6 +175,9 @@ async def get_all_parks_admin(user=Depends(get_admin_user)):
             p["soil_options"] = list(SOIL_COEFFICIENTS.keys())
             parks.append(p)
         return parks
+    except Exception as e:
+        logger.error(f"Ошибка в get_all_parks_admin: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Внутренняя ошибка сервера")
     finally:
         conn.close()
 
@@ -179,6 +204,11 @@ async def update_park(park_id: str, data: dict, user=Depends(get_admin_user)):
         conn.execute(f"UPDATE parks SET {', '.join(updates)} WHERE id = ?", values)
         conn.commit()
         return {"ok": True}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Ошибка в update_park: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Внутренняя ошибка сервера")
     finally:
         conn.close()
 
@@ -186,9 +216,13 @@ async def update_park(park_id: str, data: dict, user=Depends(get_admin_user)):
 @router.post("/api/admin/refresh")
 async def refresh_data(user=Depends(get_admin_user)):
     """Принудительное обновление данных в админке"""
-    from api.cache import invalidate_cache
-    invalidate_cache()
-    return {"ok": True, "message": "Кеш сброшен, данные обновлены"}
+    try:
+        from api.cache import invalidate_cache
+        invalidate_cache()
+        return {"ok": True, "message": "Кеш сброшен, данные обновлены"}
+    except Exception as e:
+        logger.error(f"Ошибка в refresh_data: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Внутренняя ошибка сервера")
 
 @router.get("/admin", response_class=HTMLResponse)
 async def admin_panel():
@@ -280,6 +314,10 @@ ADMIN_HTML = """
 
     <script>
         let token = localStorage.getItem('admin_token') || '';
+
+        if (!token || token.split('.').length !== 3) {
+            window.location.href = '/login?next=/admin';
+        }
 
         function esc(s) {
             return String(s)

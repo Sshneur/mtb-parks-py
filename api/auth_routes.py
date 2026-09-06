@@ -388,6 +388,13 @@ async def refresh_token(request: Request):
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
     except jwt.InvalidTokenError:
         raise HTTPException(status_code=401, detail="Неверный токен")
+    conn = get_connection()
+    try:
+        user = conn.execute("SELECT id FROM users WHERE id = ?", (payload.get("user_id"),)).fetchone()
+        if not user:
+            raise HTTPException(status_code=401, detail="Пользователь не найден")
+    finally:
+        conn.close()
     exp = datetime.fromtimestamp(payload["exp"], tz=timezone.utc)
     if datetime.now(timezone.utc) + timedelta(days=15) > exp:
         payload["exp"] = datetime.now(timezone.utc) + timedelta(days=30)
