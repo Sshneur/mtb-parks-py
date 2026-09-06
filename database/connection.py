@@ -153,10 +153,8 @@ def init_db():
 
         CREATE TABLE IF NOT EXISTS request_log (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            method TEXT,
-            path TEXT,
-            status_code INTEGER,
-            duration_ms REAL,
+            user_id INTEGER,
+            endpoint TEXT,
             ip TEXT,
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP
         );

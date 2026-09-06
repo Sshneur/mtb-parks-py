@@ -88,6 +88,38 @@ def test_admin_page_200_for_admin(client):
     assert "Админ" in r.text
 
 
+def test_umami_stats_days_param(client):
+    from database.connection import get_connection
+    from unittest.mock import patch
+
+    email = "adm_stat_days@t.ru"
+    client.post("/api/auth/register", json={"email": email, "password": "password123", "username": "adm_sd"})
+    conn = get_connection()
+    try:
+        conn.execute("UPDATE users SET role = 'admin' WHERE email = ?", (email,))
+        conn.commit()
+    finally:
+        conn.close()
+    login = client.post("/api/auth/login", json={"email": email, "password": "password123"})
+    token = login.json()["token"]
+    headers = {"Authorization": f"Bearer {token}"}
+
+    with patch("api.admin_routes._umami_get", return_value=[]), \
+         patch("api.admin_routes._umami_login", return_value="test-token"):
+        r = client.get("/api/admin/umami/stats?days=7", headers=headers)
+        assert r.status_code == 200
+        assert r.json()["days"] == 7
+
+    r = client.get("/api/admin/umami/stats?days=15", headers=headers)
+    assert r.status_code == 400
+
+    with patch("api.admin_routes._umami_get", return_value=[]), \
+         patch("api.admin_routes._umami_login", return_value="test-token"):
+        r = client.get("/api/admin/umami/stats", headers=headers)
+        assert r.status_code == 200
+        assert r.json()["days"] == 30
+
+
 def test_auth_bad_login(client):
     r = client.post("/api/auth/login", json={"email": "x@x.ru", "password": "wrong"})
     assert r.status_code == 401

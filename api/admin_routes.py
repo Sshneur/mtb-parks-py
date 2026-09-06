@@ -23,6 +23,7 @@ UMAMI_WEBSITE_ID = os.environ.get(
     "UMAMI_WEBSITE_ID", "b88aec0e-21c1-445a-9ce2-566959574f4f"
 )
 UMAMI_DAYS = int(os.environ.get("UMAMI_DAYS", "30"))
+UMAMI_ALLOWED_DAYS = (7, 30, 90)
 UMAMI_TIMEZONE = os.environ.get("UMAMI_TIMEZONE", "Europe/Moscow")
 
 _umami_token = {"value": None, "fetched": 0.0}
@@ -282,11 +283,16 @@ async def refresh_data(user=Depends(get_admin_user)):
         raise HTTPException(status_code=500, detail="Внутренняя ошибка сервера")
 
 @router.get("/api/admin/umami/stats")
-async def umami_stats(user=Depends(get_admin_user)):
+async def umami_stats(days: int = 30, user=Depends(get_admin_user)):
     """Статистика Umami для вкладки «Статистика» в админ-панели"""
     try:
+        if days not in UMAMI_ALLOWED_DAYS:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Недопустимый период: {days}. Допустимые: {', '.join(str(d) for d in UMAMI_ALLOWED_DAYS)}",
+            )
         now = int(time.time() * 1000)
-        start = now - UMAMI_DAYS * 86400 * 1000
+        start = now - days * 86400 * 1000
         w = UMAMI_WEBSITE_ID
 
         totals = _umami_get(f"/api/websites/{w}/stats", {"startAt": start, "endAt": now})
@@ -310,18 +316,45 @@ async def umami_stats(user=Depends(get_admin_user)):
             f"/api/websites/{w}/metrics",
             {"startAt": start, "endAt": now, "type": "device"},
         )
+        browsers = _umami_get(
+            f"/api/websites/{w}/metrics",
+            {"startAt": start, "endAt": now, "type": "browser"},
+        )
+        oses = _umami_get(
+            f"/api/websites/{w}/metrics",
+            {"startAt": start, "endAt": now, "type": "os"},
+        )
+        referrers = _umami_get(
+            f"/api/websites/{w}/metrics",
+            {"startAt": start, "endAt": now, "type": "referrer"},
+        )
+        screens = _umami_get(
+            f"/api/websites/{w}/metrics",
+            {"startAt": start, "endAt": now, "type": "screen"},
+        )
+        languages = _umami_get(
+            f"/api/websites/{w}/metrics",
+            {"startAt": start, "endAt": now, "type": "language"},
+        )
 
         return {
             "ok": True,
             "website_id": w,
-            "days": UMAMI_DAYS,
+            "days": days,
             "totals": totals,
             "timeline": timeline,
             "top_pages": top_pages[:10],
             "top_events": top_events[:10],
             "countries": countries[:5],
             "devices": devices[:5],
+            "browsers": browsers[:5],
+            "oses": oses[:5],
+            "referrers": referrers[:5],
+            "screens": screens[:5],
+            "languages": languages[:5],
         }
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Ошибка Umami API: {e}", exc_info=True)
         return JSONResponse(status_code=502, content={"ok": False, "error": "Ошибка загрузки данных"})
@@ -346,6 +379,7 @@ ADMIN_HTML = """
     <title>Админ-панель — Что с грунтом?</title>
     <link rel="icon" type="image/svg+xml" href="/favicon.svg">
     <meta name="theme-color" content="#0b0d14">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black">
     <style>
@@ -661,10 +695,48 @@ ADMIN_HTML = """
             return h;
         }
 
+        let statsChart = null;
+
+        function renderTimeline(timeline) {
+            const wrap = document.getElementById('statsChart');
+            const pv = (timeline && timeline.pageviews) || [];
+            const ss = (timeline && timeline.sessions) || [];
+            if (pv.length < 2 && ss.length < 2) {
+                wrap.innerHTML = '<p style="color:#888;">Недостаточно данных для графика</p>';
+                return;
+            }
+            const labels = pv.map(function(p){ return p.x.slice(0, 10); });
+            const pvData = pv.map(function(p){ return p.y; });
+            const ssData = ss.map(function(p){ return p.y; });
+            wrap.innerHTML = '<canvas id="statsChartCanvas" style="width:100%;max-height:260px;"></canvas>';
+            if (statsChart) statsChart.destroy();
+            statsChart = new Chart(document.getElementById('statsChartCanvas'), {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        { label: 'Просмотры', data: pvData, borderColor: '#4a90e2', backgroundColor: 'rgba(74,144,226,0.15)', fill: true, tension: 0.3, pointRadius: 2 },
+                        { label: 'Визиты', data: ssData, borderColor: '#26c6da', backgroundColor: 'rgba(38,198,218,0.1)', fill: false, tension: 0.3, pointRadius: 2 }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { labels: { color: '#ccc' } } },
+                    scales: {
+                        x: { ticks: { color: '#aaa', maxRotation: 0, autoSkip: true, maxTicksLimit: 10 } },
+                        y: { beginAtZero: true, ticks: { color: '#aaa', precision: 0 } }
+                    }
+                }
+            });
+        }
+
         async function loadStats() {
             const wrap = document.getElementById('stats');
+            const daysSel = document.getElementById('statsDays');
+            const days = daysSel ? daysSel.value : 30;
             wrap.innerHTML = '<div class="card">Загрузка статистики…</div>';
-            const res = await fetch('/api/admin/umami/stats', {headers: {'Authorization': 'Bearer ' + token}});
+            const res = await fetch('/api/admin/umami/stats?days=' + days, {headers: {'Authorization': 'Bearer ' + token}});
             if (res.status === 401 || res.status === 403) {
                 alert('Доступ запрещён');
                 logout();
@@ -679,7 +751,16 @@ ADMIN_HTML = """
             const avgTime = Math.round((t.totaltime || 0) / (t.visitors || 1));
             const bounces = t.visits ? Math.round((t.bounces || 0) * 100 / t.visits) : 0;
 
-            let html = '<div class="card" style="display:flex;gap:10px;flex-wrap:wrap;">';
+            let html = '<div class="card" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;">' +
+                '<h3 style="margin:0;">📈 Статистика</h3>' +
+                '<label style="color:#ccc;font-size:13px;">Период: ' +
+                '<select id="statsDays" onchange="loadStats()" style="background:#141a26;color:#eee;border:1px solid rgba(74,144,226,0.3);border-radius:6px;padding:5px 8px;">' +
+                '<option value="7"' + (days == 7 ? ' selected' : '') + '>7 дней</option>' +
+                '<option value="30"' + (days == 30 ? ' selected' : '') + '>30 дней</option>' +
+                '<option value="90"' + (days == 90 ? ' selected' : '') + '>90 дней</option>' +
+                '</select></label></div>';
+
+            html += '<div class="card" style="display:flex;gap:10px;flex-wrap:wrap;">';
             const cards = [
                 ['👁 Просмотры', t.pageviews],
                 ['🧍 Посетители', t.visitors],
@@ -694,18 +775,26 @@ ADMIN_HTML = """
             }
             html += '</div>';
 
-            html += '<div class="card"><h3>📅 За последние ' + esc(data.days) + ' дней</h3>' +
-                '<table><tr><th>Просмотры</th><th>Визиты</th></tr>' +
-                '<tr><td>' + esc(t.pageviews) + '</td><td>' + esc(t.visits) + '</td></tr></table></div>';
+            html += '<div class="card"><h3>📊 По дням</h3><div id="statsChart" style="position:relative;height:260px;"></div></div>';
 
             html += '<div class="card"><h3>📍 Топ страниц</h3>' + metricsTable(data.top_pages, 'Страница') + '</div>';
             html += '<div class="card"><h3>🎯 Топ событий</h3>' + metricsTable(data.top_events, 'Событие') + '</div>';
             html += '<div class="card" style="display:flex;gap:30px;flex-wrap:wrap;">' +
-                '<div style="flex:1;min-width:200px;"><h3>🌍 Страны</h3>' + metricsTable(data.countries, 'Страна') + '</div>' +
+                '<div style="flex:1;min-width:200px;"><h3>🌐 Браузеры</h3>' + metricsTable(data.browsers, 'Браузер') + '</div>' +
+                '<div style="flex:1;min-width:200px;"><h3>💻 ОС</h3>' + metricsTable(data.oses, 'ОС') + '</div>' +
                 '<div style="flex:1;min-width:200px;"><h3>📱 Устройства</h3>' + metricsTable(data.devices, 'Устройство') + '</div>' +
+                '</div>';
+            html += '<div class="card" style="display:flex;gap:30px;flex-wrap:wrap;">' +
+                '<div style="flex:1;min-width:200px;"><h3>🌍 Страны</h3>' + metricsTable(data.countries, 'Страна') + '</div>' +
+                '<div style="flex:1;min-width:200px;"><h3>🔗 Рефереры</h3>' + metricsTable(data.referrers, 'Источник') + '</div>' +
+                '<div style="flex:1;min-width:200px;"><h3>🖥 Экраны</h3>' + metricsTable(data.screens, 'Экран') + '</div>' +
+                '</div>';
+            html += '<div class="card" style="display:flex;gap:30px;flex-wrap:wrap;">' +
+                '<div style="flex:1;min-width:200px;"><h3>🗣 Языки</h3>' + metricsTable(data.languages, 'Язык') + '</div>' +
                 '</div>';
 
             wrap.innerHTML = html;
+            renderTimeline(data.timeline);
         }
 
         // === НОВАЯ ФУНКЦИЯ ДЛЯ ОБНОВЛЕНИЯ ===
