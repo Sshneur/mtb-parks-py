@@ -1,10 +1,12 @@
 var CACHE_NAME = 'mtb-parks-__CACHE_VERSION__';
 var API_CACHE = 'mtb-parks-api-__CACHE_VERSION__';
+var ANALYTICS_QUEUE = 'mtb-parks-analytics-queue';
 
 var SHELL_URLS = [
   '/', '/css/style.css', '/js/app.js', '/js/park.js',
   '/lib/leaflet.css', '/lib/leaflet.js',
-  '/manifest.json', '/map', '/development', '/contacts'
+  '/manifest.json', '/map', '/development', '/contacts',
+  '/x.js'
 ];
 
 self.addEventListener('install', function(event) {
@@ -21,7 +23,7 @@ self.addEventListener('activate', function(event) {
     caches.keys().then(function(names) {
       return Promise.all(
         names.map(function(n) {
-          if (n !== CACHE_NAME && n !== API_CACHE) return caches.delete(n);
+          if (n !== CACHE_NAME && n !== API_CACHE && n !== ANALYTICS_QUEUE) return caches.delete(n);
         })
       );
     }).then(function() {
@@ -30,8 +32,76 @@ self.addEventListener('activate', function(event) {
   );
 });
 
+// ===== OFFLINE ANALYTICS QUEUE =====
+function queueAnalyticsEvent(eventData) {
+  return caches.open(ANALYTICS_QUEUE).then(function(cache) {
+    var id = Date.now() + '-' + Math.random().toString(36).slice(2, 8);
+    var request = new Request('/analytics-queue/' + id, { method: 'PUT' });
+    var response = new Response(JSON.stringify(eventData), {
+      headers: { 'Content-Type': 'application/json' }
+    });
+    return cache.put(request, response);
+  });
+}
+
+function flushAnalyticsQueue() {
+  return caches.open(ANALYTICS_QUEUE).then(function(cache) {
+    return cache.keys().then(function(keys) {
+      return Promise.all(keys.map(function(key) {
+        return cache.match(key).then(function(response) {
+          return response.json();
+        }).then(function(data) {
+          return fetch('/api/x', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data),
+            keepalive: true
+          }).then(function() {
+            return cache.delete(key);
+          }).catch(function() {
+            // Оставляем в очереди, попробуем позже
+          });
+        });
+      }));
+    });
+  });
+}
+
+self.addEventListener('online', function() {
+  flushAnalyticsQueue();
+});
+
+setInterval(function() {
+  flushAnalyticsQueue();
+}, 60000);
+
 self.addEventListener('fetch', function(event) {
   var url = new URL(event.request.url);
+
+  // Перехват Umami запросов — буферизуем при offline
+  if (url.hostname === 'stats.gripcheck.ru' || url.pathname === '/x.js' || url.pathname === '/api/x') {
+    if (event.request.method === 'POST') {
+      event.respondWith(
+        fetch(event.request.clone()).catch(function() {
+          return event.request.clone().json().then(function(body) {
+            return queueAnalyticsEvent(body).then(function() {
+              return new Response('', { status: 202 });
+            });
+          }).catch(function() {
+            return new Response('', { status: 202 });
+          });
+        })
+      );
+      return;
+    }
+    event.respondWith(
+      fetch(event.request).catch(function() {
+        return caches.match(event.request);
+      })
+    );
+    return;
+  }
+
   if (url.pathname.startsWith('/api/')) {
     var personal = url.pathname.startsWith('/api/user/') ||
                    url.pathname.startsWith('/api/vote/my') ||

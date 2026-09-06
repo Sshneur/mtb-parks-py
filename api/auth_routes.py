@@ -157,6 +157,7 @@ REGISTER_HTML = """
             margin-top: 10px;
         }
     </style>
+    <script defer src="https://stats.gripcheck.ru/x.js" data-website-id="WEBSITE_ID" data-domains="gripcheck.ru,xn--80afdaebh7a3c.xn--p1ai" data-do-not-track="true"></script>
 </head>
 <body>
     <div class="auth-container">
@@ -185,6 +186,7 @@ REGISTER_HTML = """
             });
             const data = await res.json();
             if (data.ok) {
+                if (window.umami) umami.track('registration');
                 window.location.href = '/login?registered=1';
             } else {
                 document.getElementById('error').textContent = data.detail || 'Ошибка регистрации';
@@ -258,6 +260,7 @@ LOGIN_HTML = """
             margin-top: 10px;
         }
     </style>
+    <script defer src="https://stats.gripcheck.ru/x.js" data-website-id="WEBSITE_ID" data-domains="gripcheck.ru,xn--80afdaebh7a3c.xn--p1ai" data-do-not-track="true"></script>
 </head>
 <body>
     <div class="auth-container">
@@ -288,6 +291,7 @@ LOGIN_HTML = """
             const data = await res.json();
             if (data.ok) {
                 localStorage.setItem('token', data.token);
+                if (window.umami) umami.track('login');
                 window.location.href = '/';
             } else {
                 document.getElementById('error').textContent = data.detail || 'Ошибка входа';

@@ -251,6 +251,7 @@ CONTACTS_HTML = """
             text-decoration: underline;
         }
     </style>
+    <script defer src="https://stats.gripcheck.ru/x.js" data-website-id="WEBSITE_ID" data-domains="gripcheck.ru,xn--80afdaebh7a3c.xn--p1ai" data-do-not-track="true"></script>
 </head>
 <body>
     <div class="contacts-container">
@@ -384,6 +385,7 @@ DEVELOPMENT_HTML = """
             .dev-container h1 { font-size: 1.5rem; }
         }
     </style>
+    <script defer src="https://stats.gripcheck.ru/x.js" data-website-id="WEBSITE_ID" data-domains="gripcheck.ru,xn--80afdaebh7a3c.xn--p1ai" data-do-not-track="true"></script>
 </head>
 <body>
     <div class="dev-container">

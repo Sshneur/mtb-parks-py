@@ -63,6 +63,7 @@ CALENDAR_HTML_TEMPLATE = """<!DOCTYPE html>
             .day-cell { font-size: 0.6rem; }
         }
     </style>
+    <script defer src="https://stats.gripcheck.ru/x.js" data-website-id="WEBSITE_ID" data-domains="gripcheck.ru,xn--80afdaebh7a3c.xn--p1ai" data-do-not-track="true"></script>
 </head>
 <body>
     <div class="container" style="position:relative;">
@@ -214,6 +215,8 @@ CALENDAR_HTML_TEMPLATE = """<!DOCTYPE html>
 
     loadMonth(currentYear, currentMonth);
 
+    if (window.umami) umami.track('calendar_view', { park_id: parkId, month: currentYear + '-' + String(currentMonth + 1).padStart(2, '0') });
+
     // theme toggle
     var ctBtn = document.getElementById('calendarThemeToggle');
     if (ctBtn) {
@@ -327,6 +330,7 @@ PARK_HTML_TEMPLATE = """
     </script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
+    <script defer src="https://stats.gripcheck.ru/x.js" data-website-id="WEBSITE_ID" data-domains="gripcheck.ru,xn--80afdaebh7a3c.xn--p1ai" data-do-not-track="true"></script>
 </head>
 <body>
     <div class="park-container" style="position:relative;">
@@ -338,7 +342,8 @@ PARK_HTML_TEMPLATE = """
         <p>Количество трасс: {{ trails_count }}</p>
 
         <a href="https://yandex.ru/maps/?rtext=~{{ lat }},{{ lon }}&rtt=auto"
-           target="_blank" class="route-btn">🗺️ Проложить маршрут (Яндекс)</a>
+           target="_blank" class="route-btn"
+           onclick="if(window.umami)umami.track('route_click',{park_id:'{{ park_id }}'})">🗺️ Проложить маршрут (Яндекс)</a>
 
         <div id="statusCard" style="background:var(--card-bg); border:1px solid var(--card-border); border-radius:14px; padding:16px; margin:16px 0; text-align:center;">
             <div style="font-size:0.8rem; color:var(--text-muted); margin-bottom:6px;">Состояние грунта по данным погоды</div>
@@ -450,6 +455,7 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: #0b0d14; }
   .back-btn { bottom: calc(20px + env(safe-area-inset-bottom, 0px)); }
 }
 </style>
+<script defer src="https://stats.gripcheck.ru/x.js" data-website-id="WEBSITE_ID" data-domains="gripcheck.ru,xn--80afdaebh7a3c.xn--p1ai" data-do-not-track="true"></script>
 </head>
 <body>
 <a href="/" class="back-btn">←</a>
@@ -503,6 +509,7 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: #0b0d14; }
   }).catch(function(e) { console.error('loadMap error', e); });
 
   setTimeout(function() { map.invalidateSize(); }, 50);
+  if (window.umami) umami.track('map_view');
 })();
 </script>
 </body>

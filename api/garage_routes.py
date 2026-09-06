@@ -249,6 +249,7 @@ h1 { font-size:1.5rem; margin-bottom:20px; display:flex; align-items:center; gap
 .avatar-img { width:50px; height:50px; border-radius:50%; object-fit:cover; border:2px solid var(--card-border); }
 .avatar-placeholder { width:50px; height:50px; border-radius:50%; background:rgba(255,255,255,0.06); display:flex; align-items:center; justify-content:center; font-size:1.4rem; color:var(--text-muted); }
 </style>
+<script defer src="https://stats.gripcheck.ru/x.js" data-website-id="WEBSITE_ID" data-domains="gripcheck.ru,xn--80afdaebh7a3c.xn--p1ai" data-do-not-track="true"></script>
 </head>
 <body>
 <div class="container">
@@ -1084,6 +1085,7 @@ h1 { font-size:1.5rem; margin-bottom:20px; display:flex; align-items:center; gap
 
     loadBikes();
     loadProfileSection();
+    if (window.umami) umami.track('garage_view');
 }
 </script>
 </body>

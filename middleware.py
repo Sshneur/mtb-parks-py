@@ -10,6 +10,7 @@ logger = logging.getLogger(__name__)
 LOG_SKIP_PREFIXES = (
     "/css", "/js", "/lib", "/photos", "/icons", "/favicon",
     "/manifest.json", "/sw.js", "/og-image",
+    "/x.js", "/api/x",
 )
 
 _write_counter = {"n": 0}

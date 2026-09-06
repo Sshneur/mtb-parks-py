@@ -423,6 +423,7 @@ function renderAll(parkDataArray) {
           }
           const parkId = this.dataset.parkId;
           if (parkId) {
+              if (window.umami) umami.track('park_view', { park_id: parkId, group: currentGroup, model: currentModel });
               window.location.href = '/park/' + parkId;
           }
       });
@@ -451,10 +452,12 @@ function attachFavListeners() {
                     allFavorites = allFavorites.filter(id => id !== parkId);
                     this.classList.remove('active');
                     this.textContent = '♡';
+                    if (window.umami) umami.track('favorite_toggle', { park_id: parkId, action: 'remove' });
                 } else {
                     allFavorites.push(parkId);
                     this.classList.add('active');
                     this.textContent = '♥';
+                    if (window.umami) umami.track('favorite_toggle', { park_id: parkId, action: 'add' });
                 }
                 if (currentGroup === 'favorites') loadAll();
             }
@@ -502,6 +505,7 @@ document.querySelectorAll('.group-btn').forEach(function(btn) {
     document.querySelectorAll('.group-btn').forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
     currentGroup = btn.getAttribute('data-group');
+    if (window.umami) umami.track('group_switch', { group: currentGroup });
     loadAll();
   });
 });
@@ -514,11 +518,15 @@ if (modelToggle) {
     modelToggle.addEventListener('change', function() {
         currentModel = modelToggle.checked ? 'pm' : 'standard';
         localStorage.setItem('model', currentModel);
+        if (window.umami) umami.track('model_toggle', { model: currentModel });
         loadAll();
     });
 }
 
-document.getElementById('refreshBtn').addEventListener('click', loadAll);
+document.getElementById('refreshBtn').addEventListener('click', function() {
+    if (window.umami) umami.track('refresh_data');
+    loadAll();
+});
 
 // Старт
 loadUser().then(() => loadAll());

@@ -1,6 +1,7 @@
 (async function() {
     const parkId = window.location.pathname.split('/').pop();
     if (!parkId) return;
+    if (window.umami) umami.track('park_detail_view', { park_id: parkId });
 
     // ---------- ПРОВЕРКА АВТОРИЗАЦИИ ----------
     const token = localStorage.getItem('token') || '';
@@ -37,6 +38,7 @@
             this.classList.add('vote-btn-selected');
             selectedVote = parseInt(this.dataset.vote);
             document.getElementById('selectedVote').value = selectedVote;
+            if (window.umami) umami.track('vote_submit', { park_id: parkId, vote: selectedVote });
         });
     });
 
@@ -292,6 +294,7 @@
 
                 if (resp.ok) {
                     const data = await resp.json();
+                    if (window.umami) umami.track('photo_upload', { park_id: parkId, vote: parseInt(vote), has_comment: comment.length > 0 });
                     statusDiv.textContent = '✅ Фото загружено! Оценка: ' + vote;
                     statusDiv.style.color = '#4caf50';
                     fileInput.value = '';
@@ -370,6 +373,7 @@
                     var lightboxImg = document.getElementById('lightboxImg');
                     lightboxImg.src = this.src;
                     lightbox.style.display = 'flex';
+                    if (window.umami) umami.track('photo_lightbox', { park_id: parkId });
                 };
 
                 var info = document.createElement('div');
@@ -412,6 +416,7 @@
                 loadMore.className = 'load-more-btn';
                 loadMore.onclick = function() {
                     photoOffset += 10;
+                    if (window.umami) umami.track('photo_load_more', { park_id: parkId, offset: photoOffset });
                     loadPhotos(false);
                 };
                 gallery.appendChild(loadMore);
@@ -580,6 +585,7 @@
                 bestEl.innerHTML = `⭐ Лучшее время старта: <strong>${bestOverall.dayLabel}, ${bestOverall.label}</strong> — ${bestOverall.soil}, +${bestOverall.temp}°C, ветер ${bestOverall.wind} м/с`;
                 bestEl.className = 'best-time';
             }
+            if (window.umami) umami.track('forecast_view', { park_id: parkId, days_count: data.forecast.length });
         } catch (e) {
             console.error('Ошибка прогноза:', e);
         }
