@@ -49,6 +49,7 @@ function logout() {
     myVotes = {};
     localStorage.removeItem('token');
     allFavorites = [];
+    currentDashboardParks = [];
     updateBurgerAuth();
     document.getElementById('levelMobile').style.display = 'none';
 }
@@ -250,12 +251,23 @@ function getVoteLabel(vote) {
 var currentGroup = 'mtb_parks';
 var currentModel = 'standard';
 var allFavorites = [];
+var currentDashboardParks = [];
 
 async function loadFavorites() {
     if (!currentUser) return;
     const res = await fetch('/api/user/favorites', { headers: { 'Authorization': 'Bearer ' + token } });
     if (res.ok) {
         allFavorites = (await res.json()).map(f => f.id);
+    }
+}
+
+async function loadDashboardParks() {
+    if (!currentUser) return;
+    const res = await fetch('/api/user/dashboard-parks', {
+        headers: { 'Authorization': 'Bearer ' + token }
+    });
+    if (res.ok) {
+        currentDashboardParks = (await res.json()).map(d => d.park_id);
     }
 }
 
@@ -272,7 +284,8 @@ async function loadAllGroupsFiltered() {
             }
         }
     }
-    var filtered = allResults.filter(r => allFavorites.includes(r.park.id));
+    var filterIds = currentGroup === 'my_parks' ? currentDashboardParks : allFavorites;
+    var filtered = allResults.filter(r => filterIds.includes(r.park.id));
     var parkDataArray = filtered.map(processWeatherData);
     await enrichWithVotes(parkDataArray);
     renderAll(parkDataArray);
@@ -293,6 +306,24 @@ async function enrichWithVotes(parkDataArray) {
 function loadAll() {
   var dashboard = document.getElementById('dashboard');
   dashboard.innerHTML = '<div class="loading">⏳ Загрузка данных...</div>';
+
+  var clearBtn = document.getElementById('clearDashboard');
+  if (clearBtn) clearBtn.style.display = (currentGroup === 'my_parks' && currentUser) ? 'inline-block' : 'none';
+
+  if (currentGroup === 'my_parks') {
+      if (!currentUser) {
+          dashboard.innerHTML = '<div class="loading">Войдите, чтобы собрать свою панель</div>';
+          return;
+      }
+      loadDashboardParks().then(() => {
+          if (currentDashboardParks.length === 0) {
+              dashboard.innerHTML = '<div class="empty-state">Пока нет парков. Нажмите "+" на любой карточке, чтобы добавить.</div>';
+              return;
+          }
+          loadAllGroupsFiltered();
+      });
+      return;
+  }
 
   if (currentGroup === 'favorites') {
       if (!currentUser) {
@@ -353,6 +384,10 @@ function renderAll(parkDataArray) {
     html += '<div class="park-title"><a href="/park/' + escapeHtml(park.parkId) + '" style="color:inherit; text-decoration:none;">' + escapeHtml(park.name) + '</a> <span class="coords">' + park.lat.toFixed(4) + ', ' + park.lon.toFixed(4) + '</span>';
     if (currentUser) {
         html += '<span class="fav-icon' + (isFav ? ' active' : '') + '" data-park-id="' + park.parkId + '">' + (isFav ? '♥' : '♡') + '</span>';
+    }
+    if (currentUser) {
+        var isDash = currentDashboardParks.includes(park.parkId);
+        html += '<span class="dash-icon' + (isDash ? ' active' : '') + '" data-park-id="' + park.parkId + '">' + (isDash ? '✓' : '+') + '</span>';
     }
     html += '</div>';
 
@@ -425,7 +460,7 @@ function renderAll(parkDataArray) {
   // ===== КЛИК ПО КАРТОЧКЕ (кроме интерактивных элементов) =====
   document.querySelectorAll('.card').forEach(card => {
       card.addEventListener('click', function(e) {
-          if (e.target.closest('.fav-icon') || e.target.closest('a') || e.target.closest('button')) {
+          if (e.target.closest('.fav-icon') || e.target.closest('.dash-icon') || e.target.closest('a') || e.target.closest('button')) {
               return;
           }
           const parkId = this.dataset.parkId;
@@ -440,6 +475,7 @@ function renderAll(parkDataArray) {
   window._parkData = parkDataArray;
   startLiveTimers();
   attachFavListeners();
+  attachDashListeners();
 }
 
 function attachFavListeners() {
@@ -467,6 +503,34 @@ function attachFavListeners() {
                     if (window.umami) umami.track('favorite_toggle', { park_id: parkId, action: 'add' });
                 }
                 if (currentGroup === 'favorites') loadAll();
+            }
+        };
+    });
+}
+
+function attachDashListeners() {
+    if (!currentUser) return;
+    document.querySelectorAll('.dash-icon').forEach(el => {
+        el.onclick = async function(e) {
+            e.stopPropagation();
+            var parkId = this.dataset.parkId;
+            var isInDashboard = currentDashboardParks.includes(parkId);
+            var method = isInDashboard ? 'DELETE' : 'POST';
+            var res = await fetch('/api/user/dashboard-parks/' + parkId, {
+                method: method,
+                headers: { 'Authorization': 'Bearer ' + token }
+            });
+            if (res.ok) {
+                if (isInDashboard) {
+                    currentDashboardParks = currentDashboardParks.filter(id => id !== parkId);
+                    this.textContent = '+';
+                    this.classList.remove('active');
+                } else {
+                    currentDashboardParks.push(parkId);
+                    this.textContent = '✓';
+                    this.classList.add('active');
+                }
+                if (currentGroup === 'my_parks') loadAll();
             }
         };
     });
@@ -534,6 +598,18 @@ document.getElementById('refreshBtn').addEventListener('click', function() {
     if (window.umami) umami.track('refresh_data');
     loadAll();
 });
+
+document.getElementById('clearDashboard').onclick = async function() {
+    if (!confirm('Убрать все парки из панели?')) return;
+    var res = await fetch('/api/user/dashboard-parks', {
+        method: 'DELETE',
+        headers: { 'Authorization': 'Bearer ' + token }
+    });
+    if (res.ok) {
+        currentDashboardParks = [];
+        if (currentGroup === 'my_parks') loadAll();
+    }
+};
 
 // Старт
 loadUser().then(() => loadAll());

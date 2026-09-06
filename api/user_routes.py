@@ -320,3 +320,75 @@ async def upload_bike_photo(bike_id: int, request: Request, user=Depends(get_cur
         return {"ok": True, "url": f"/photos/bikes/{filename}"}
     finally:
         conn.close()
+
+@router.get("/api/user/dashboard-parks")
+async def get_dashboard_parks(user=Depends(get_current_user)):
+    conn = get_connection()
+    try:
+        rows = conn.execute(
+            "SELECT park_id FROM user_dashboard_parks WHERE user_id = ? ORDER BY sort_order",
+            (user["user_id"],)
+        ).fetchall()
+        return [{"park_id": r["park_id"]} for r in rows]
+    except Exception as e:
+        logger.error(f"Ошибка в get_dashboard_parks: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Внутренняя ошибка сервера")
+    finally:
+        conn.close()
+
+
+@router.post("/api/user/dashboard-parks/{park_id}")
+async def add_to_dashboard(park_id: str, user=Depends(get_current_user)):
+    conn = get_connection()
+    try:
+        park = conn.execute("SELECT id FROM parks WHERE id = ?", (park_id,)).fetchone()
+        if not park:
+            raise HTTPException(status_code=404, detail="Парк не найден")
+        max_order = conn.execute(
+            "SELECT COALESCE(MAX(sort_order), 0) FROM user_dashboard_parks WHERE user_id = ?",
+            (user["user_id"],)
+        ).fetchone()[0]
+        conn.execute(
+            "INSERT OR IGNORE INTO user_dashboard_parks (user_id, park_id, sort_order) VALUES (?, ?, ?)",
+            (user["user_id"], park_id, max_order + 1)
+        )
+        conn.commit()
+        return {"ok": True}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Ошибка в add_to_dashboard: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Внутренняя ошибка сервера")
+    finally:
+        conn.close()
+
+
+@router.delete("/api/user/dashboard-parks/{park_id}")
+async def remove_from_dashboard(park_id: str, user=Depends(get_current_user)):
+    conn = get_connection()
+    try:
+        conn.execute(
+            "DELETE FROM user_dashboard_parks WHERE user_id = ? AND park_id = ?",
+            (user["user_id"], park_id)
+        )
+        conn.commit()
+        return {"ok": True}
+    except Exception as e:
+        logger.error(f"Ошибка в remove_from_dashboard: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Внутренняя ошибка сервера")
+    finally:
+        conn.close()
+
+
+@router.delete("/api/user/dashboard-parks")
+async def clear_dashboard(user=Depends(get_current_user)):
+    conn = get_connection()
+    try:
+        conn.execute("DELETE FROM user_dashboard_parks WHERE user_id = ?", (user["user_id"],))
+        conn.commit()
+        return {"ok": True}
+    except Exception as e:
+        logger.error(f"Ошибка в clear_dashboard: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Внутренняя ошибка сервера")
+    finally:
+        conn.close()

@@ -69,6 +69,11 @@ async def lifespan(app: FastAPI):
                 await asyncio.to_thread(apply_park_calibration)
             except Exception as e:
                 print(f"Calibration skipped: {e}")
+            try:
+                from migrations.add_user_dashboard import migrate as m3
+                await asyncio.to_thread(m3)
+            except Exception as e:
+                print(f"Migration add_user_dashboard skipped: {e}")
         finally:
             init_event.set()
 

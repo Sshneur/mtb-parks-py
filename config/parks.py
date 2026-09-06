@@ -6,7 +6,10 @@ PARKS = {
             {"id": "erino", "name": "Байк Парк Ерино", "lat": 55.438771, "lon": 37.504228, "dry_hours": 48, "start_date": None, "soil": "loam", "forest": True, "forest_coef": 0.3, "description": "Специализированный байк-парк с трассами разного уровня.", "trails_count": 8},
             {"id": "chess", "name": "Чесс Парк", "lat": 55.567215, "lon": 37.539429, "dry_hours": 72, "start_date": None, "soil": "clay_heavy", "forest": True, "forest_coef": 0.20, "description": "Глинистый грунт — долго сохнет после дождя.", "trails_count": 4},
             {"id": "kozlovka", "name": "Парк Козловка", "lat": 54.831991, "lon": 38.125463, "dry_hours": 72, "start_date": None, "soil": "clay", "forest": True, "forest_coef": 0.3, "description": "Живописный парк в Подмосковье с лесными трассами.", "trails_count": 3},
-            {"id": "krylatskoye", "name": "Крылатские холмы", "lat": 55.767675, "lon": 37.426816, "dry_hours": 24, "start_date": None, "soil": "loam", "forest": True, "forest_coef": 0.6, "description": "Олимпийский велотрек и природные тропы в ООПТ.", "trails_count": 6}
+            {"id": "krylatskoye", "name": "Крылатские холмы", "lat": 55.767675, "lon": 37.426816, "dry_hours": 24, "start_date": None, "soil": "loam", "forest": True, "forest_coef": 0.6, "description": "Олимпийский велотрек и природные тропы в ООПТ.", "trails_count": 6},
+            {"id": "muraveynik", "name": "Муравейник", "lat": 55.391114, "lon": 37.492437, "dry_hours": 48, "start_date": None, "soil": "podzol", "forest": True, "forest_coef": 0.3, "description": "Сложная кросскантри трасса, с обилием подьемов и сложных элементов.", "trails_count": 1},
+            {"id": "openspot", "name": "Openspot", "lat": 55.628366, "lon": 37.548082, "dry_hours": 24, "start_date": None, "soil": "podzol", "forest": True, "forest_coef": 0.6, "description": "3 трассы разного уровня, есть трасса для новичков. Дерново-подзолистый грунт на суглинке в парке Битца.", "trails_count": 3},
+            {"id": "izvarino", "name": "Изварино", "lat": 55.626885, "lon": 37.249549, "dry_hours": 48, "start_date": None, "soil": "podzol", "forest": True, "forest_coef": 0.3, "description": "4 трассы, красные и чёрные. Суглинистый грунт — скользкий и пластичный после дождя.", "trails_count": 4}
         ]
     },
     "mtb_mountains": {
@@ -32,6 +35,7 @@ SOIL_COEFFICIENTS = {
     "loam":        {"k_t": 0.08, "k_w": 0.06, "k_r": 0.001, "k_s": 0.04, "W0": 1.0},
     "clay":        {"k_t": 0.05, "k_w": 0.03, "k_r": 0.0005, "k_s": 0.06, "W0": 1.0},
     "clay_heavy":  {"k_t": 0.01, "k_w": 0.01, "k_r": 0.0003, "k_s": 0.026, "W0": 1.0},
+    "podzol":       {"k_t": 0.065, "k_w": 0.045, "k_r": 0.0008, "k_s": 0.035, "W0": 1.0},
     "chernozem":   {"k_t": 0.07, "k_w": 0.05, "k_r": 0.001, "k_s": 0.05, "W0": 1.0}
 }
 

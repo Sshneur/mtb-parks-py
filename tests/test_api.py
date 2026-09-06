@@ -11,7 +11,7 @@ def test_weather_group(client):
     r = client.get("/api/weather/mtb_parks")
     assert r.status_code == 200
     data = r.json()
-    assert len(data) == 5
+    assert len(data) == 8
     for park in data:
         assert "name" in park["park"]
         assert "soilStatus" in park["park"]
