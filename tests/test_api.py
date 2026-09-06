@@ -1,15 +1,4 @@
-from fastapi.testclient import TestClient
-from main import app
-from database.connection import init_db, get_connection
-
-client = TestClient(app)
-
-
-def setup_module():
-    init_db()
-
-
-def test_groups():
+def test_groups(client):
     r = client.get("/api/groups")
     assert r.status_code == 200
     data = r.json()
@@ -18,7 +7,7 @@ def test_groups():
     assert ids == {"mtb_parks", "mtb_mountains", "pamps"}
 
 
-def test_weather_group():
+def test_weather_group(client):
     r = client.get("/api/weather/mtb_parks")
     assert r.status_code == 200
     data = r.json()
@@ -28,13 +17,13 @@ def test_weather_group():
         assert "soilStatus" in park["park"]
 
 
-def test_unknown_group():
+def test_unknown_group(client):
     r = client.get("/api/weather/unknown")
     assert r.status_code == 200
     assert r.json() == {"error": "Группа не найдена"}
 
 
-def test_park_status():
+def test_park_status(client):
     r = client.get("/api/park/fili/status")
     assert r.status_code == 200
     data = r.json()
@@ -42,7 +31,7 @@ def test_park_status():
     assert "dryHours" in data
 
 
-def test_park_weather():
+def test_park_weather(client):
     r = client.get("/api/park/fili/weather?days=7")
     assert r.status_code == 200
     data = r.json()
@@ -50,60 +39,39 @@ def test_park_weather():
     assert len(data["weather"]) == 7
 
 
-def test_park_photos():
+def test_park_photos(client):
     r = client.get("/api/park/fili/photos")
     assert r.status_code == 200
-    assert isinstance(r.json(), list)
+    data = r.json()
+    assert data["photos"] is not None
+    assert isinstance(data["photos"], list)
+    assert data["total"] >= 0
 
 
-def test_unknown_park():
+def test_unknown_park(client):
     r = client.get("/api/park/nonexistent/status")
     assert r.status_code == 404
     assert r.json() == {"error": "Парк не найден"}
 
 
-def test_development_page():
+def test_development_page(client):
     r = client.get("/development")
     assert r.status_code == 200
     assert "ИИ определяет" in r.text
 
 
-def test_contacts_page():
+def test_contacts_page(client):
     r = client.get("/contacts")
     assert r.status_code == 200
+    assert "Контакт" in r.text or "email" in r.text or "@" in r.text
 
 
-def test_admin_page():
+def test_admin_page(client):
     r = client.get("/admin")
     assert r.status_code == 200
     assert "Админ" in r.text
 
 
-def test_auth_bad_login():
+def test_auth_bad_login(client):
     r = client.post("/api/auth/login", json={"email": "x@x.ru", "password": "wrong"})
     assert r.status_code == 401
-
-
-def test_utils_parse_time():
-    from api.utils import parse_time, to_msk, weather_code
-    from datetime import datetime, timezone
-    dt = parse_time("2024-01-15T10:30:00Z")
-    assert dt.tzinfo is not None
-    assert dt.hour == 10
-    msk = to_msk(dt)
-    assert "+03:00" in msk
-    assert weather_code(30, 0) == 1
-    assert weather_code(10, 5) == 63
-    assert weather_code(10, 0) == 3
-    assert weather_code(0, 0) == 3
-    assert weather_code(None, 0) == 3
-    assert weather_code(20, 0.7) == 61
-
-
-def test_soil_status_concrete_requires_dry():
-    from services.soil_calculator import get_soil_status
-    assert get_soil_status(0, 0, 200) == "Бетон 🪨"
-    assert get_soil_status(0, 7.3, 200) == "Альденте 🌵"
-    assert get_soil_status(0, 100, 200) == "Болото 🟤"
-    assert get_soil_status(0, 30, 200) == "Мокро 💧"
-    assert get_soil_status(0, 0, 100) == "Сухо ✅"

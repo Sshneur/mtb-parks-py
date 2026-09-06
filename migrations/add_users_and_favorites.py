@@ -1,10 +1,9 @@
 import sqlite3
 import os
-
-DB_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data", "weather.db")
+from database.connection import get_connection
 
 def migrate():
-    conn = sqlite3.connect(DB_PATH)
+    conn = get_connection()
     cursor = conn.cursor()
 
     cursor.execute("""

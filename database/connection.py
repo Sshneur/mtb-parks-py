@@ -54,33 +54,25 @@ def init_db():
         CREATE INDEX IF NOT EXISTS idx_weather_park_time
         ON weather_hourly(park_id, timestamp DESC);
 
-        CREATE INDEX IF NOT EXISTS idx_weather_park_rain
-        ON weather_hourly(park_id, rain, timestamp);
-
-        CREATE INDEX IF NOT EXISTS idx_weather_park_source_time
-        ON weather_hourly(park_id, source, timestamp);
-
-        CREATE INDEX IF NOT EXISTS idx_park_photos_park_status
-        ON park_photos(park_id, status);
-
-        CREATE INDEX IF NOT EXISTS idx_park_photos_user
-        ON park_photos(user_id);
-
-        CREATE INDEX IF NOT EXISTS idx_bikes_user
-        ON bikes(user_id);
-
-        CREATE INDEX IF NOT EXISTS idx_users_username
-        ON users(username);
-
-        CREATE INDEX IF NOT EXISTS idx_weather_source
-        ON weather_hourly(source);
-
         CREATE TABLE IF NOT EXISTS update_log (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             park_id TEXT NOT NULL,
             update_type TEXT NOT NULL,
             status TEXT NOT NULL,
             message TEXT,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        );
+
+        CREATE TABLE IF NOT EXISTS users (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            email TEXT UNIQUE NOT NULL,
+            password_hash TEXT NOT NULL,
+            role TEXT DEFAULT 'user',
+            username TEXT,
+            failed_attempts INTEGER DEFAULT 0,
+            locked_until TEXT,
+            photo_votes_count INTEGER DEFAULT 0,
+            avatar TEXT,
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP
         );
 
@@ -137,6 +129,27 @@ def init_db():
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (user_id) REFERENCES users(id)
         );
+
+        CREATE INDEX IF NOT EXISTS idx_weather_park_rain
+        ON weather_hourly(park_id, rain, timestamp);
+
+        CREATE INDEX IF NOT EXISTS idx_weather_park_source_time
+        ON weather_hourly(park_id, source, timestamp);
+
+        CREATE INDEX IF NOT EXISTS idx_park_photos_park_status
+        ON park_photos(park_id, status);
+
+        CREATE INDEX IF NOT EXISTS idx_park_photos_user
+        ON park_photos(user_id);
+
+        CREATE INDEX IF NOT EXISTS idx_bikes_user
+        ON bikes(user_id);
+
+        CREATE INDEX IF NOT EXISTS idx_users_username
+        ON users(username);
+
+        CREATE INDEX IF NOT EXISTS idx_weather_source
+        ON weather_hourly(source);
     """)
 
     # Добавляем новые колонки, если их ещё нет
