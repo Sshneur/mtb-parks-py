@@ -157,7 +157,7 @@ REGISTER_HTML = """
             margin-top: 10px;
         }
     </style>
-    <script defer src="https://stats.gripcheck.ru/x.js" data-website-id="WEBSITE_ID" data-domains="gripcheck.ru,xn--80afdaebh7a3c.xn--p1ai" data-do-not-track="true"></script>
+    <script defer src="https://gripcheck.ru/x.js" data-website-id="b88aec0e-21c1-445a-9ce2-566959574f4f" data-domains="gripcheck.ru,xn--80afdaebh7a3c.xn--p1ai" data-do-not-track="true"></script>
 </head>
 <body>
     <div class="auth-container">
@@ -260,7 +260,7 @@ LOGIN_HTML = """
             margin-top: 10px;
         }
     </style>
-    <script defer src="https://stats.gripcheck.ru/x.js" data-website-id="WEBSITE_ID" data-domains="gripcheck.ru,xn--80afdaebh7a3c.xn--p1ai" data-do-not-track="true"></script>
+    <script defer src="https://gripcheck.ru/x.js" data-website-id="b88aec0e-21c1-445a-9ce2-566959574f4f" data-domains="gripcheck.ru,xn--80afdaebh7a3c.xn--p1ai" data-do-not-track="true"></script>
 </head>
 <body>
     <div class="auth-container">

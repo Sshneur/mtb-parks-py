@@ -63,7 +63,7 @@ CALENDAR_HTML_TEMPLATE = """<!DOCTYPE html>
             .day-cell { font-size: 0.6rem; }
         }
     </style>
-    <script defer src="https://stats.gripcheck.ru/x.js" data-website-id="WEBSITE_ID" data-domains="gripcheck.ru,xn--80afdaebh7a3c.xn--p1ai" data-do-not-track="true"></script>
+    <script defer src="https://gripcheck.ru/x.js" data-website-id="b88aec0e-21c1-445a-9ce2-566959574f4f" data-domains="gripcheck.ru,xn--80afdaebh7a3c.xn--p1ai" data-do-not-track="true"></script>
 </head>
 <body>
     <div class="container" style="position:relative;">
@@ -331,7 +331,7 @@ PARK_HTML_TEMPLATE = """
     </script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
-    <script defer src="https://stats.gripcheck.ru/x.js" data-website-id="WEBSITE_ID" data-domains="gripcheck.ru,xn--80afdaebh7a3c.xn--p1ai" data-do-not-track="true"></script>
+    <script defer src="https://gripcheck.ru/x.js" data-website-id="b88aec0e-21c1-445a-9ce2-566959574f4f" data-domains="gripcheck.ru,xn--80afdaebh7a3c.xn--p1ai" data-do-not-track="true"></script>
 </head>
 <body>
     <div class="park-container" style="position:relative;">
@@ -459,7 +459,7 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: #0b0d14; }
   .back-btn { bottom: calc(20px + env(safe-area-inset-bottom, 0px)); }
 }
 </style>
-<script defer src="https://stats.gripcheck.ru/x.js" data-website-id="WEBSITE_ID" data-domains="gripcheck.ru,xn--80afdaebh7a3c.xn--p1ai" data-do-not-track="true"></script>
+<script defer src="https://gripcheck.ru/x.js" data-website-id="b88aec0e-21c1-445a-9ce2-566959574f4f" data-domains="gripcheck.ru,xn--80afdaebh7a3c.xn--p1ai" data-do-not-track="true"></script>
 </head>
 <body>
 <a href="/" class="back-btn">←</a>
