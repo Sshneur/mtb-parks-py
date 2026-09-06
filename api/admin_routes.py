@@ -406,7 +406,7 @@ ADMIN_HTML = """
     </div>
 
     <script>
-        let token = localStorage.getItem('admin_token') || '';
+        let token = localStorage.getItem('admin_token') || localStorage.getItem('token') || '';
 
         if (!token || token.split('.').length !== 3) {
             window.location.href = '/login?next=/admin';

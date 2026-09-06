@@ -292,7 +292,8 @@ LOGIN_HTML = """
             if (data.ok) {
                 localStorage.setItem('token', data.token);
                 if (window.umami) umami.track('login');
-                window.location.href = '/';
+                const n = new URLSearchParams(location.search).get('next');
+                window.location.href = (n && n.startsWith('/')) ? n : '/';
             } else {
                 if (window.umami) umami.track('login_failure', { error: data.detail || 'unknown' });
                 document.getElementById('error').textContent = data.detail || 'Ошибка входа';
