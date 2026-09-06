@@ -108,5 +108,8 @@ async def get_my_votes(user=Depends(get_current_user)):
             "SELECT park_id, vote FROM soil_votes WHERE user_id = ?", (user["user_id"],)
         ).fetchall()
         return {r["park_id"]: r["vote"] for r in rows}
+    except Exception as e:
+        logger.error(f"Ошибка в get_my_votes: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Внутренняя ошибка")
     finally:
         conn.close()

@@ -799,62 +799,66 @@ async def get_park_status(park_id: str):
 
 @router.get("/api/park/list")
 async def get_park_list():
-    parks = get_all_parks()
-    if not parks:
-        return []
-    results = []
-    conn = get_connection()
-    now_utc = datetime.now(timezone.utc)
     try:
-        for park in parks:
-            status = None
-            last_updated = park.get("last_updated")
-            if last_updated and park.get("evaporation_rate"):
-                try:
-                    lu = parse_time(last_updated)
-                    if (now_utc - lu).total_seconds() < 3600:
-                        W = park.get("current_moisture") or 0.0
-                        evap = park["evaporation_rate"]
-                        dry_hours = W / evap if evap > 0 else 0
-                        last_rain = conn.execute("""
-                            SELECT MAX(timestamp) as ts FROM weather_hourly
-                            WHERE park_id = ? AND rain > 0 AND timestamp <= ?
-                        """, (park["id"], now_utc.isoformat())).fetchone()
-                        hours_since_rain = None
-                        if last_rain and last_rain["ts"]:
-                            hours_since_rain = (now_utc - parse_time(last_rain["ts"])).total_seconds() / 3600
-                        status = get_soil_status(0, dry_hours, hours_since_rain, park.get("soil_type") == "asphalt")
-                except Exception as e:
-                    logger.error(f"Быстрый путь статуса для {park['id']}: {e}")
-                    status = None
-            if status is None:
-                rows = conn.execute("""
-                    SELECT * FROM weather_hourly
-                    WHERE park_id = ? AND timestamp <= ? AND timestamp >= datetime('now', '-14 days')
-                    ORDER BY timestamp ASC
-                """, (park["id"], now_utc.isoformat())).fetchall()
-                all_data = [dict(r) for r in rows]
-                if all_data:
-                    moisture = calculate_soil_moisture_from_db(park, all_data)
-                    is_asphalt = park.get("soil_type") == "asphalt"
-                    status = get_soil_status(
-                        moisture["total_rain"],
-                        moisture["dry_hours"],
-                        moisture["hours_since_rain"],
-                        is_asphalt
-                    )
-                else:
-                    status = "Нет данных"
-            results.append({
-                "parkId": park["id"],
-                "name": park["name"],
-                "lat": park["lat"],
-                "lon": park["lon"],
-                "soilStatus": status
-            })
-    finally:
-        conn.close()
-    return results
+        parks = get_all_parks()
+        if not parks:
+            return []
+        results = []
+        conn = get_connection()
+        now_utc = datetime.now(timezone.utc)
+        try:
+            for park in parks:
+                status = None
+                last_updated = park.get("last_updated")
+                if last_updated and park.get("evaporation_rate"):
+                    try:
+                        lu = parse_time(last_updated)
+                        if (now_utc - lu).total_seconds() < 3600:
+                            W = park.get("current_moisture") or 0.0
+                            evap = park["evaporation_rate"]
+                            dry_hours = W / evap if evap > 0 else 0
+                            last_rain = conn.execute("""
+                                SELECT MAX(timestamp) as ts FROM weather_hourly
+                                WHERE park_id = ? AND rain > 0 AND timestamp <= ?
+                            """, (park["id"], now_utc.isoformat())).fetchone()
+                            hours_since_rain = None
+                            if last_rain and last_rain["ts"]:
+                                hours_since_rain = (now_utc - parse_time(last_rain["ts"])).total_seconds() / 3600
+                            status = get_soil_status(0, dry_hours, hours_since_rain, park.get("soil_type") == "asphalt")
+                    except Exception as e:
+                        logger.error(f"Быстрый путь статуса для {park['id']}: {e}")
+                        status = None
+                if status is None:
+                    rows = conn.execute("""
+                        SELECT * FROM weather_hourly
+                        WHERE park_id = ? AND timestamp <= ? AND timestamp >= datetime('now', '-14 days')
+                        ORDER BY timestamp ASC
+                    """, (park["id"], now_utc.isoformat())).fetchall()
+                    all_data = [dict(r) for r in rows]
+                    if all_data:
+                        moisture = calculate_soil_moisture_from_db(park, all_data)
+                        is_asphalt = park.get("soil_type") == "asphalt"
+                        status = get_soil_status(
+                            moisture["total_rain"],
+                            moisture["dry_hours"],
+                            moisture["hours_since_rain"],
+                            is_asphalt
+                        )
+                    else:
+                        status = "Нет данных"
+                results.append({
+                    "parkId": park["id"],
+                    "name": park["name"],
+                    "lat": park["lat"],
+                    "lon": park["lon"],
+                    "soilStatus": status
+                })
+        finally:
+            conn.close()
+        return results
+    except Exception as e:
+        logger.error(f"Ошибка в get_park_list: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Внутренняя ошибка сервера")
 
 # ===== ИСПРАВЛЕННЫЙ ЭНДПОИНТ С КОРРЕКТНЫМ СРАВНЕНИЕМ ДАТ =====
 @router.get("/api/park/{park_id}/votes-history")

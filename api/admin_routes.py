@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Request, HTTPException, Depends
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from database.connection import get_connection
 from database.models import SOIL_COEFFICIENTS
 import jwt
@@ -311,13 +311,17 @@ async def umami_stats(user=Depends(get_admin_user)):
             "devices": devices[:5],
         }
     except Exception as e:
-        logger.error(f"Ошибка Umami в umami_stats: {e}", exc_info=True)
-        return JSONResponse(status_code=502, content={"ok": False, "error": str(e)})
+        logger.error(f"Ошибка Umami API: {e}", exc_info=True)
+        return JSONResponse(status_code=502, content={"ok": False, "error": "Ошибка загрузки данных"})
 
 
 @router.get("/admin", response_class=HTMLResponse)
-async def admin_panel():
-    """Отдаёт HTML админ-панели"""
+async def admin_panel(request: Request):
+    """Отдаёт HTML админ-панели. Без валидного токена — редирект на вход."""
+    try:
+        get_admin_user(request)
+    except HTTPException:
+        return RedirectResponse("/login?next=/admin")
     return HTMLResponse(content=ADMIN_HTML)
 
 # ===== ОБНОВЛЁННЫЙ HTML =====
