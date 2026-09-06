@@ -104,6 +104,7 @@ CALENDAR_HTML_TEMPLATE = """<!DOCTYPE html>
 
     <script>
     const parkId = "{{ park_id }}";
+    if (window.umami) umami.track('calendar_page_view', { park_id: parkId });
     const today = new Date();
     let currentYear = today.getFullYear();
     let currentMonth = today.getMonth();
@@ -344,6 +345,8 @@ PARK_HTML_TEMPLATE = """
         <a href="https://yandex.ru/maps/?rtext=~{{ lat }},{{ lon }}&rtt=auto"
            target="_blank" class="route-btn"
            onclick="if(window.umami)umami.track('route_click',{park_id:'{{ park_id }}'})">🗺️ Проложить маршрут (Яндекс)</a>
+        <a href="/map" class="route-btn" style="background:#4a90e2;"
+           onclick="if(window.umami)umami.track('map_click',{source:'park_page'})">🗺️ Все парки на карте</a>
 
         <div id="statusCard" style="background:var(--card-bg); border:1px solid var(--card-border); border-radius:14px; padding:16px; margin:16px 0; text-align:center;">
             <div style="font-size:0.8rem; color:var(--text-muted); margin-bottom:6px;">Состояние грунта по данным погоды</div>
@@ -362,7 +365,8 @@ PARK_HTML_TEMPLATE = """
         </div>
 
         <div style="text-align:center; margin:16px 0;">
-            <a href="/park/{{ park_id }}/calendar" style="display:inline-block; padding:10px 20px; background:rgba(74,144,226,0.15); border:1px solid rgba(74,144,226,0.3); border-radius:28px; color:var(--accent); text-decoration:none; font-size:14px;">📅 Календарь зелёных дней</a>
+            <a href="/park/{{ park_id }}/calendar" style="display:inline-block; padding:10px 20px; background:rgba(74,144,226,0.15); border:1px solid rgba(74,144,226,0.3); border-radius:28px; color:var(--accent); text-decoration:none; font-size:14px;"
+               onclick="if(window.umami)umami.track('calendar_click',{park_id:'{{ park_id }}'})">📅 Календарь зелёных дней</a>
         </div>
 
         <div class="chart-box">
@@ -504,7 +508,9 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: #0b0d14; }
       }).addTo(map).bindPopup(
         '<b><a href="/park/' + p.parkId + '" style="color:#4a90e2;text-decoration:none;">' + p.name + '</a></b><br>' +
         '<span style="font-size:13px;">' + p.soilStatus + '</span>'
-      );
+      ).on('click', function() {
+        if (window.umami) umami.track('map_view', { park_id: p.parkId });
+      });
     });
   }).catch(function(e) { console.error('loadMap error', e); });
 

@@ -1086,3 +1086,35 @@ body {
   border-color: var(--accent) !important;
   background: rgba(74, 144, 226, 0.2) !important;
 }
+
+/* ---------- MINI MAP ---------- */
+.mini-map-wrap {
+  max-width: 1400px;
+  margin: 0 auto 12px;
+  border-radius: 16px;
+  overflow: hidden;
+  border: 1px solid var(--card-border);
+  background: var(--card-bg);
+}
+.mini-map {
+  width: 100%;
+  height: 200px;
+}
+.mini-map-link {
+  display: block;
+  text-align: center;
+  padding: 8px;
+  font-size: 0.85rem;
+  color: var(--accent);
+  text-decoration: none;
+  background: var(--hourly-bg);
+  border-top: 1px solid var(--card-border);
+  transition: background 0.2s;
+}
+.mini-map-link:hover {
+  background: rgba(74,144,226,0.15);
+}
+@media (max-width: 700px) {
+  .mini-map { height: 160px; }
+  .mini-map-wrap { border-radius: 12px; margin: 0 0 10px; }
+}

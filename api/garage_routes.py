@@ -758,6 +758,7 @@ h1 { font-size:1.5rem; margin-bottom:20px; display:flex; align-items:center; gap
         }
         var text = lines.join('\n');
         navigator.clipboard.writeText(text).then(function(){
+            if (window.umami) umami.track('bike_copy');
             var btn = document.getElementById('copyBikeBtn');
             btn.textContent = '✅ Скопировано';
             setTimeout(function(){ btn.textContent = '📋 Копировать'; }, 2000);
@@ -1062,6 +1063,7 @@ h1 { font-size:1.5rem; margin-bottom:20px; display:flex; align-items:center; gap
             body: JSON.stringify(data)
         });
         if (r.ok) {
+            if (window.umami) umami.track('bike_create', { bike_type: data.bike_type });
             document.getElementById('bikeForm').style.display = 'none';
             document.getElementById('bikeDashboard').style.display = 'none';
             document.getElementById('bikeListContainer').style.display = 'block';
@@ -1076,6 +1078,7 @@ h1 { font-size:1.5rem; margin-bottom:20px; display:flex; align-items:center; gap
         if (!confirm('Удалить байк?')) return;
         var r = await fetch('/api/user/bikes/' + id, { method: 'DELETE', headers: { 'Authorization': 'Bearer ' + TOKEN } });
         if (r.ok) {
+            if (window.umami) umami.track('bike_delete', { bike_id: id });
             document.getElementById('bikeDashboard').style.display = 'none';
             document.getElementById('bikeListContainer').style.display = 'block';
             document.getElementById('addBikeBtn').style.display = 'block';
@@ -1085,7 +1088,7 @@ h1 { font-size:1.5rem; margin-bottom:20px; display:flex; align-items:center; gap
 
     loadBikes();
     loadProfileSection();
-    if (window.umami) umami.track('garage_view');
+    if (window.umami) umami.track('garage_view', { has_auth: !!TOKEN });
 }
 </script>
 </body>

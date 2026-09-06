@@ -294,6 +294,7 @@ LOGIN_HTML = """
                 if (window.umami) umami.track('login');
                 window.location.href = '/';
             } else {
+                if (window.umami) umami.track('login_failure', { error: data.detail || 'unknown' });
                 document.getElementById('error').textContent = data.detail || 'Ошибка входа';
             }
         };

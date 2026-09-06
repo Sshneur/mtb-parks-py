@@ -67,12 +67,17 @@ if (fabBtn && fabMenu && fabOverlay) {
     fabBtn.addEventListener('click', function() {
         if (fabMenu.classList.contains('open')) {
             closeFabMenu();
+            if (window.umami) umami.track('fab_menu_close');
         } else {
             fabMenu.classList.add('open');
             fabOverlay.classList.add('open');
+            if (window.umami) umami.track('fab_menu_open');
         }
     });
-    fabOverlay.addEventListener('click', closeFabMenu);
+    fabOverlay.addEventListener('click', function() {
+        closeFabMenu();
+        if (window.umami) umami.track('fab_menu_close');
+    });
 
     // Скрытие при скролле вниз / показ при скролле вверх
     var lastScrollY = window.scrollY;
@@ -116,6 +121,7 @@ function updateBurgerAuth() {
 var logoutBtnMobile = document.getElementById('logoutBtnMobile');
 if (logoutBtnMobile) {
     logoutBtnMobile.addEventListener('click', function() {
+        if (window.umami) umami.track('logout');
         logout();
         loadAll();
         closeFabMenu();
@@ -290,6 +296,7 @@ function loadAll() {
 
   if (currentGroup === 'favorites') {
       if (!currentUser) {
+          if (window.umami) umami.track('favorites_requires_login');
           dashboard.innerHTML = '<div class="loading">Войдите, чтобы увидеть избранные парки</div>';
           return;
       }
@@ -531,3 +538,56 @@ document.getElementById('refreshBtn').addEventListener('click', function() {
 // Старт
 loadUser().then(() => loadAll());
 setInterval(loadAll, 10 * 60 * 1000);
+
+// ==================== MINI MAP ====================
+(function initMiniMap() {
+    var mapEl = document.getElementById('miniMap');
+    if (!mapEl || typeof L === 'undefined') return;
+
+    var map = L.map('miniMap', {
+        zoomControl: false,
+        attributionControl: false,
+        scrollWheelZoom: false,
+        touchZoom: false,
+        doubleClickZoom: false,
+        boxZoom: false,
+        keyboard: false,
+        dragging: true
+    });
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 18
+    }).addTo(map);
+
+    var statusColors = {
+        'Бетон': '#ffd700', 'Сухо': '#4caf50', 'Альденте': '#ff9800',
+        'Мокро': '#2196f3', 'Болото': '#9c27b0'
+    };
+
+    fetch('/api/park/list').then(function(r) { return r.json(); }).then(function(data) {
+        if (!data || !data.length) return;
+        var bounds = [];
+        data.forEach(function(p) {
+            var color = '#666';
+            for (var key in statusColors) {
+                if (p.soilStatus && p.soilStatus.indexOf(key) >= 0) { color = statusColors[key]; break; }
+            }
+            var marker = L.circleMarker([p.lat, p.lon], {
+                radius: 7, color: '#fff', fillColor: color, fillOpacity: 0.9, weight: 2
+            }).addTo(map);
+            marker.bindPopup(
+                '<b><a href="/park/' + p.parkId + '" style="color:#4a90e2;text-decoration:none;">' + p.name + '</a></b><br>' +
+                '<span style="font-size:13px;">' + (p.soilStatus || '—') + '</span>'
+            );
+            marker.on('click', function() {
+                if (window.umami) umami.track('mini_map_marker_click', { park_id: p.parkId });
+            });
+            bounds.push([p.lat, p.lon]);
+        });
+        if (bounds.length > 0) {
+            map.fitBounds(bounds, { padding: [15, 15], maxZoom: 11 });
+        }
+        if (window.umami) umami.track('mini_map_loaded', { park_count: data.length });
+    }).catch(function(e) {
+        console.error('Mini map error:', e);
+    });
+})();
