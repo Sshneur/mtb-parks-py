@@ -46,6 +46,7 @@ async def log_request(request: Request, call_next):
             logger.error(f"Ошибка декодирования токена в middleware: {e}")
 
     response = await call_next(request)
+    response.headers["Referrer-Policy"] = "no-referrer"
     path = request.url.path
     if not path.startswith(LOG_SKIP_PREFIXES):
         asyncio.create_task(asyncio.to_thread(
