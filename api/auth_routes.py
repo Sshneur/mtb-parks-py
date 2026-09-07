@@ -592,7 +592,7 @@ async def yandex_login():
         f"https://oauth.yandex.com/authorize?"
         f"response_type=code&client_id={YA_CLIENT_ID}"
         f"&redirect_uri={YA_REDIRECT_URI}"
-        f"&scope=login:email+login:avatar+login:info"
+        f"&scope=login:info"
         f"&force_confirm=yes&state={state}"
     )
     return RedirectResponse(url=auth_url)
