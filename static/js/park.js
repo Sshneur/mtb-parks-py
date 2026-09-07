@@ -1,6 +1,30 @@
 (async function() {
     const parkId = window.location.pathname.split('/').pop();
     if (!parkId) return;
+
+    const oauthParams = new URLSearchParams(window.location.search);
+    const oauthCode = oauthParams.get('ocode');
+    if (oauthCode) {
+        try {
+            const or = await fetch('/api/auth/oauth/consume', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ code: oauthCode })
+            });
+            const od = await or.json();
+            if (or.ok && od.token) {
+                localStorage.setItem('token', od.token);
+            } else {
+                window.location.href = '/login?error=oauth_consume_failed';
+                return;
+            }
+        } catch(e) {
+            window.location.href = '/login?error=oauth_consume_failed';
+            return;
+        }
+        window.history.replaceState({}, '', window.location.pathname);
+    }
+
     if (window.umami) umami.track('park_detail_view', { park_id: parkId });
 
     // ---------- ПРОВЕРКА АВТОРИЗАЦИИ ----------

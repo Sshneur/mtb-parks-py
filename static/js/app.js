@@ -15,6 +15,32 @@ var token = localStorage.getItem('token') || '';
 var currentUser = null;
 var myVotes = {};
 
+var oauthConsumePromise = null;
+(function extractOAuthCode() {
+    const params = new URLSearchParams(window.location.search);
+    const code = params.get('ocode');
+    if (!code) return;
+    oauthConsumePromise = (async function() {
+        try {
+            const res = await fetch('/api/auth/oauth/consume', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({code})
+            });
+            const data = await res.json();
+            if (!res.ok || !data.token) {
+                window.location.href = '/login?error=oauth_consume_failed';
+                return;
+            }
+            token = data.token;
+            localStorage.setItem('token', data.token);
+            window.history.replaceState({}, '', window.location.pathname);
+        } catch(e) {
+            window.location.href = '/login?error=oauth_consume_failed';
+        }
+    })();
+})();
+
 async function loadUser() {
     if (!token) return;
     try {
@@ -612,7 +638,7 @@ document.getElementById('clearDashboard').onclick = async function() {
 };
 
 // Старт
-loadUser().then(() => loadAll());
+(oauthConsumePromise || Promise.resolve()).then(() => loadUser()).then(() => loadAll());
 setInterval(loadAll, 10 * 60 * 1000);
 
 // ==================== MINI MAP ====================

@@ -2,8 +2,12 @@ import os
 import tempfile
 
 import pytest
+from dotenv import load_dotenv
 
 import database.connection as db_conn
+
+# Ключи (JWT_SECRET, YA_*) доступны как в проде, так и в тестах
+load_dotenv()
 
 # Свежая изолированная БД для всего тест-ранна, чтобы init_db/seed_parks в
 # верхнем уровне main.py не трогали data/weather.db.
@@ -22,6 +26,8 @@ def _fresh_db():
     m2()
     from database.crud import apply_park_calibration
     apply_park_calibration()
+    from migrations.add_oauth_columns import migrate as m4
+    m4()
 
 
 @pytest.fixture(autouse=True)
