@@ -74,7 +74,6 @@ function logout() {
     currentUser = null;
     myVotes = {};
     localStorage.removeItem('token');
-    currentDashboardParks = [];
     updateBurgerAuth();
     document.getElementById('levelMobile').style.display = 'none';
 }
@@ -262,7 +261,6 @@ function getVoteLabel(vote) {
 // ==================== ЗАГРУЗКА ДАННЫХ ====================
 var currentGroup = 'mtb_parks';
 var currentModel = 'standard';
-var currentDashboardParks = [];
 
 var catalogData = null;
 var startParkIds = [];
@@ -358,7 +356,7 @@ async function loadStartPage() {
                 : '⭐ Страница по умолчанию. Настройте её под себя: ') +
             '<button class="catalog-link-btn" onclick="openCatalog()">Настроить</button></div>';
     } else {
-        hint = '<div class="start-hint">👋 Отметьте парки в каталоге — они появятся здесь. ' +
+        hint = '<div class="start-hint">Отметьте парки в каталоге — они появятся здесь. ' +
             '<button class="catalog-link-btn" onclick="openCatalog()">Выбрать парки</button></div>';
     }
 
@@ -391,36 +389,6 @@ async function loadWeatherForIds(ids, prehtml) {
     renderAll(parkDataArray, prehtml);
 }
 
-async function loadDashboardParks() {
-    if (!currentUser) return;
-    const res = await fetch('/api/user/dashboard-parks', {
-        headers: { 'Authorization': 'Bearer ' + token }
-    });
-    if (res.ok) {
-        currentDashboardParks = (await res.json()).map(d => d.park_id);
-    }
-}
-
-async function loadAllGroupsFiltered() {
-    var allGroups = ['mtb_parks', 'mtb_mountains', 'pamps'];
-    var allResults = [];
-    for (var g of allGroups) {
-        var url = currentModel === 'pm' ? '/api/weather/pm/' + g : '/api/weather/' + g;
-        let resp = await fetch(url);
-        if (resp.ok) {
-            let data = await resp.json();
-            if (Array.isArray(data)) {
-                allResults = allResults.concat(data);
-            }
-        }
-    }
-    var filterIds = currentDashboardParks;
-    var filtered = allResults.filter(r => filterIds.includes(r.park.id));
-    var parkDataArray = filtered.map(processWeatherData);
-    await enrichWithVotes(parkDataArray);
-    renderAll(parkDataArray);
-}
-
 async function enrichWithVotes(parkDataArray) {
     const votesRes = await fetch('/api/votes');
     if (votesRes.ok) {
@@ -437,26 +405,8 @@ function loadAll() {
   var dashboard = document.getElementById('dashboard');
   dashboard.innerHTML = '<div class="loading">⏳ Загрузка данных...</div>';
 
-  var clearBtn = document.getElementById('clearDashboard');
-  if (clearBtn) clearBtn.style.display = (currentGroup === 'my_parks' && currentUser) ? 'inline-block' : 'none';
-
   if (currentGroup === 'mtb_parks') {
       loadStartPage();
-      return;
-  }
-
-  if (currentGroup === 'my_parks') {
-      if (!currentUser) {
-          dashboard.innerHTML = '<div class="loading">Войдите, чтобы собрать свою панель</div>';
-          return;
-      }
-      loadDashboardParks().then(() => {
-          if (currentDashboardParks.length === 0) {
-              dashboard.innerHTML = '<div class="empty-state">Пока нет парков. Нажмите "+" на любой карточке, чтобы добавить.</div>';
-              return;
-          }
-          loadAllGroupsFiltered();
-      });
       return;
   }
 
@@ -495,16 +445,11 @@ function escapeHtml(s) {
 
 function renderAll(parkDataArray, prehtml) {
   var dashboard = document.getElementById('dashboard');
-  var html = prehtml || '';
+  var html = '';
   for (var i = 0; i < parkDataArray.length; i++) {
     var park = parkDataArray[i];
     html += '<div class="card" data-park-id="' + escapeHtml(park.parkId) + '">';
-    html += '<div class="park-title"><a href="/park/' + escapeHtml(park.parkId) + '" style="color:inherit; text-decoration:none;">' + escapeHtml(park.name) + '</a> <span class="coords">' + park.lat.toFixed(4) + ', ' + park.lon.toFixed(4) + '</span>';
-    if (currentUser) {
-        var isDash = currentDashboardParks.includes(park.parkId);
-        html += '<span class="dash-icon' + (isDash ? ' active' : '') + '" data-park-id="' + park.parkId + '">' + (isDash ? '✓' : '+') + '</span>';
-    }
-    html += '</div>';
+    html += '<div class="park-title"><a href="/park/' + escapeHtml(park.parkId) + '" style="color:inherit; text-decoration:none;">' + escapeHtml(park.name) + '</a> <span class="coords">' + park.lat.toFixed(4) + ', ' + park.lon.toFixed(4) + '</span></div>';
 
     html += '<div class="current-weather"><span class="weather-emoji">' + getEmoji(park.currentCode) + '</span>';
     html += '<span><span class="temp-value">' + (park.currentTemp !== null ? park.currentTemp : '--') + '</span><span class="temp-degree">°C</span></span></div>';
@@ -570,12 +515,13 @@ function renderAll(parkDataArray, prehtml) {
 
     html += '</div>'; // card
   }
+  if (prehtml) html += prehtml;
   dashboard.innerHTML = html;
 
   // ===== КЛИК ПО КАРТОЧКЕ (кроме интерактивных элементов) =====
   document.querySelectorAll('.card').forEach(card => {
       card.addEventListener('click', function(e) {
-          if (e.target.closest('.dash-icon') || e.target.closest('a') || e.target.closest('button')) {
+          if (e.target.closest('a') || e.target.closest('button')) {
               return;
           }
           const parkId = this.dataset.parkId;
@@ -589,35 +535,6 @@ function renderAll(parkDataArray, prehtml) {
 
   window._parkData = parkDataArray;
   startLiveTimers();
-  attachDashListeners();
-}
-
-function attachDashListeners() {
-    if (!currentUser) return;
-    document.querySelectorAll('.dash-icon').forEach(el => {
-        el.onclick = async function(e) {
-            e.stopPropagation();
-            var parkId = this.dataset.parkId;
-            var isInDashboard = currentDashboardParks.includes(parkId);
-            var method = isInDashboard ? 'DELETE' : 'POST';
-            var res = await fetch('/api/user/dashboard-parks/' + parkId, {
-                method: method,
-                headers: { 'Authorization': 'Bearer ' + token }
-            });
-            if (res.ok) {
-                if (isInDashboard) {
-                    currentDashboardParks = currentDashboardParks.filter(id => id !== parkId);
-                    this.textContent = '+';
-                    this.classList.remove('active');
-                } else {
-                    currentDashboardParks.push(parkId);
-                    this.textContent = '✓';
-                    this.classList.add('active');
-                }
-                if (currentGroup === 'my_parks') loadAll();
-            }
-        };
-    });
 }
 
 // ==================== ТАЙМЕРЫ ====================
@@ -657,9 +574,14 @@ updateClock();
 // ==================== ГРУППЫ ====================
 document.querySelectorAll('.group-btn').forEach(function(btn) {
   btn.addEventListener('click', function() {
+    var group = btn.getAttribute('data-group');
+    if (group === 'all_parks') {
+        openCatalog();
+        return;
+    }
     document.querySelectorAll('.group-btn').forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
-    currentGroup = btn.getAttribute('data-group');
+    currentGroup = group;
     if (window.umami) umami.track('group_switch', { group: currentGroup });
     loadAll();
   });
@@ -682,18 +604,6 @@ document.getElementById('refreshBtn').addEventListener('click', function() {
     if (window.umami) umami.track('refresh_data');
     loadAll();
 });
-
-document.getElementById('clearDashboard').onclick = async function() {
-    if (!confirm('Убрать все парки из панели?')) return;
-    var res = await fetch('/api/user/dashboard-parks', {
-        method: 'DELETE',
-        headers: { 'Authorization': 'Bearer ' + token }
-    });
-    if (res.ok) {
-        currentDashboardParks = [];
-        if (currentGroup === 'my_parks') loadAll();
-    }
-};
 
 // ==================== КАТАЛОГ ПАРКОВ + «ПРЕДЛОЖИ СВОЙ ПАРК» ====================
 function selectedStartParkIds() {
@@ -747,12 +657,6 @@ function closeCatalog() {
     document.getElementById('catalogModal').style.display = 'none';
     document.body.style.overflow = '';
 }
-
-var catalogBtn = document.getElementById('catalogBtn');
-if (catalogBtn) catalogBtn.addEventListener('click', function() {
-    if (window.umami) umami.track('catalog_btn_click');
-    openCatalog();
-});
 
 var catalogClose = document.getElementById('catalogClose');
 if (catalogClose) catalogClose.addEventListener('click', closeCatalog);

@@ -1119,7 +1119,7 @@ body {
   .mini-map-wrap { border-radius: 12px; margin: 0 0 10px; }
 }
 
-.dash-icon{cursor:pointer;font-size:1.1rem;color:#888;transition:color .2s;user-select:none;margin-left:6px}.dash-icon:hover{color:#4a90e2}.dash-icon.active{color:#4a90e2}.clear-dash-btn{background:none;border:1px solid #e74c3c;color:#e74c3c;border-radius:8px;padding:6px 14px;cursor:pointer;font-size:.85rem;margin-left:8px;vertical-align:middle}.clear-dash-btn:hover{background:rgba(231,76,60,.1)}.empty-state{text-align:center;padding:40px 20px;color:#888;font-size:.95rem}
+.empty-state{text-align:center;padding:40px 20px;color:#888;font-size:.95rem}
 
 /* ==================== СТАРТОВАЯ СТРАНИЦА И КАТАЛОГ ПАРКОВ ==================== */
 .catalog-btn{background:rgba(74,144,226,.15);border:1px solid rgba(74,144,226,.3);color:#74a8e2;border-radius:18px;padding:6px 14px;cursor:pointer;font-size:.85rem;margin-left:8px;vertical-align:middle;transition:background .2s}.catalog-btn:hover{background:rgba(74,144,226,.28)}
