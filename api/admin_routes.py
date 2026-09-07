@@ -362,11 +362,7 @@ async def umami_stats(days: int = 30, user=Depends(get_admin_user)):
 
 @router.get("/admin", response_class=HTMLResponse)
 async def admin_panel(request: Request):
-    """Отдаёт HTML админ-панели. Без валидного токена — редирект на вход."""
-    try:
-        get_admin_user(request)
-    except HTTPException:
-        return RedirectResponse("/login?next=/admin")
+    """Отдаёт HTML админ-панели. Клиентская JS проверяет токен и показывает форму входа."""
     return HTMLResponse(content=ADMIN_HTML)
 
 # ===== ОБНОВЛЁННЫЙ HTML =====
@@ -457,9 +453,10 @@ ADMIN_HTML = """
 
     <script>
         let token = localStorage.getItem('admin_token') || localStorage.getItem('token') || '';
+        const tokenValid = token && token.split('.').length === 3;
 
-        if (!token || token.split('.').length !== 3) {
-            window.location.href = '/login?next=/admin';
+        if (!tokenValid) {
+            token = '';
         }
 
         function esc(s) {

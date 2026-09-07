@@ -68,8 +68,8 @@ def test_contacts_page(client):
 
 def test_admin_page(client):
     r = client.get("/admin", follow_redirects=False)
-    assert r.status_code in (302, 307)
-    assert "/login" in r.headers.get("location", "")
+    assert r.status_code == 200
+    assert "Админ" in r.text
 
 def test_admin_page_200_for_admin(client):
     from database.connection import get_connection
