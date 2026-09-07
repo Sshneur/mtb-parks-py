@@ -2,8 +2,8 @@ import base64
 import time
 from collections import defaultdict
 
-MAX_BASE64_SIZE = 5 * 1024 * 1024
-MAX_DECODED_SIZE = 5 * 1024 * 1024
+MAX_BASE64_SIZE = 15 * 1024 * 1024
+MAX_DECODED_SIZE = 15 * 1024 * 1024
 ALLOWED_MIME = {"image/jpeg", "image/png", "image/webp", "image/gif"}
 ALLOWED_EXT = {".jpg", ".jpeg", ".png", ".webp", ".gif"}
 MIME_EXT = {
@@ -20,7 +20,7 @@ def parse_file(file_data: str):
     if not file_data or "," not in file_data:
         return None, "", "Файл не найден"
     if len(file_data) > MAX_BASE64_SIZE:
-        return None, "", "Файл слишком большой (максимум 5 МБ)"
+        return None, "", "Файл слишком большой (максимум 15 МБ)"
     header, encoded = file_data.split(",", 1)
     mime = ""
     if header.startswith("data:") and ";" in header:
@@ -30,7 +30,7 @@ def parse_file(file_data: str):
     except Exception:
         return None, "", "Некорректные данные файла"
     if len(file_bytes) > MAX_DECODED_SIZE:
-        return None, "", "Файл слишком большой (максимум 5 МБ)"
+        return None, "", "Файл слишком большой (максимум 15 МБ)"
     if mime not in ALLOWED_MIME or not _magic_ok(file_bytes, mime):
         return None, "", "Недопустимый тип файла"
     return file_bytes, MIME_EXT.get(mime, "jpg"), None

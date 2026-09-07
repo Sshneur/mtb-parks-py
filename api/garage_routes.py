@@ -184,7 +184,7 @@ GARAGE_HTML = r"""<!DOCTYPE html>
 <script>
 (function(){
     var s = localStorage.getItem('theme');
-    if (s === 'light' || (!s && window.matchMedia('(prefers-color-scheme:light)').matches)) document.documentElement.classList.add('theme-light');
+    if (s === 'light') document.documentElement.classList.add('theme-light');
 })();
 </script>
 <style>

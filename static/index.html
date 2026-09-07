@@ -96,7 +96,6 @@
     (function() {
       var saved = localStorage.getItem('theme');
       if (saved === 'light') document.documentElement.classList.add('theme-light');
-      else if (!saved && window.matchMedia('(prefers-color-scheme:light)').matches) document.documentElement.classList.add('theme-light');
     })();
   </script>
   <script src="/lib/leaflet.js"></script>

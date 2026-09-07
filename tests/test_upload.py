@@ -38,9 +38,9 @@ def test_parse_rejects_fake_jpeg():
 
 
 def test_parse_rejects_oversized():
-    big = b"\xff\xd8\xff" + b"\x00" * (5 * 1024 * 1024 + 1)
+    big = b"\xff\xd8\xff" + b"\x00" * (15 * 1024 * 1024 + 1)
     _, _, err = parse_file(_data_uri("image/jpeg", big))
-    assert err == "Файл слишком большой (максимум 5 МБ)"
+    assert err == "Файл слишком большой (максимум 15 МБ)"
 
 
 def test_parse_rejects_bad_base64():

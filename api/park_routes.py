@@ -27,7 +27,7 @@ CALENDAR_HTML_TEMPLATE = """<!DOCTYPE html>
     <script>
     (function(){
         var s = localStorage.getItem('theme');
-        if (s === 'light' || (!s && window.matchMedia('(prefers-color-scheme:light)').matches)) document.documentElement.classList.add('theme-light');
+        if (s === 'light') document.documentElement.classList.add('theme-light');
     })();
     </script>
     <style>
@@ -326,7 +326,7 @@ PARK_HTML_TEMPLATE = """
     <script>
     (function(){
         var s = localStorage.getItem('theme');
-        if (s === 'light' || (!s && window.matchMedia('(prefers-color-scheme:light)').matches)) document.documentElement.classList.add('theme-light');
+        if (s === 'light') document.documentElement.classList.add('theme-light');
     })();
     </script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
@@ -904,7 +904,7 @@ async def upload_park_photo(park_id: str, request: Request, user=Depends(get_cur
     from api.upload_utils import parse_file, check_upload_limit, ALLOWED_EXT, body_too_large
 
     if body_too_large(request):
-        return JSONResponse({"error": "Файл слишком большой (максимум 5 МБ)"}, status_code=413)
+        return JSONResponse({"error": "Файл слишком большой (максимум 15 МБ)"}, status_code=413)
 
     file_bytes, _, error = parse_file(file_data)
     if error:

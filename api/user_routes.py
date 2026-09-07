@@ -242,7 +242,7 @@ async def upload_avatar(request: Request, user=Depends(get_current_user)):
     from api.upload_utils import parse_file, check_upload_limit, body_too_large
 
     if body_too_large(request):
-        return JSONResponse({"error": "Файл слишком большой (максимум 5 МБ)"}, status_code=413)
+        return JSONResponse({"error": "Файл слишком большой (максимум 15 МБ)"}, status_code=413)
 
     body = await request.json()
     file_data = body.get("file", "")
@@ -288,7 +288,7 @@ async def upload_bike_photo(bike_id: int, request: Request, user=Depends(get_cur
         if not bike:
             raise HTTPException(status_code=404, detail="Байк не найден")
         if body_too_large(request):
-            return JSONResponse({"error": "Файл слишком большой (максимум 5 МБ)"}, status_code=413)
+            return JSONResponse({"error": "Файл слишком большой (максимум 15 МБ)"}, status_code=413)
         body = await request.json()
         file_data = body.get("file", "")
         file_bytes, ext, error = parse_file(file_data)
