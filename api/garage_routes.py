@@ -618,10 +618,6 @@ h1 { font-size:1.5rem; margin-bottom:20px; display:flex; align-items:center; gap
                     <div id="profileEmail" style="font-size:0.8rem; color:var(--text-muted);"></div>
                 </div>
             </div>
-            <div id="favSection" style="margin-bottom:16px;">
-                <div style="font-size:0.85rem; color:var(--accent); margin-bottom:8px;">⭐ Избранные парки</div>
-                <div id="favList"></div>
-            </div>
             <div style="padding-top:14px; border-top:1px solid var(--card-border);">
                 <div style="font-size:0.85rem; color:var(--text-muted); margin-bottom:8px;">Рассчитать давление в шинах:</div>
                 <div style="display:flex; gap:8px; flex-wrap:wrap;">
@@ -676,12 +672,6 @@ h1 { font-size:1.5rem; margin-bottom:20px; display:flex; align-items:center; gap
                     var aw = document.getElementById('profileAvatar');
                     if (p.avatar) { aw.innerHTML = '<img src="' + escapeHtml(p.avatar) + '" class="avatar-img">'; }
                     else { aw.innerHTML = '<div class="avatar-placeholder">' + escapeHtml(p.username ? p.username[0].toUpperCase() : '?') + '</div>'; }
-                    var favList = document.getElementById('favList');
-                    if (p.favorites && p.favorites.length) {
-                        favList.innerHTML = p.favorites.map(function(f){ return '<span style="display:inline-block;padding:3px 10px;margin:2px;background:rgba(74,144,226,0.12);border-radius:6px;font-size:0.8rem;"><a href="/park/' + escapeHtml(f.id) + '" style="color:var(--text);text-decoration:none;">' + escapeHtml(f.name || f.id) + '</a></span>'; }).join('');
-                    } else {
-                        favList.innerHTML = '<div style="font-size:0.8rem;color:var(--text-muted);">Нет избранных парков</div>';
-                    }
                 });
         }
 

@@ -36,58 +36,6 @@ async def get_me(user=Depends(get_current_user)):
     finally:
         conn.close()
 
-@router.get("/api/user/favorites")
-async def get_favorites(user=Depends(get_current_user)):
-    conn = get_connection()
-    try:
-        rows = conn.execute(
-            "SELECT park_id FROM favorite_parks WHERE user_id = ?",
-            (user["user_id"],)
-        ).fetchall()
-        return [{"id": r["park_id"]} for r in rows]
-    except Exception as e:
-        logger.error(f"Ошибка в get_favorites: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail="Внутренняя ошибка сервера")
-    finally:
-        conn.close()
-
-@router.post("/api/user/favorites/{park_id}")
-async def add_favorite(park_id: str, user=Depends(get_current_user)):
-    conn = get_connection()
-    try:
-        park = conn.execute("SELECT id FROM parks WHERE id = ?", (park_id,)).fetchone()
-        if not park:
-            raise HTTPException(status_code=404, detail="Парк не найден")
-        conn.execute(
-            "INSERT OR IGNORE INTO favorite_parks (user_id, park_id) VALUES (?, ?)",
-            (user["user_id"], park_id)
-        )
-        conn.commit()
-        return {"ok": True, "message": "Парк добавлен в избранное"}
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Ошибка в add_favorite: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail="Внутренняя ошибка сервера")
-    finally:
-        conn.close()
-
-@router.delete("/api/user/favorites/{park_id}")
-async def remove_favorite(park_id: str, user=Depends(get_current_user)):
-    conn = get_connection()
-    try:
-        conn.execute(
-            "DELETE FROM favorite_parks WHERE user_id = ? AND park_id = ?",
-            (user["user_id"], park_id)
-        )
-        conn.commit()
-        return {"ok": True, "message": "Парк удалён из избранного"}
-    except Exception as e:
-        logger.error(f"Ошибка в remove_favorite: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail="Внутренняя ошибка сервера")
-    finally:
-        conn.close()
-
 # НОВЫЙ ЭНДПОИНТ ДЛЯ СТАТИСТИКИ ПОЛЬЗОВАТЕЛЯ
 @router.get("/api/user/stats")
 async def get_user_stats(user=Depends(get_current_user)):
@@ -215,18 +163,13 @@ async def get_profile(user=Depends(get_current_user)):
             "SELECT id, name, photo, rider_weight_kg, tire_type FROM bikes WHERE user_id = ? ORDER BY created_at DESC",
             (user["user_id"],)
         ).fetchall()
-        favs = conn.execute(
-            "SELECT f.park_id, p.name FROM favorite_parks f LEFT JOIN parks p ON f.park_id = p.id WHERE f.user_id = ?",
-            (user["user_id"],)
-        ).fetchall()
         return {
             "id": u["id"],
             "email": u["email"],
             "username": u["username"],
             "avatar": u["avatar"],
             "role": u["role"],
-            "bikes": [dict(b) for b in bikes],
-            "favorites": [{"id": f["park_id"], "name": f["name"]} for f in favs]
+            "bikes": [dict(b) for b in bikes]
         }
     except HTTPException:
         raise

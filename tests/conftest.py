@@ -28,6 +28,8 @@ def _fresh_db():
     apply_park_calibration()
     from migrations.add_oauth_columns import migrate as m4
     m4()
+    from migrations.remove_favorites import migrate as m_rmfav
+    m_rmfav()
 
 
 @pytest.fixture(autouse=True)

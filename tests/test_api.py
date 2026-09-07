@@ -123,3 +123,19 @@ def test_umami_stats_days_param(client):
 def test_auth_bad_login(client):
     r = client.post("/api/auth/login", json={"email": "x@x.ru", "password": "wrong"})
     assert r.status_code == 401
+
+
+def test_favorites_endpoints_removed(client):
+    email = "no_fav@t.ru"
+    client.post("/api/auth/register", json={"email": email, "password": "password123", "username": "no_fav_test"})
+    login = client.post("/api/auth/login", json={"email": email, "password": "password123"})
+    token = login.json()["token"]
+    headers = {"Authorization": f"Bearer {token}"}
+
+    assert client.get("/api/user/favorites", headers=headers).status_code in (404, 405)
+    assert client.post("/api/user/favorites/p1", headers=headers).status_code == 405
+    assert client.delete("/api/user/favorites/p1", headers=headers).status_code == 405
+
+    profile = client.get("/api/user/profile", headers=headers)
+    assert profile.status_code == 200
+    assert "favorites" not in profile.json()
