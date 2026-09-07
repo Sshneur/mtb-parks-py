@@ -264,6 +264,133 @@ var currentGroup = 'mtb_parks';
 var currentModel = 'standard';
 var currentDashboardParks = [];
 
+var catalogData = null;
+var startParkIds = [];
+var startConfigured = false;
+
+function readGuestStartParks() {
+    try {
+        var v = localStorage.getItem('startParks');
+        if (!v) return null;
+        var arr = JSON.parse(v);
+        return Array.isArray(arr) ? arr.filter(Boolean) : null;
+    } catch(e) { return null; }
+}
+
+function getDefaultStartIds() {
+    var fallback = ['fili', 'erino', 'chess', 'kozlovka'];
+    if (!catalogData) return fallback;
+    var ids = [];
+    for (var i = 0; i < catalogData.length; i++) {
+        if (catalogData[i].group_id === 'mtb_parks') ids.push(catalogData[i].parkId);
+        if (ids.length >= 4) break;
+    }
+    return ids.length ? ids : fallback;
+}
+
+async function loadCatalog() {
+    if (catalogData) return catalogData;
+    try {
+        var res = await fetch('/api/parks/catalog');
+        if (res.ok) {
+            catalogData = await res.json();
+            return catalogData;
+        }
+    } catch(e) {}
+    return null;
+}
+
+function activateGroup(group) {
+    document.querySelectorAll('.group-btn').forEach(b => b.classList.remove('active'));
+    var btn = document.querySelector('.group-btn[data-group="' + group + '"]');
+    if (btn) btn.classList.add('active');
+    currentGroup = group;
+}
+
+async function loadStartPage() {
+    var dashboard = document.getElementById('dashboard');
+    dashboard.innerHTML = '<div class="loading">⏳ Загрузка данных...</div>';
+    catalogData = await loadCatalog();
+    try {
+        if (currentUser) {
+            var res = await fetch('/api/user/start-parks', { headers: { 'Authorization': 'Bearer ' + token } });
+            if (res.ok) {
+                var data = await res.json();
+                startConfigured = data.configured;
+                startParkIds = data.parks.map(function(p) { return p.park_id; });
+                if (!startConfigured) {
+                    var guest = readGuestStartParks();
+                    if (guest && guest.length) {
+                        var sv = await fetch('/api/user/start-parks', {
+                            method: 'POST',
+                            headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ park_ids: guest })
+                        });
+                        if (sv.ok) {
+                            startConfigured = true;
+                            startParkIds = guest;
+                            localStorage.removeItem('startParks');
+                        }
+                    }
+                }
+            }
+        } else {
+            var guest = readGuestStartParks();
+            startConfigured = false;
+            startParkIds = guest && guest.length ? guest : getDefaultStartIds();
+        }
+    } catch(e) {
+        startConfigured = false;
+        startParkIds = readGuestStartParks() || getDefaultStartIds();
+    }
+
+    if (!startParkIds.length) {
+        dashboard.innerHTML = '<div class="empty-state">Здесь пока нет парков.<br>' +
+            '<button class="catalog-link-btn" onclick="openCatalog()">Выбрать из каталога</button></div>';
+        return;
+    }
+
+    var hint = '';
+    if (currentUser) {
+        hint = '<div class="start-hint">' +
+            (startConfigured
+                ? '📌 Ваша стартовая страница: ' + startParkIds.length + ' парк(ов). '
+                : '⭐ Страница по умолчанию. Настройте её под себя: ') +
+            '<button class="catalog-link-btn" onclick="openCatalog()">Настроить</button></div>';
+    } else {
+        hint = '<div class="start-hint">👋 Отметьте парки в каталоге — они появятся здесь. ' +
+            '<button class="catalog-link-btn" onclick="openCatalog()">Выбрать парки</button></div>';
+    }
+
+    await loadWeatherForIds(startParkIds, hint);
+}
+
+async function loadWeatherForIds(ids, prehtml) {
+    var allGroups = ['mtb_parks', 'mtb_mountains', 'pamps'];
+    var byId = {};
+    for (var g of allGroups) {
+        var url = currentModel === 'pm' ? '/api/weather/pm/' + g : '/api/weather/' + g;
+        try {
+            var resp = await fetch(url);
+            if (resp.ok) {
+                var arr = await resp.json();
+                if (Array.isArray(arr)) {
+                    for (var it of arr) {
+                        if (it && it.park) byId[it.park.id] = it;
+                    }
+                }
+            }
+        } catch(e) {}
+    }
+    var results = [];
+    for (var i = 0; i < ids.length; i++) {
+        if (byId[ids[i]]) results.push(byId[ids[i]]);
+    }
+    var parkDataArray = results.map(processWeatherData);
+    await enrichWithVotes(parkDataArray);
+    renderAll(parkDataArray, prehtml);
+}
+
 async function loadDashboardParks() {
     if (!currentUser) return;
     const res = await fetch('/api/user/dashboard-parks', {
@@ -313,6 +440,11 @@ function loadAll() {
   var clearBtn = document.getElementById('clearDashboard');
   if (clearBtn) clearBtn.style.display = (currentGroup === 'my_parks' && currentUser) ? 'inline-block' : 'none';
 
+  if (currentGroup === 'mtb_parks') {
+      loadStartPage();
+      return;
+  }
+
   if (currentGroup === 'my_parks') {
       if (!currentUser) {
           dashboard.innerHTML = '<div class="loading">Войдите, чтобы собрать свою панель</div>';
@@ -361,9 +493,9 @@ function escapeHtml(s) {
     .replace(/'/g, '&#39;');
 }
 
-function renderAll(parkDataArray) {
+function renderAll(parkDataArray, prehtml) {
   var dashboard = document.getElementById('dashboard');
-  var html = '';
+  var html = prehtml || '';
   for (var i = 0; i < parkDataArray.length; i++) {
     var park = parkDataArray[i];
     html += '<div class="card" data-park-id="' + escapeHtml(park.parkId) + '">';
@@ -562,6 +694,170 @@ document.getElementById('clearDashboard').onclick = async function() {
         if (currentGroup === 'my_parks') loadAll();
     }
 };
+
+// ==================== КАТАЛОГ ПАРКОВ + «ПРЕДЛОЖИ СВОЙ ПАРК» ====================
+function selectedStartParkIds() {
+    if (startParkIds.length) return startParkIds.slice();
+    return readGuestStartParks() || getDefaultStartIds();
+}
+
+function renderCatalog() {
+    if (!catalogData) return;
+    var selIds = {};
+    selectedStartParkIds().forEach(function(id) { selIds[id] = true; });
+    var panel = document.getElementById('catalogPanel');
+    var html = '';
+    var lastGroup = '';
+    for (var i = 0; i < catalogData.length; i++) {
+        var p = catalogData[i];
+        if (p.group_name !== lastGroup) {
+            lastGroup = p.group_name;
+            html += '<div class="catalog-group-title">' + escapeHtml(p.group_name) + '</div>';
+        }
+        html += '<label class="catalog-item">' +
+            '<input type="checkbox" class="catalog-check" value="' + escapeHtml(p.parkId) + '"' + (selIds[p.parkId] ? ' checked' : '') + '>' +
+            '<span class="catalog-item-name">' + escapeHtml(p.name) + '</span>' +
+            '<span class="catalog-item-status catalog-status-' + (p.soilStatus || 'нет').replace(/[^a-zа-яёА-ЯЁ0-9]/gi, '').toLowerCase() + '">' + escapeHtml(p.soilStatus) + '</span>' +
+            '</label>';
+    }
+    panel.innerHTML = html;
+    updateCatalogCount();
+}
+
+function updateCatalogCount() {
+    var n = document.querySelectorAll('#catalogPanel .catalog-check:checked').length;
+    var el = document.getElementById('catalogCount');
+    if (el) el.textContent = 'Выбрано: ' + n;
+}
+
+async function openCatalog() {
+    catalogData = await loadCatalog();
+    if (!catalogData) { alert('Не удалось загрузить каталог'); return; }
+    document.getElementById('catalogPanel').style.display = 'block';
+    document.getElementById('catalogFormPanel').style.display = 'none';
+    document.getElementById('catalogTitle').textContent = 'Каталог парков';
+    document.getElementById('catalogToggleForm').textContent = '📝 Предложить свой парк';
+    document.getElementById('catalogModal').style.display = 'flex';
+    document.body.style.overflow = 'hidden';
+    renderCatalog();
+    if (window.umami) umami.track('catalog_open');
+}
+
+function closeCatalog() {
+    document.getElementById('catalogModal').style.display = 'none';
+    document.body.style.overflow = '';
+}
+
+var catalogBtn = document.getElementById('catalogBtn');
+if (catalogBtn) catalogBtn.addEventListener('click', function() {
+    if (window.umami) umami.track('catalog_btn_click');
+    openCatalog();
+});
+
+var catalogClose = document.getElementById('catalogClose');
+if (catalogClose) catalogClose.addEventListener('click', closeCatalog);
+
+document.getElementById('catalogModal').addEventListener('click', function(e) {
+    if (e.target === this) closeCatalog();
+});
+
+document.getElementById('catalogPanel').addEventListener('change', function(e) {
+    if (e.target.classList.contains('catalog-check')) updateCatalogCount();
+});
+
+var catalogToggleForm = document.getElementById('catalogToggleForm');
+if (catalogToggleForm) {
+    catalogToggleForm.addEventListener('click', function() {
+        var panel = document.getElementById('catalogPanel');
+        var form = document.getElementById('catalogFormPanel');
+        var showing = form.style.display !== 'none';
+        form.style.display = showing ? 'none' : 'block';
+        panel.style.display = showing ? 'block' : 'none';
+        document.getElementById('catalogTitle').textContent = showing ? 'Каталог парков' : '📝 Предложи свой парк';
+        catalogToggleForm.textContent = showing ? '📝 Предложи свой парк' : '← К каталогу';
+    });
+}
+
+document.getElementById('catalogSave').addEventListener('click', async function() {
+    var ids = [];
+    document.querySelectorAll('#catalogPanel .catalog-check:checked').forEach(function(c) { ids.push(c.value); });
+    if (currentUser) {
+        var res;
+        try {
+            res = await fetch('/api/user/start-parks', {
+                method: 'POST',
+                headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+                body: JSON.stringify({ park_ids: ids })
+            });
+        } catch(e) {
+            alert('Ошибка сети');
+            return;
+        }
+        if (res.ok) {
+            startConfigured = true;
+            startParkIds = ids;
+            closeCatalog();
+            activateGroup('mtb_parks');
+            if (window.umami) umami.track('start_parks_saved', { count: ids.length });
+            loadAll();
+        } else {
+            var d = await res.json().catch(function() { return {}; });
+            alert('Ошибка: ' + (d.detail || 'не удалось сохранить'));
+        }
+    } else {
+        localStorage.setItem('startParks', JSON.stringify(ids));
+        startParkIds = ids;
+        closeCatalog();
+        activateGroup('mtb_parks');
+        if (window.umami) umami.track('start_parks_guest_saved', { count: ids.length });
+        loadAll();
+    }
+});
+
+document.getElementById('parkRequestForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    var name = document.getElementById('prName').value.trim();
+    var lat = parseFloat(document.getElementById('prLat').value);
+    var lon = parseFloat(document.getElementById('prLon').value);
+    if (!name || isNaN(lat) || isNaN(lon)) return;
+    var body = {
+        name: name,
+        lat: lat,
+        lon: lon,
+        trails_count: parseInt(document.getElementById('prTrails').value, 10) || 0,
+        soil_description: document.getElementById('prSoil').value.trim(),
+        description: document.getElementById('prDescription').value.trim(),
+        storm_drain: document.getElementById('prStormDrain').value.trim(),
+        tg_group: document.getElementById('prTgGroup').value.trim(),
+        contact_tg: document.getElementById('prContactTg').value.trim()
+    };
+    var statusEl = document.getElementById('prStatus');
+    statusEl.style.color = 'var(--text-muted)';
+    statusEl.textContent = '⏳ Отправка...';
+    try {
+        var res = await fetch('/api/park/requests', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body)
+        });
+        var data = await res.json().catch(function() { return {}; });
+        if (res.status === 201) {
+            statusEl.style.color = '#4caf50';
+            statusEl.textContent = '✅ Заявка отправлена на модерацию!';
+            e.target.reset();
+            if (window.umami) umami.track('park_request_submit');
+        } else if (res.status === 409) {
+            statusEl.style.color = '#ff6b6b';
+            statusEl.textContent = '⚠️ ' + (data.detail || 'Парк с таким названием уже существует');
+        } else {
+            statusEl.style.color = '#ff6b6b';
+            statusEl.textContent = '⚠️ ' + (data.detail || 'Ошибка отправки заявки');
+        }
+    } catch(err) {
+        statusEl.style.color = '#ff6b6b';
+        statusEl.textContent = '⚠️ Ошибка сети';
+    }
+});
 
 // Старт
 (oauthConsumePromise || Promise.resolve()).then(() => loadUser()).then(() => loadAll());

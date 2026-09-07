@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Query, Request, Depends, HTTPException
 from fastapi.responses import HTMLResponse, JSONResponse
+from pydantic import BaseModel, Field
 from database.crud import get_park, get_all_parks
 from database.connection import get_connection
 from datetime import datetime, timedelta, timezone
@@ -341,6 +342,8 @@ PARK_HTML_TEMPLATE = """
         <p>Координаты: {{ lat }}, {{ lon }}</p>
         <p>Описание: {{ description }}</p>
         <p>Количество трасс: {{ trails_count }}</p>
+        {{ storm_drain_block }}
+        {{ tg_group_block }}
 
         <a href="https://yandex.ru/maps/?rtext=~{{ lat }},{{ lon }}&rtt=auto"
            target="_blank" class="route-btn"
@@ -536,6 +539,23 @@ async def park_page(park_id: str):
     html = html.replace("{{ lon }}", _html.escape(str(park.get("lon", ""))))
     html = html.replace("{{ description }}", _html.escape(park.get("description") or "Описание пока не добавлено"))
     html = html.replace("{{ trails_count }}", _html.escape(str(park.get("trails_count") or "—")))
+    storm_drain = park.get("storm_drain")
+    station_block = ""
+    tg_group_block = ""
+    if storm_drain:
+        station_block = f'<p>💧 Ливневки: {_html.escape(storm_drain)}</p>'
+    tg_group = park.get("tg_group")
+    if tg_group:
+        if tg_group.startswith("http://") or tg_group.startswith("https://"):
+            tg_url = tg_group
+        else:
+            tg_url = "https://t.me/" + tg_group.lstrip("@")
+        tg_group_block = (
+            f'<p>🔗 Telegram-группа: <a href="{_html.escape(tg_url, quote=True)}" '
+            f'target="_blank" rel="noopener">{_html.escape(tg_group)}</a></p>'
+        )
+    html = html.replace("{{ storm_drain_block }}", station_block)
+    html = html.replace("{{ tg_group_block }}", tg_group_block)
     return html
 
 @router.get("/api/park/{park_id}/weather")
@@ -797,6 +817,48 @@ async def get_park_status(park_id: str):
     finally:
         conn.close()
 
+def build_soil_status(conn, park: dict, now_utc: datetime) -> str:
+    """Вычисляет текущий статус грунта парка (общий для /list и /catalog)."""
+    status = None
+    last_updated = park.get("last_updated")
+    if last_updated and park.get("evaporation_rate"):
+        try:
+            lu = parse_time(last_updated)
+            if (now_utc - lu).total_seconds() < 3600:
+                W = park.get("current_moisture") or 0.0
+                evap = park["evaporation_rate"]
+                dry_hours = W / evap if evap > 0 else 0
+                last_rain = conn.execute("""
+                    SELECT MAX(timestamp) as ts FROM weather_hourly
+                    WHERE park_id = ? AND rain > 0 AND timestamp <= ?
+                """, (park["id"], now_utc.isoformat())).fetchone()
+                hours_since_rain = None
+                if last_rain and last_rain["ts"]:
+                    hours_since_rain = (now_utc - parse_time(last_rain["ts"])).total_seconds() / 3600
+                status = get_soil_status(0, dry_hours, hours_since_rain, park.get("soil_type") == "asphalt")
+        except Exception as e:
+            logger.error(f"Быстрый путь статуса для {park['id']}: {e}")
+            status = None
+    if status is None:
+        rows = conn.execute("""
+            SELECT * FROM weather_hourly
+            WHERE park_id = ? AND timestamp <= ? AND timestamp >= datetime('now', '-14 days')
+            ORDER BY timestamp ASC
+        """, (park["id"], now_utc.isoformat())).fetchall()
+        all_data = [dict(r) for r in rows]
+        if all_data:
+            moisture = calculate_soil_moisture_from_db(park, all_data)
+            is_asphalt = park.get("soil_type") == "asphalt"
+            status = get_soil_status(
+                moisture["total_rain"],
+                moisture["dry_hours"],
+                moisture["hours_since_rain"],
+                is_asphalt
+            )
+        else:
+            status = "Нет данных"
+    return status
+
 @router.get("/api/park/list")
 async def get_park_list():
     try:
@@ -808,44 +870,7 @@ async def get_park_list():
         now_utc = datetime.now(timezone.utc)
         try:
             for park in parks:
-                status = None
-                last_updated = park.get("last_updated")
-                if last_updated and park.get("evaporation_rate"):
-                    try:
-                        lu = parse_time(last_updated)
-                        if (now_utc - lu).total_seconds() < 3600:
-                            W = park.get("current_moisture") or 0.0
-                            evap = park["evaporation_rate"]
-                            dry_hours = W / evap if evap > 0 else 0
-                            last_rain = conn.execute("""
-                                SELECT MAX(timestamp) as ts FROM weather_hourly
-                                WHERE park_id = ? AND rain > 0 AND timestamp <= ?
-                            """, (park["id"], now_utc.isoformat())).fetchone()
-                            hours_since_rain = None
-                            if last_rain and last_rain["ts"]:
-                                hours_since_rain = (now_utc - parse_time(last_rain["ts"])).total_seconds() / 3600
-                            status = get_soil_status(0, dry_hours, hours_since_rain, park.get("soil_type") == "asphalt")
-                    except Exception as e:
-                        logger.error(f"Быстрый путь статуса для {park['id']}: {e}")
-                        status = None
-                if status is None:
-                    rows = conn.execute("""
-                        SELECT * FROM weather_hourly
-                        WHERE park_id = ? AND timestamp <= ? AND timestamp >= datetime('now', '-14 days')
-                        ORDER BY timestamp ASC
-                    """, (park["id"], now_utc.isoformat())).fetchall()
-                    all_data = [dict(r) for r in rows]
-                    if all_data:
-                        moisture = calculate_soil_moisture_from_db(park, all_data)
-                        is_asphalt = park.get("soil_type") == "asphalt"
-                        status = get_soil_status(
-                            moisture["total_rain"],
-                            moisture["dry_hours"],
-                            moisture["hours_since_rain"],
-                            is_asphalt
-                        )
-                    else:
-                        status = "Нет данных"
+                status = build_soil_status(conn, park, now_utc)
                 results.append({
                     "parkId": park["id"],
                     "name": park["name"],
@@ -859,6 +884,116 @@ async def get_park_list():
     except Exception as e:
         logger.error(f"Ошибка в get_park_list: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Внутренняя ошибка сервера")
+
+# ===== КАТАЛОГ ПАРКОВ (для стартовой страницы и модала «Предложи свой парк») =====
+@router.get("/api/parks/catalog")
+async def get_parks_catalog():
+    try:
+        from database.models import PARKS as PARKS_CONFIG
+        conn = get_connection()
+        now_utc = datetime.now(timezone.utc)
+        try:
+            results = []
+            for group_id, group_data in PARKS_CONFIG.items():
+                rows = conn.execute(
+                    "SELECT * FROM parks WHERE group_id = ? AND is_active = 1",
+                    (group_id,)
+                ).fetchall()
+                for park in rows:
+                    status = build_soil_status(conn, dict(park), now_utc)
+                    results.append({
+                        "parkId": park["id"],
+                        "name": park["name"],
+                        "group_id": group_id,
+                        "group_name": group_data["name"],
+                        "lat": park["lat"],
+                        "lon": park["lon"],
+                        "soilStatus": status
+                    })
+            return results
+        finally:
+            conn.close()
+    except Exception as e:
+        logger.error(f"Ошибка в get_parks_catalog: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Внутренняя ошибка сервера")
+
+
+class ParkRequestCreate(BaseModel):
+    name: str = Field(..., min_length=2, max_length=100)
+    lat: float = Field(..., ge=-90, le=90)
+    lon: float = Field(..., ge=-180, le=180)
+    soil_description: str = Field("", max_length=500)
+    storm_drain: str = Field("", max_length=500)
+    contact_tg: str = Field("", max_length=100)
+    tg_group: str = Field("", max_length=200)
+    trails_count: int = Field(0, ge=0, le=100)
+    description: str = Field("", max_length=500)
+
+
+@router.post("/api/park/requests", status_code=201)
+async def create_park_request(data: ParkRequestCreate):
+    conn = get_connection()
+    try:
+        name_lower = data.name.strip().lower()
+        # SQLite LOWER() не срезает регистр кириллицы — сравниваем на уровне Python
+        dup = None
+        dup_req = None
+        for r in conn.execute("SELECT name FROM parks").fetchall():
+            if (r["name"] or "").strip().lower() == name_lower:
+                dup = r
+                break
+        if dup is None:
+            for r in conn.execute(
+                "SELECT name FROM park_requests WHERE status = 'pending'"
+            ).fetchall():
+                if (r["name"] or "").strip().lower() == name_lower:
+                    dup_req = r
+                    break
+        if dup or dup_req:
+            raise HTTPException(status_code=409, detail="Парк с таким названием уже существует")
+        cur = conn.execute("""
+            INSERT INTO park_requests
+            (name, lat, lon, soil_description, storm_drain, contact_tg, tg_group,
+             trails_count, description, status)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending')
+        """, (
+            data.name.strip(),
+            data.lat,
+            data.lon,
+            data.soil_description.strip() if data.soil_description else "",
+            data.storm_drain.strip() if data.storm_drain else "",
+            data.contact_tg.strip() if data.contact_tg else "",
+            data.tg_group.strip() if data.tg_group else "",
+            data.trails_count,
+            data.description.strip() if data.description else "",
+        ))
+        conn.commit()
+        request_id = cur.lastrowid
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Ошибка в create_park_request: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Внутренняя ошибка сервера")
+    finally:
+        conn.close()
+
+    import os as _os2
+    if _os2.getenv("TG_BOT_TOKEN") and _os2.getenv("TG_ADMIN_ID"):
+        try:
+            from telegram_bot import send_request_to_admin
+            conn = get_connection()
+            try:
+                row = conn.execute(
+                    "SELECT * FROM park_requests WHERE id = ?", (request_id,)
+                ).fetchone()
+            finally:
+                conn.close()
+            if row:
+                await send_request_to_admin(dict(row))
+        except Exception as e:
+            logger.error(f"Ошибка отправки заявки в Telegram: {e}", exc_info=True)
+
+    return {"ok": True, "id": request_id}
 
 # ===== ИСПРАВЛЕННЫЙ ЭНДПОИНТ С КОРРЕКТНЫМ СРАВНЕНИЕМ ДАТ =====
 @router.get("/api/park/{park_id}/votes-history")

@@ -107,6 +107,39 @@ async def send_photo_to_admin(photo):
     return result.get("ok", False)
 
 
+async def send_request_to_admin(req):
+    """Отправляет админу заявку «Предложи свой парк» с кнопками одобрения/отклонения."""
+    caption = f"\U0001f64b Новое предложение парка\n\n"
+    caption += f"\U0001f3de\ufe0f Парк: {req['name']}\n"
+    caption += f"\U0001f4cd Координаты: {req['lat']}, {req['lon']}\n"
+    if req.get("trails_count"):
+        caption += f"\U0001f6b5 Трасс: {req['trails_count']}\n"
+    if req.get("description"):
+        caption += f"\U0001f4dd Описание: {req['description'][:200]}\n"
+    if req.get("soil_description"):
+        caption += f"\U0001f331 Грунт: {req['soil_description'][:200]}\n"
+    if req.get("storm_drain"):
+        caption += f"\U0001f4a7 Ливневки: {req['storm_drain'][:200]}\n"
+    if req.get("tg_group"):
+        caption += f"\U0001f517 Telegram-группа: {req['tg_group'][:200]}\n"
+    if req.get("contact_tg"):
+        caption += f"\U0001f4f1 Контакт для связи: {req['contact_tg'][:100]}\n"
+
+    keyboard = {
+        "inline_keyboard": [[
+            {"text": "\u2705 Одобрить (быстро)", "callback_data": f"park_accept:{req['id']}"},
+            {"text": "\u274c Отклонить", "callback_data": f"park_reject:{req['id']}"}
+        ]]
+    }
+
+    result = await _api_call("sendMessage", {
+        "chat_id": ADMIN_CHAT_ID,
+        "text": caption,
+        "reply_markup": keyboard
+    })
+    return result.get("ok", False)
+
+
 async def check_pending_photos():
     conn = get_connection()
     try:
@@ -252,23 +285,60 @@ async def handle_callback(callback):
         return
 
     data = callback["data"]
-    action, photo_id_str = data.split(":")
-    photo_id = int(photo_id_str)
+    parts = data.split(":")
+    action = parts[0]
     message_id = callback["message"]["message_id"]
 
-    conn = get_connection()
-    try:
-        if action == "approve":
+    if action == "approve":
+        photo_id = int(parts[1])
+        conn = get_connection()
+        try:
             conn.execute("UPDATE park_photos SET status = 'approved' WHERE id = ?", (photo_id,))
+            conn.commit()
             text = "\u2705 Фото одобрено"
-        elif action == "reject":
+        except Exception as e:
+            logger.error(f"Ошибка одобрения фото {photo_id}: {e}")
+            text = "\u26a0\ufe0f Ошибка"
+        finally:
+            conn.close()
+    elif action == "reject":
+        photo_id = int(parts[1])
+        conn = get_connection()
+        try:
             conn.execute("UPDATE park_photos SET status = 'rejected' WHERE id = ?", (photo_id,))
+            conn.commit()
             text = "\u274c Фото отклонено"
-        else:
-            return
-        conn.commit()
-    finally:
-        conn.close()
+        except Exception as e:
+            logger.error(f"Ошибка отклонения фото {photo_id}: {e}")
+            text = "\u26a0\ufe0f Ошибка"
+        finally:
+            conn.close()
+    elif action == "park_accept":
+        request_id = int(parts[1])
+        try:
+            from services.park_requests import approve_park_request
+            result = approve_park_request(request_id)
+            text = f"\u2705 Заявка одобрена! Парк создан: /park/{result['park_id']}"
+        except ValueError as e:
+            text = f"\u26a0\ufe0f {e}"
+        except Exception as e:
+            logger.error(f"Ошибка одобрения заявки {request_id}: {e}")
+            text = "\u26a0\ufe0f Ошибка одобрения"
+    elif action == "park_reject":
+        request_id = int(parts[1])
+        try:
+            from services.park_requests import reject_park_request
+            if reject_park_request(request_id):
+                text = "\u274c Заявка отклонена"
+            else:
+                text = "\u26a0\ufe0f Заявка не найдена"
+        except ValueError as e:
+            text = f"\u26a0\ufe0f {e}"
+        except Exception as e:
+            logger.error(f"Ошибка отклонения заявки {request_id}: {e}")
+            text = "\u26a0\ufe0f Ошибка отклонения"
+    else:
+        return
 
     await _api_call("answerCallbackQuery", {
         "callback_query_id": callback["id"],

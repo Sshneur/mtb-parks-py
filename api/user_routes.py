@@ -3,7 +3,8 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 from database.connection import get_connection
 from api.dependencies import get_current_user
-from typing import Optional
+from typing import Optional, List
+from database.models import PARKS
 import os
 import logging
 
@@ -61,6 +62,89 @@ async def get_user_stats(user=Depends(get_current_user)):
         raise HTTPException(status_code=500, detail="Внутренняя ошибка сервера")
     finally:
         conn.close()
+
+# ===== СТАРТОВАЯ СТРАНИЦА (МТБ Парки) =====
+
+DEFAULT_START_PARKS = [p["id"] for p in PARKS["mtb_parks"]["parks"][:4]]
+
+
+class StartParksUpdate(BaseModel):
+    park_ids: List[str] = Field(default_factory=list, max_length=50)
+
+
+@router.get("/api/user/start-parks")
+async def get_start_parks(user=Depends(get_current_user)):
+    conn = get_connection()
+    try:
+        row = conn.execute(
+            "SELECT start_page_configured FROM users WHERE id = ?", (user["user_id"],)
+        ).fetchone()
+        if not row:
+            raise HTTPException(status_code=404, detail="Пользователь не найден")
+        configured = bool(row["start_page_configured"])
+        if not configured:
+            return {"configured": False, "parks": [{"park_id": pid} for pid in DEFAULT_START_PARKS]}
+        rows = conn.execute(
+            "SELECT park_id FROM start_page_parks WHERE user_id = ? ORDER BY sort_order",
+            (user["user_id"],)
+        ).fetchall()
+        return {"configured": True, "parks": [{"park_id": r["park_id"]} for r in rows]}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Ошибка в get_start_parks: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Внутренняя ошибка сервера")
+    finally:
+        conn.close()
+
+
+@router.post("/api/user/start-parks")
+async def set_start_parks(data: StartParksUpdate, user=Depends(get_current_user)):
+    conn = get_connection()
+    try:
+        for pid in data.park_ids:
+            park = conn.execute("SELECT id FROM parks WHERE id = ?", (pid,)).fetchone()
+            if not park:
+                raise HTTPException(status_code=404, detail=f"Парк не найден: {pid}")
+        existing = set(
+            r["park_id"]
+            for r in conn.execute(
+                "SELECT park_id FROM start_page_parks WHERE user_id = ?", (user["user_id"],)
+            ).fetchall()
+        )
+        added = any(pid not in existing for pid in data.park_ids)
+        conn.execute("DELETE FROM start_page_parks WHERE user_id = ?", (user["user_id"],))
+        for idx, pid in enumerate(data.park_ids):
+            conn.execute(
+                "INSERT INTO start_page_parks (user_id, park_id, sort_order) VALUES (?, ?, ?)",
+                (user["user_id"], pid, idx)
+            )
+        conn.execute("UPDATE users SET start_page_configured = 1 WHERE id = ?", (user["user_id"],))
+        conn.commit()
+        return {"ok": True, "added": added}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Ошибка в set_start_parks: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Внутренняя ошибка сервера")
+    finally:
+        conn.close()
+
+
+@router.delete("/api/user/start-parks")
+async def clear_start_parks(user=Depends(get_current_user)):
+    conn = get_connection()
+    try:
+        conn.execute("DELETE FROM start_page_parks WHERE user_id = ?", (user["user_id"],))
+        conn.execute("UPDATE users SET start_page_configured = 0 WHERE id = ?", (user["user_id"],))
+        conn.commit()
+        return {"ok": True}
+    except Exception as e:
+        logger.error(f"Ошибка в clear_start_parks: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Внутренняя ошибка сервера")
+    finally:
+        conn.close()
+
 
 # ===== БАЙКИ (ГАРАЖ) =====
 

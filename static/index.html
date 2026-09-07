@@ -41,6 +41,7 @@
       <button class="group-btn" data-group="my_parks">📋 Мои парки</button>
     </div>
     <button id="clearDashboard" class="clear-dash-btn" style="display:none;">🗑️ Очистить панель</button>
+    <button id="catalogBtn" class="catalog-btn">🗺️ Все парки</button>
   </header>
 
   <div style="margin:10px 0; text-align:center; display:flex; align-items:center; justify-content:center; gap:6px;">
@@ -89,6 +90,44 @@
       <li><a href="/development" class="menu-link">🚀 Развитие проекта</a></li>
     </ul>
   </nav>
+
+
+  <!-- Модал каталога парков + форма «Предложи свой парк» -->
+  <div class="modal-overlay" id="catalogModal" style="display:none;">
+    <div class="modal">
+      <button class="modal-close" id="catalogClose" aria-label="Закрыть">×</button>
+      <h2 id="catalogTitle">Каталог парков</h2>
+
+      <div class="catalog-toolbar">
+        <span class="catalog-count" id="catalogCount"></span>
+        <button class="catalog-link-btn" id="catalogToggleForm">📝 Предложить свой парк</button>
+      </div>
+
+      <div class="catalog-panel" id="catalogPanel">
+        <div class="loading">⏳ Загрузка каталога...</div>
+      </div>
+
+      <div class="catalog-form-panel" id="catalogFormPanel" style="display:none;">
+        <form id="parkRequestForm">
+          <input type="text" id="prName" placeholder="Название парка *" required maxlength="100">
+          <div class="catalog-form-row">
+            <input type="number" id="prLat" placeholder="Широта *" step="any" required>
+            <input type="number" id="prLon" placeholder="Долгота *" step="any" required>
+          </div>
+          <input type="number" id="prTrails" placeholder="Количество трасс" min="0" max="100">
+          <textarea id="prSoil" placeholder="Какой грунт? (глина, песок, суглинок...)" rows="2" maxlength="500"></textarea>
+          <textarea id="prDescription" placeholder="Описание парка" rows="2" maxlength="500"></textarea>
+          <input type="text" id="prStormDrain" placeholder="Ливневки (если есть)" maxlength="500">
+          <input type="text" id="prTgGroup" placeholder="Телеграм-группа парка (если есть)" maxlength="200">
+          <input type="text" id="prContactTg" placeholder="Ваш Telegram для связи (если есть)" maxlength="100">
+          <button type="submit" class="catalog-save-btn">Отправить заявку</button>
+          <div class="catalog-form-status" id="prStatus"></div>
+        </form>
+      </div>
+
+      <button class="catalog-save-btn" id="catalogSave">💾 Сохранить как мою стартовую страницу</button>
+    </div>
+  </div>
 
 
   <script>

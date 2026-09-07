@@ -183,6 +183,9 @@ def init_db():
     _add_column("ALTER TABLE parks ADD COLUMN dry_hours_default INTEGER DEFAULT 72")
     _add_column("ALTER TABLE parks ADD COLUMN evaporation_rate REAL DEFAULT 0.001")
     _add_column("ALTER TABLE users ADD COLUMN avatar TEXT")
+    _add_column("ALTER TABLE parks ADD COLUMN storm_drain TEXT DEFAULT ''")
+    _add_column("ALTER TABLE parks ADD COLUMN tg_group TEXT DEFAULT ''")
+    _add_column("ALTER TABLE users ADD COLUMN start_page_configured INTEGER DEFAULT 0")
 
     # Обновляем description и trails_count для существующих парков
     from database.models import PARKS as PARKS_DATA

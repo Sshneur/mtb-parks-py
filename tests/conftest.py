@@ -30,6 +30,8 @@ def _fresh_db():
     m4()
     from migrations.remove_favorites import migrate as m_rmfav
     m_rmfav()
+    from migrations.add_park_requests import migrate as m_req
+    m_req()
 
 
 @pytest.fixture(autouse=True)

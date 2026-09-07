@@ -210,6 +210,73 @@ async def reject_photo(photo_id: int, user=Depends(get_admin_user)):
     finally:
         conn.close()
 
+# ===== МОДЕРАЦИЯ ЗАЯВОК «ПРЕДЛОЖИ СВОЙ ПАРК» =====
+
+class ParkRequestApprove(BaseModel):
+    group_id: str = "mtb_parks"
+    forest_coef: float = Field(0.3, ge=0.0, le=1.0)
+    dry_hours_default: int = Field(48, ge=1, le=168)
+    soil_type: Optional[str] = None
+
+
+@router.get("/api/admin/park-requests")
+async def admin_list_park_requests(status: str = "pending", user=Depends(get_admin_user)):
+    """Список заявок на парк по статусу"""
+    conn = get_connection()
+    try:
+        rows = conn.execute(
+            "SELECT * FROM park_requests WHERE status = ? ORDER BY created_at DESC, id DESC",
+            (status,)
+        ).fetchall()
+        return [dict(r) for r in rows]
+    except Exception as e:
+        logger.error(f"Ошибка в admin_list_park_requests: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Внутренняя ошибка сервера")
+    finally:
+        conn.close()
+
+
+@router.post("/api/admin/park-requests/{req_id}/approve")
+async def admin_approve_park_request(req_id: int, data: ParkRequestApprove, user=Depends(get_admin_user)):
+    """Одобряет заявку: создаёт парк и помечает заявку одобренной"""
+    from database.models import PARKS as PARKS_CONFIG
+    if data.group_id not in PARKS_CONFIG:
+        raise HTTPException(status_code=400, detail=f"Недопустимая группа: {data.group_id}")
+    if data.soil_type is not None and data.soil_type not in SOIL_COEFFICIENTS:
+        raise HTTPException(status_code=400, detail=f"Недопустимый тип грунта: {data.soil_type}")
+    try:
+        from services.park_requests import approve_park_request
+        result = approve_park_request(
+            req_id,
+            group_id=data.group_id,
+            forest_coef=data.forest_coef,
+            dry_hours_default=data.dry_hours_default,
+            soil_type=data.soil_type,
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error(f"Ошибка в admin_approve_park_request: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Внутренняя ошибка сервера")
+    return {"ok": True, "park_id": result["park_id"]}
+
+
+@router.post("/api/admin/park-requests/{req_id}/reject")
+async def admin_reject_park_request(req_id: int, user=Depends(get_admin_user)):
+    """Отклоняет заявку на парк"""
+    try:
+        from services.park_requests import reject_park_request
+        ok = reject_park_request(req_id)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error(f"Ошибка в admin_reject_park_request: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Внутренняя ошибка сервера")
+    if not ok:
+        raise HTTPException(status_code=404, detail="Заявка не найдена")
+    return {"ok": True}
+
+
 # ===== УПРАВЛЕНИЕ ПАРКАМИ =====
 @router.get("/api/admin/parks")
 async def get_all_parks_admin(user=Depends(get_admin_user)):
@@ -237,12 +304,14 @@ class ParkUpdate(BaseModel):
     forest_coef: Optional[float] = Field(None, ge=0.0, le=1.0)
     dry_hours_default: Optional[int] = Field(None, ge=1, le=168)
     is_active: Optional[int] = Field(None, ge=0, le=1)
+    storm_drain: Optional[str] = Field(None, max_length=500)
+    tg_group: Optional[str] = Field(None, max_length=200)
 
 
 @router.put("/api/admin/parks/{park_id}")
 async def update_park(park_id: str, data: ParkUpdate, user=Depends(get_admin_user)):
     """Обновляет настройки парка"""
-    allowed = {"name", "description", "trails_count", "soil_type", "forest_coef", "dry_hours_default", "is_active"}
+    allowed = {"name", "description", "trails_count", "soil_type", "forest_coef", "dry_hours_default", "is_active", "storm_drain", "tg_group"}
     conn = get_connection()
     try:
         park = conn.execute("SELECT * FROM parks WHERE id = ?", (park_id,)).fetchone()
@@ -441,6 +510,7 @@ ADMIN_HTML = """
             <button class="tab-btn" onclick="switchTab('users', this)">👥 Пользователи</button>
             <button class="tab-btn" onclick="switchTab('parks', this)">🏞️ Парки</button>
             <button class="tab-btn" onclick="switchTab('photos', this)">🖼️ Модерация</button>
+            <button class="tab-btn" onclick="switchTab('requests', this)">📨 Заявки</button>
             <button class="tab-btn" onclick="switchTab('stats', this)">📈 Статистика</button>
         </div>
 
@@ -448,6 +518,7 @@ ADMIN_HTML = """
         <div id="tab-users" class="tab-content"><div id="users-table"></div></div>
         <div id="tab-parks" class="tab-content"><div id="parks-table"></div></div>
         <div id="tab-photos" class="tab-content"><div id="photos-moderation"></div></div>
+        <div id="tab-requests" class="tab-content"><div id="park-requests"></div></div>
         <div id="tab-stats" class="tab-content"><div id="stats"></div></div>
     </div>
 
@@ -507,6 +578,7 @@ ADMIN_HTML = """
             loadUsers();
             loadParks();
             loadPendingPhotos();
+            loadParkRequests();
             loadStats();
         }
 
@@ -595,7 +667,7 @@ ADMIN_HTML = """
             });
             if (!res.ok) return;
             const parks = await res.json();
-            let html = '<div class="card"><h3>🏞️ Парки</h3><table><tr><th>ID</th><th>Название</th><th>Группа</th><th>Трасс</th><th>Грунт</th><th>Лес</th><th>Описание</th><th></th></tr>';
+            let html = '<div class="card"><h3>🏞️ Парки</h3><table><tr><th>ID</th><th>Название</th><th>Группа</th><th>Трасс</th><th>Грунт</th><th>Лес</th><th>Ливневки</th><th>TG-группа</th><th>Описание</th><th></th></tr>';
             for (const p of parks) {
                 html += `<tr>
                     <td>${esc(p.id)}</td>
@@ -608,6 +680,8 @@ ADMIN_HTML = """
                         </select>
                     </td>
                     <td><input type="number" id="forest_${esc(p.id)}" value="${esc(p.forest_coef)}" step="0.05" min="0" max="1" style="width:60px;"></td>
+                    <td><input type="text" id="sdr_${esc(p.id)}" value="${esc(p.storm_drain || '')}" style="width:120px;"></td>
+                    <td><input type="text" id="tgg_${esc(p.id)}" value="${esc(p.tg_group || '')}" style="width:120px;"></td>
                     <td><input type="text" id="desc_${esc(p.id)}" value="${esc(p.description || '')}" style="width:160px;"></td>
                     <td><button onclick="savePark('${esc(p.id)}')" style="background:#4caf50; color:white; padding:6px 12px; border:none; border-radius:6px;">💾</button></td>
                 </tr>`;
@@ -621,11 +695,13 @@ ADMIN_HTML = """
             const trails = parseInt(document.getElementById('trails_' + parkId).value) || 0;
             const soil = document.getElementById('soil_' + parkId).value;
             const forest = parseFloat(document.getElementById('forest_' + parkId).value) || 0;
+            const stormDrain = document.getElementById('sdr_' + parkId).value;
+            const tgGroup = document.getElementById('tgg_' + parkId).value;
             const desc = document.getElementById('desc_' + parkId).value;
             const res = await fetch('/api/admin/parks/' + parkId, {
                 method: 'PUT',
                 headers: {'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json'},
-                body: JSON.stringify({name, trails_count: trails, soil_type: soil, forest_coef: forest, description: desc})
+                body: JSON.stringify({name, trails_count: trails, soil_type: soil, forest_coef: forest, storm_drain: stormDrain, tg_group: tgGroup, description: desc})
             });
             if (res.ok) {
                 loadParks();
@@ -660,6 +736,79 @@ ADMIN_HTML = """
                 html += '</div>';
                 document.getElementById('photos-moderation').innerHTML = html;
             }
+        }
+
+        async function loadParkRequests() {
+            const res = await fetch('/api/admin/park-requests?status=pending', {
+                headers: {'Authorization': 'Bearer ' + token}
+            });
+            if (!res.ok) return;
+            const items = await res.json();
+            let html = '<div class="card"><h3>📨 Заявки на добавление парков</h3>';
+            if (items.length === 0) {
+                html += '<p>Нет заявок, ожидающих проверки.</p>';
+            } else {
+                const groups = {mtb_parks: 'МТБ Парки', mtb_mountains: 'МТБ Горы', pamps: 'Пампы'};
+                for (const r of items) {
+                    html += `<div class="photo-item" style="flex-direction:column; align-items:stretch;">
+                        <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+                            <b>🏞 ${esc(r.name)}</b>
+                            <small style="color:#aaa;">📍 ${esc(r.lat)}, ${esc(r.lon)}</small>
+                        </div>
+                        <div style="font-size:13px; color:#c8dfff;">
+                            ${r.trails_count ? '🚵 Трасс: ' + esc(r.trails_count) + '<br>' : ''}
+                            ${r.description ? '📝 ' + esc(r.description) + '<br>' : ''}
+                            ${r.soil_description ? '🌱 Грунт: ' + esc(r.soil_description) + '<br>' : ''}
+                            ${r.storm_drain ? '💧 Ливневки: ' + esc(r.storm_drain) + '<br>' : ''}
+                            ${r.tg_group ? '🔗 Группа: ' + esc(r.tg_group) + '<br>' : ''}
+                            ${r.contact_tg ? '📱 Контакт: ' + esc(r.contact_tg) + '<br>' : ''}
+                            <span style="color:#888;">🕒 ${esc(r.created_at || '')}</span>
+                        </div>
+                        <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
+                            <select id="req_group_${esc(r.id)}">
+                                ${Object.entries(groups).map(([g, name]) => `<option value="${g}">${name}</option>`).join('')}
+                            </select>
+                            <select id="req_soil_${esc(r.id)}" style="max-width:130px;">
+                                ${["asphalt","sand","loam","clay","clay_heavy","podzol","chernozem"].map(s => `<option value="${esc(s)}">${esc(s)}</option>`).join('')}
+                            </select>
+                            <input type="number" id="req_forest_${esc(r.id)}" value="0.3" step="0.05" min="0" max="1" style="width:70px;" title="Лесной коэффициент">
+                            <input type="number" id="req_dry_${esc(r.id)}" value="48" min="1" max="168" style="width:70px;" title="Время высыхания (ч)">
+                            <button class="approve-btn" style="padding:8px 14px;" onclick="approveRequest(${esc(r.id)})">✅ Одобрить</button>
+                            <button class="reject-btn" style="padding:8px 14px;" onclick="rejectRequest(${esc(r.id)})">❌ Отклонить</button>
+                        </div>
+                    </div>`;
+                }
+            }
+html += '</div>';
+            document.getElementById('park-requests').innerHTML = html;
+        }
+
+        async function approveRequest(reqId) {
+            const group = document.getElementById('req_group_' + reqId).value;
+            const soil = document.getElementById('req_soil_' + reqId).value;
+            const forest = parseFloat(document.getElementById('req_forest_' + reqId).value) || 0.3;
+            const dry = parseInt(document.getElementById('req_dry_' + reqId).value) || 48;
+            const res = await fetch('/api/admin/park-requests/' + reqId + '/approve', {
+                method: 'POST',
+                headers: {'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json'},
+                body: JSON.stringify({group_id: group, soil_type: soil, forest_coef: forest, dry_hours_default: dry})
+            });
+            if (res.ok) {
+                alert('Парк создан!');
+            } else {
+                const data = await res.json();
+                alert('Ошибка: ' + (data.detail || 'неизвестная'));
+            }
+            loadParkRequests();
+            loadParks();
+        }
+
+        async function rejectRequest(reqId) {
+            const res = await fetch('/api/admin/park-requests/' + reqId + '/reject', {
+                method: 'POST',
+                headers: {'Authorization': 'Bearer ' + token}
+            });
+            loadParkRequests();
         }
 
         async function approvePhoto(photoId) {

@@ -84,6 +84,11 @@ async def lifespan(app: FastAPI):
                 await asyncio.to_thread(m4)
             except Exception as e:
                 print(f"Migration add_oauth_columns skipped: {e}")
+            try:
+                from migrations.add_park_requests import migrate as m_req
+                await asyncio.to_thread(m_req)
+            except Exception as e:
+                print(f"Migration add_park_requests skipped: {e}")
         finally:
             init_event.set()
 
